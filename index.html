@@ -9,16 +9,19 @@
 </head>
 <body>
   <div class="app">
+    <!-- Area Visualizzazione Principale (Unico Canvas ultra-fluido per Spazio 3D e Mappa Stilizzata) -->
     <main id="wrap">
       <canvas id="cv" aria-label="Atlante interattivo delle immagini"></canvas>
       <div id="tip"></div>
     </main>
 
+    <!-- Header discreto in alto a sinistra -->
     <header class="brand-badge">
       <h1>Atlante Evolutivo</h1>
       <p class="sub">Dall’<em>Archaeopteryx</em> al Pettirosso</p>
     </header>
 
+    <!-- ALTO A DESTRA: Menu a tendina Categorie & Ricerca -->
     <div class="top-right-dock">
       <details class="dropdown-card" id="cat-dropdown">
         <summary>
@@ -48,20 +51,22 @@
       </details>
     </div>
 
+    <!-- SINISTRA: Pannello scorrevole della Tavola Selezionata -->
     <aside id="detail-drawer" aria-hidden="true">
       <div class="drawer-head">
-        <span class="drawer-eyebrow">Scheda Tavola (2D)</span>
-        <button type="button" id="close-det" class="icon-btn" aria-label="Torna al 3D" title="Torna al 3D">✕</button>
+        <span class="drawer-eyebrow">Scheda Tavola</span>
+        <button type="button" id="close-det" class="icon-btn" aria-label="Chiudi scheda" title="Chiudi scheda">✕</button>
       </div>
       <div class="drawer-scroll">
         <canvas id="big" width="440" height="330"></canvas>
         <h2 id="det-title"></h2>
         <dl id="dl"></dl>
-        <div class="note">Tavole più affini nello spazio 3D:</div>
+        <div class="note">Tavole più affini nello spazio visivo:</div>
         <div id="nb"></div>
       </div>
     </aside>
 
+    <!-- BASSO A DESTRA: Switch Vista + Pulsante Impostazioni Visualizzazione + Zoom -->
     <div class="bottom-right-dock">
       <div id="view-settings-popover" class="popover-card" hidden>
         <div class="popover-title">Impostazioni Visualizzazione</div>
