@@ -1,11 +1,11 @@
 import {
-  CONFIG, state, RM, ease, msg,
-  markDirty, vis, parseCSV, applyBitmapToItem
+  CONFIG, CAT_COLORS, PAL, state, RM, ease, msg,
+  markDirty, invalidateVisCache, vis, parseCSV, applyBitmapToItem
 } from './data.js';
 import { geoToScreen, drawGeoMap } from './geo.js';
 import { project3D, draw3DBackground } from './view3d.js';
 import {
-  focusCameraOnNode, closeSelection,
+  updateVisibleBadge, focusCameraOnNode, closeSelection,
   show, initItemsSkeleton, finalizeLayoutFromLoaded, bindUI
 } from './ui.js';
 
