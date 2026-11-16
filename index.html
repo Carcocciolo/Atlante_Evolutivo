@@ -3,25 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Atlante Evolutivo 3D &amp; Geografico</title>
+  <title>Atlante Evolutivo — Archaeopteryx &amp; Erithacus rubecula</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
-    <!-- Area Visualizzazione Principale (Unico Canvas ultra-fluido per Spazio 3D e Mappa Stilizzata) -->
     <main id="wrap">
       <canvas id="cv" aria-label="Atlante interattivo delle immagini"></canvas>
       <div id="tip"></div>
     </main>
 
-    <!-- Header discreto in alto a sinistra -->
     <header class="brand-badge">
       <h1>Atlante Evolutivo</h1>
       <p class="sub">Dall’<em>Archaeopteryx</em> al Pettirosso</p>
     </header>
 
-    <!-- ALTO A DESTRA: Menu a tendina Categorie & Ricerca -->
     <div class="top-right-dock">
       <details class="dropdown-card" id="cat-dropdown">
         <summary>
@@ -51,7 +48,6 @@
       </details>
     </div>
 
-    <!-- SINISTRA: Pannello scorrevole della Tavola Selezionata -->
     <aside id="detail-drawer" aria-hidden="true">
       <div class="drawer-head">
         <span class="drawer-eyebrow">Scheda Tavola</span>
@@ -66,12 +62,10 @@
       </div>
     </aside>
 
-    <!-- BASSO A DESTRA: Switch Vista + Pulsante Impostazioni Visualizzazione + Zoom -->
     <div class="bottom-right-dock">
       <div id="view-settings-popover" class="popover-card" hidden>
         <div class="popover-title">Impostazioni Visualizzazione</div>
         <div class="settings-list">
-          <button type="button" id="rot-auto" aria-pressed="true">↻ Rotazione 3D: ON</button>
           <button type="button" id="md">✦ Solo punti luminosi</button>
           <button type="button" id="tr">▶ Passeggiata guidata</button>
           <button type="button" id="cp">⧉ Esporta coordinate</button>
@@ -86,8 +80,8 @@
 
       <div class="bottom-controls-bar">
         <div class="segmented-switch" role="group" aria-label="Cambia visualizzazione">
-          <button id="vw-3d" type="button" class="is-active" aria-pressed="true">✦ Spazio 3D</button>
-          <button id="vw-geo" type="button" aria-pressed="false">⌖ Mappa Geografica</button>
+          <button id="vw-tsne" type="button" class="is-active" aria-pressed="true">✦ Spazio Visivo</button>
+          <button id="vw-geo" type="button" aria-pressed="false">⌖ Mappa Cartografica</button>
         </div>
         <button id="btn-settings" type="button" class="settings-trigger" aria-expanded="false" aria-controls="view-settings-popover" title="Impostazioni visualizzazione">
           ⚙ Opzioni
