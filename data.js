@@ -1,27 +1,103 @@
-/* data.js — Parsing CSV, caricamento unificato, pre-rendering polaroid offscreen e t-SNE 3D */
 export const CONFIG = {
-  csv: '02_database/database_immagini.csv',
+  csv: 'database_immagini.csv',
   images: '01_immagini/',
-  concurrency: 8
+  concurrency: 12
 };
 
 export const CAT_COLORS = {
   'Archaeopteryx': '#f6b27a',
-  'Pettirossi': '#ff784f',
-  'Grilli': '#8fd39e'
+  'Pettirossi': '#ff6b4a',
+  'Grilli': '#70c856',
+  'da classificare': '#c9a68a'
 };
-const PAL = ['#f6b27a', '#ff784f', '#8fd39e', '#ee9a5b', '#d9703b'];
+
+export const PAL = ['#f8d9b4', '#f0a35e', '#d9703b', '#b5492a', '#f4c08a', '#e58a4c', '#c85c33', '#fbe6cc'];
 
 export const state = {
   items: [],
   col: {},
   on: new Set(),
+  sel: -1,
+  hov: -1,
+  mode: 'thumb',      // 'thumb' | 'dot'
+  viewMode: '3d',     // '3d' | 'geo'
+  W: 0,
+  H: 0,
+  dpr: 1,
   Dm: null,
-  NM: [],
+  q: '',
+  busy: false,
+  cam3D: { yaw: 0.35, pitch: 0.18, zoom: 1.0, panX: 0, panY: 0 },
+  targetCam3D: null,
+  autoRotate: true,
+  camGeo: { x: 0, y: 0, k: 1 },
+  targetCamGeo: null,
+  drag: null,
+  mx: -999,
+  my: -999,
+  fx: [],
   NC: {},
-  visCache: new Map(),
-  query: ''
+  NM: [],
+  tour: 0,
+  seen: new Set(),
+  projected2D: [],
+  visCache: null,
+  dirty: true
 };
+
+export const RM = matchMedia('(prefers-reduced-motion:reduce)').matches;
+export const ease = a => {
+  a = Math.min(1, Math.max(0, a));
+  return 1 + 2.70158 * Math.pow(a - 1, 3) + 1.70158 * Math.pow(a - 1, 2);
+};
+export const esc = s => String(s).replace(/[&<>"]/g, c => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+}[c]));
+export const msg = t => {
+  const el = document.querySelector('#st');
+  if (el) el.textContent = t;
+};
+
+export function markDirty() {
+  state.dirty = true;
+}
+
+export function invalidateVisCache() {
+  state.visCache = null;
+  markDirty();
+}
+
+export function vis(it) {
+  if (!it) return false;
+  if (!state.visCache) {
+    state.visCache = new WeakMap();
+  }
+  if (state.visCache.has(it)) {
+    return state.visCache.get(it);
+  }
+  let ok = state.on.has(it.cat);
+  if (ok && state.q) {
+    const hay = `${it.r.id} ${it.r.subject || ''} ${it.r.author || ''} ${it.r.notes || ''} ${it.siteName || ''}`.toLowerCase();
+    ok = hay.includes(state.q);
+  }
+  state.visCache.set(it, ok);
+  return ok;
+}
+
+export function getDisplayNotes(r, siteName, geoStatus) {
+  const parts = [];
+  if (r.notes && r.notes !== 'nan') parts.push(r.notes);
+  if (r.id === 'IMG_0015' || r.id === 'IMG_0016') {
+    parts.push('Nota scheda: soggetto indicato come Teropode nella categoria Archaeopteryx.');
+  }
+  if (r.id === 'IMG_0051') {
+    parts.push('Nota scheda: URL riferito a Gryllus rubens all’interno della categoria Grilli.');
+  }
+  if (geoStatus === 'inferito') {
+    parts.push(`Località inferita: ${siteName}`);
+  }
+  return parts.join(' · ');
+}
 
 export function parseCSV(t) {
   t = t.replace(/^\uFEFF/, '');
@@ -49,40 +125,55 @@ export function parseCSV(t) {
   return R.filter(x => x.some(v => v.trim())).map(x => Object.fromEntries(h.map((k, i) => [k, (x[i] || '').trim()])));
 }
 
-/* Pre-renderizza una volta sola la polaroid offscreen (cornice + miniatura + banda categoria) */
-export function buildOffscreenPolaroid(bm, catColor) {
-  const size = 96;
-  const pad = 6;
-  const bandH = 5;
-  const totalW = size + pad * 2;
-  const totalH = size + pad * 2 + bandH;
-
+export function thumb(bm) {
   const c = document.createElement('canvas');
-  c.width = totalW;
-  c.height = totalH;
+  c.width = c.height = 128;
   const g = c.getContext('2d');
-
-  // Cornice polaroid
-  g.fillStyle = '#f4efe3';
-  g.fillRect(0, 0, totalW, totalH);
-
-  // Miniatura centrata
-  const w = bm.width, h = bm.height;
-  const s = Math.max(size / w, size / h);
-  g.drawImage(bm, pad + (size - w * s) / 2, pad + (size - h * s) / 2, w * s, h * s);
-
-  // Banda colore categoria
-  g.fillStyle = catColor;
-  g.fillRect(pad, pad + size + 2, size * 0.45, bandH - 2);
-
+  const w = bm.width, h = bm.height, s = Math.max(128 / w, 128 / h);
+  g.drawImage(bm, (128 - w * s) / 2, (128 - h * s) / 2, w * s, h * s);
   return c;
 }
 
-function feat(bm) {
+export function makePolaroidCanvas(th, catColor, idx) {
+  const base = 128;
+  const pad = Math.round(base * 0.08);
+  const bottom = Math.round(base * 0.24);
+  const c = document.createElement('canvas');
+  c.width = base + pad * 2;
+  c.height = base + pad + bottom;
+  const g = c.getContext('2d');
+
+  // Sfondo carta polaroid
+  g.fillStyle = '#f4efe3';
+  g.fillRect(0, 0, c.width, c.height);
+
+  // Bordo sottile
+  g.strokeStyle = 'rgba(28, 12, 6, 0.22)';
+  g.lineWidth = 1;
+  g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
+
+  // Miniatura
+  g.drawImage(th, pad, pad, base, base);
+
+  // Fascia categoria in basso
+  g.fillStyle = catColor || '#ee9a5b';
+  g.fillRect(pad, pad + base + Math.round(pad * 0.6), base * 0.45, Math.max(3, Math.round(pad * 0.55)));
+
+  // Piccolo ID discreto
+  if (idx != null) {
+    g.fillStyle = 'rgba(40, 18, 8, 0.55)';
+    g.font = '600 9px Figtree, sans-serif';
+    g.textAlign = 'right';
+    g.fillText(`#${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + base + Math.round(pad * 1.35));
+  }
+  return c;
+}
+
+export function feat(thCanvas) {
   const s = 24, c = document.createElement('canvas');
   c.width = c.height = s;
   const g = c.getContext('2d', { willReadFrequently: true });
-  g.drawImage(bm, 0, 0, s, s);
+  g.drawImage(thCanvas, 0, 0, s, s);
   const p = g.getImageData(0, 0, s, s).data, gr = [], grid = new Float64Array(27), hist = new Float64Array(64), eo = new Float64Array(32);
   for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
     const i = (y * s + x) * 4, r = p[i], gg = p[i + 1], b = p[i + 2], cell = ((y / 8 | 0) * 3 + (x / 8 | 0)) * 3;
@@ -100,7 +191,7 @@ function feat(bm) {
   return [...grid, ...hist, ...eo];
 }
 
-function prep(F) {
+export function prep(F) {
   const n = F.length, d = F[0].length;
   for (let j = 0; j < d; j++) {
     const w = 1 / Math.sqrt(j < 27 ? 27 : j < 91 ? 64 : 32);
@@ -113,7 +204,7 @@ function prep(F) {
   return F;
 }
 
-export function tsne3D(F, onProgress) {
+export function tsne3D(F) {
   const n = F.length, D = new Float64Array(n * n);
   let sum = 0;
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
@@ -146,10 +237,10 @@ export function tsne3D(F, onProgress) {
 
   const Y = new Float64Array(3 * n).map(() => (Math.random() - 0.5) * 0.02);
   const U = new Float64Array(3 * n), G = new Float64Array(3 * n).fill(1), N = new Float64Array(n * n), g = new Float64Array(3 * n);
-  const T = 280; let it = 0;
+  const T = 360; let it = 0;
 
   function step() {
-    const ex = it < 70 ? 8 : 1, mo = it < 70 ? 0.5 : 0.8;
+    const ex = it < 90 ? 8 : 1, mo = it < 90 ? 0.5 : 0.8;
     let Z = 0;
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
       const dx = Y[3 * i] - Y[3 * j], dy = Y[3 * i + 1] - Y[3 * j + 1], dz = Y[3 * i + 2] - Y[3 * j + 2];
@@ -182,109 +273,26 @@ export function tsne3D(F, onProgress) {
   return new Promise(res => {
     let mx = 1;
     (function fr() {
-      for (let r = 0; r < 16 && it < T; r++) mx = step();
+      for (let r = 0; r < 10 && it < T; r++) mx = step();
       for (let i = 0; i < n; i++) {
         state.items[i].x = Y[3 * i] / mx;
         state.items[i].y = Y[3 * i + 1] / mx;
         state.items[i].z = Y[3 * i + 2] / mx;
       }
-      if (onProgress) onProgress(it, T, mx);
+      markDirty();
+      msg(it < T ? 'Organizzo le tavole… ' + Math.round(it / T * 100) + '%' : n + ' tavole pronte');
       if (it < T) requestAnimationFrame(fr); else res();
     })();
   });
 }
 
-export function invalidateVisCache() {
-  state.visCache.clear();
-}
-
-export function isVisible(idx) {
-  if (state.visCache.has(idx)) return state.visCache.get(idx);
-  const it = state.items[idx];
-  if (!it || !state.on.has(it.cat)) {
-    state.visCache.set(idx, false);
-    return false;
-  }
-  if (!state.query) {
-    state.visCache.set(idx, true);
-    return true;
-  }
-  const ok = it.searchBlob.includes(state.query);
-  state.visCache.set(idx, ok);
-  return ok;
-}
-
-export function initSkeleton(rows, geoAssigner) {
-  state.items = rows.map((r, i) => {
-    const cat = (r.category && r.category.trim()) ? r.category.trim() : 'Archaeopteryx';
-    const geo = geoAssigner(r, i);
-    const phi = Math.acos(1 - 2 * ((i + 0.5) / Math.max(1, rows.length)));
-    const theta = Math.PI * (1 + Math.sqrt(5)) * i;
-    const rad = 0.45 + 0.35 * ((i * 7) % 10) / 10;
-    const searchBlob = `${r.id || ''} ${r.subject || ''} ${r.author || ''} ${r.notes || ''} ${geo.siteName} ${cat}`.toLowerCase();
-    return {
-      r,
-      polaroid: null,
-      ready: false,
-      cat,
-      searchBlob,
-      x: rad * Math.sin(phi) * Math.cos(theta),
-      y: rad * Math.cos(phi),
-      z: rad * Math.sin(phi) * Math.sin(theta),
-      ...geo
-    };
-  });
-
-  const cats = [...new Set(state.items.map(i => i.cat))];
-  state.col = {};
-  cats.forEach((c, i) => { state.col[c] = CAT_COLORS[c] || PAL[i % PAL.length]; });
-  state.on = new Set(cats);
-  invalidateVisCache();
-}
-
-/* Funzione unica di caricamento bitmap -> polaroid offscreen -> feature -> t-SNE */
-export async function processLoadedBitmaps(bitmapsByIndex, onStatus) {
-  const feats = [];
-  const validItems = [];
-
-  for (let i = 0; i < state.items.length; i++) {
-    const bm = bitmapsByIndex.get(i);
-    if (!bm) continue;
-    const it = state.items[i];
-    it.polaroid = buildOffscreenPolaroid(bm, state.col[it.cat]);
-    it.ready = true;
-    feats.push(feat(bm));
-    bm.close(); // Rilascia subito l'ImageBitmap originale dalla RAM
-    validItems.push(it);
-  }
-
-  state.items = validItems;
-  invalidateVisCache();
-
-  if (state.items.length < 2) return;
-  const F = prep(feats);
-  await tsne3D(F, onStatus);
-
-  state.NC = {};
-  const n = state.items.length;
-  state.NM = state.items.map((a, i) =>
-    state.items
-      .map((b, j) => [j, (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2])
-      .filter(o => o[0] !== i)
-      .sort((p, r) => p[1] - r[1])
-      .slice(0, 2)
-      .map(o => o[0])
-  );
-  state.Dm = state.Dm && state.Dm.length === n * n ? state.Dm : null;
-}
-
-export function nearestIndices(i, k) {
-  const n = state.items.length;
-  if (!state.Dm || state.Dm.length !== n * n) {
-    return [...Array(n).keys()].filter(j => j !== i).slice(0, k);
-  }
-  return [...Array(n).keys()]
-    .filter(j => j !== i)
-    .sort((a, b) => state.Dm[i * n + a] - state.Dm[i * n + b])
-    .slice(0, k);
+export async function applyBitmapToItem(it, bm, idx) {
+  const th = thumb(bm);
+  const polaroid = makePolaroidCanvas(th, state.col[it.cat], idx);
+  if (typeof bm.close === 'function') bm.close();
+  it.th = th;
+  it.polaroid = polaroid;
+  it.ready = true;
+  it.b = performance.now();
+  markDirty();
 }

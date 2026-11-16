@@ -1,197 +1,265 @@
-/* view3d.js — Spazio 3D orbitale, render on-demand e hit-test diretto */
-import { state, isVisible, nearestIndices } from './data.js';
-import { getGeoProjection, drawGeoGridAndHubs } from './geo.js';
+import { state, RM } from './data.js';
 
-export const cam3D = {
-  yaw: 0.35,
-  pitch: 0.18,
-  dist: 1150,
-  autoRotate: true
-};
+const dust = Array.from({ length: 65 }, () => ({
+  x: Math.random(),
+  y: Math.random(),
+  s: Math.random() * 1.5 + 0.4,
+  p: Math.random() * 6.3,
+  v: Math.random() * 0.00035 + 0.0001
+}));
 
-export const viewState = {
-  mode: 'thumb',       // 'thumb' | 'dot'
-  viewMode: '3d',      // '3d' | 'geo'
-  is2DInspect: false,  // true SOLO quando è aperta la scheda 2D di un'immagine
-  hovered: -1,
-  selected: -1,
-  needsDraw: true
-};
+export function project3DWithCam(x, y, z, cObj) {
+  const { W, H } = state;
+  const cy = Math.cos(cObj.yaw), sy = Math.sin(cObj.yaw);
+  const x1 = x * cy - z * sy;
+  const z1 = x * sy + z * cy;
 
-let W = 0, H = 0, dpr = 1;
-let projected = [];
-let stars = [];
+  const cp = Math.cos(cObj.pitch), sp = Math.sin(cObj.pitch);
+  const y2 = y * cp - z1 * sp;
+  const z2 = y * sp + z1 * cp;
 
-(function initStars() {
-  stars = Array.from({ length: 70 }, (_, i) => {
-    const u = ((i * 73) % 100) / 100 * Math.PI * 2;
-    const v = Math.acos(2 * (((i * 37) % 100) / 100) - 1);
-    const r = 700 + ((i * 53) % 420);
-    return {
-      x: r * Math.sin(v) * Math.cos(u),
-      y: r * Math.cos(v),
-      z: r * Math.sin(v) * Math.sin(u),
-      r: 1 + (i % 3) * 0.6,
-      a: 0.16 + (i % 4) * 0.05
-    };
-  });
-})();
+  const fov = 2.6;
+  const depth = fov / Math.max(0.35, fov + z2);
+  const baseScale = Math.min(W, H) * 0.44 * cObj.zoom;
 
-export function setCanvasMetrics(cv, wrap) {
-  dpr = Math.min(1.75, window.devicePixelRatio || 1);
-  W = wrap.clientWidth;
-  H = wrap.clientHeight;
-  cv.width = Math.round(W * dpr);
-  cv.height = Math.round(H * dpr);
-  viewState.needsDraw = true;
-}
-
-export function getViewportSize() {
-  return { W, H };
-}
-
-function project3D(wx, wy, wz) {
-  const cosY = Math.cos(cam3D.yaw), sinY = Math.sin(cam3D.yaw);
-  const cosP = Math.cos(cam3D.pitch), sinP = Math.sin(cam3D.pitch);
-  const x1 = wx * cosY - wz * sinY;
-  const z1 = wx * sinY + wz * cosY;
-  const y2 = wy * cosP - z1 * sinP;
-  const z2 = wy * sinP + z1 * cosP;
-  const fov = Math.min(W, H) * 0.92;
-  const denom = Math.max(180, cam3D.dist + z2);
-  const scale = fov / denom;
   return {
-    sx: W / 2 + x1 * scale,
-    sy: H / 2 + y2 * scale,
-    scale,
-    depth: z2
+    sx: W / 2 + cObj.panX + x1 * baseScale * depth,
+    sy: H / 2 + cObj.panY + y2 * baseScale * depth,
+    scale: depth,
+    zOrder: z2
   };
 }
 
-function nodeWorldCoords(it) {
-  if (viewState.viewMode === '3d') {
-    const r = Math.min(W, H) * 0.46;
-    return { wx: it.x * r, wy: it.y * r, wz: it.z * r };
-  }
-  const proj = getGeoProjection(W, H);
-  const pt = proj([it.lon, it.lat]) || [W / 2, H / 2];
-  return { wx: pt[0] - W / 2, wy: pt[1] - H / 2, wz: 0 };
+export function project3D(x, y, z) {
+  return project3DWithCam(x, y, z, state.cam3D);
 }
 
-export function renderScene(cx) {
-  if (viewState.is2DInspect) return;
-  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  cx.fillStyle = '#1c0c06';
+export function drawBackgroundArt(cx, t) {
+  const { W, H, cam3D } = state;
+  const s = Math.min(W, H) / 560;
+  const rm = RM ? 0 : 1;
+  const px = cam3D.panX * 0.08;
+  const py = cam3D.panY * 0.05;
+  const F = 'Fraunces,Georgia,serif';
+
+  const cap = (a, b, x, y, rgb) => {
+    const sg = rgb || 'rgba(250,214,176,';
+    const m = Math.min(310, W * 0.8);
+    x = Math.min(W - m / 2 - 8, Math.max(m / 2 + 8, x));
+    cx.textAlign = 'center';
+    cx.fillStyle = sg + '.58)';
+    cx.font = 'italic 600 ' + Math.max(14, 18 * s) + 'px ' + F;
+    cx.fillText(a, x, y, m);
+    cx.fillStyle = sg + '.38)';
+    cx.font = 'italic 400 ' + Math.max(11.5, 13.5 * s) + 'px ' + F;
+    cx.fillText(b, x, y + Math.max(16, 19 * s), m);
+  };
+
+  // 1. ARCHAEOPTERYX
+  cx.save();
+  cx.lineCap = 'round';
+  cx.lineJoin = 'round';
+  cx.translate(W * 0.56 + px, H * 0.21 + py + Math.sin(t * 0.0005) * 8 * rm);
+  cx.rotate(-0.1 + Math.sin(t * 0.0004) * 0.02 * rm);
+  cx.scale(s * 0.95, s * 0.95);
+  cx.strokeStyle = 'rgba(255,138,36,.68)';
+  cx.fillStyle = 'rgba(255,196,48,.12)';
+  cx.lineWidth = 1.8;
+  cx.beginPath();
+  cx.ellipse(0, 0, 46, 19, -0.25, 0, 7);
+  cx.fill();
+  cx.stroke();
+  cx.beginPath();
+  cx.moveTo(-38, -12);
+  cx.quadraticCurveTo(-56, -28, -64, -34);
+  cx.moveTo(-60, -38);
+  cx.arc(-70, -38, 10, 0, 7);
+  cx.moveTo(-79, -38);
+  cx.lineTo(-96, -33);
+  cx.lineTo(-80, -31);
+  cx.stroke();
+  cx.fillRect(-74, -42, 2.5, 2.5);
+  cx.strokeStyle = 'rgba(255,176,40,.65)';
+  cx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const x = 44 + i * 11, y = 8 + i * 1.1 + Math.sin(t * 0.0012 + i * 0.4) * 2.5 * rm;
+    cx.moveTo(x, y);
+    cx.lineTo(x + 16, y + 14);
+    cx.moveTo(x, y);
+    cx.lineTo(x + 16, y - 4);
+  }
+  cx.moveTo(42, 6);
+  cx.bezierCurveTo(110, 10, 170, 22, 230, 22);
+  cx.moveTo(42, 12);
+  cx.bezierCurveTo(110, 26, 170, 38, 230, 32);
+  cx.stroke();
+  const fl = Math.sin(t * 0.0014) * 0.12 * rm;
+  cx.strokeStyle = 'rgba(255,214,70,.75)';
+  cx.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const a = -2.6 + k * 0.2 + fl, L = 60 + k * 7, ex = -4 + Math.cos(a) * L, ey = -14 + Math.sin(a) * L;
+    cx.moveTo(-4, -14);
+    cx.quadraticCurveTo((-4 + ex) / 2 + 8, (-14 + ey) / 2 - 10, ex, ey);
+  }
+  cx.stroke();
+  cx.strokeStyle = 'rgba(255,138,36,.68)';
+  cx.beginPath();
+  cx.moveTo(-2, 16);
+  cx.lineTo(-10, 40);
+  cx.lineTo(-24, 56);
+  cx.lineTo(-34, 60);
+  cx.moveTo(-24, 56);
+  cx.lineTo(-30, 64);
+  cx.moveTo(-24, 56);
+  cx.lineTo(-18, 64);
+  cx.stroke();
+  cx.restore();
+  cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 108 * s, 'rgba(255,172,52,');
+
+  // 2. PETTIROSSO — Erithacus rubecula
+  cx.save();
+  cx.lineCap = 'round';
+  cx.lineJoin = 'round';
+  cx.translate(W * 0.22 - px * 0.9, H * 0.77 + py + Math.sin(t * 0.0006 + 1.2) * 6 * rm);
+  cx.scale(s * 0.95, s * 0.95);
+  cx.strokeStyle = 'rgba(250,206,162,.62)';
+  cx.fillStyle = 'rgba(250,206,162,.08)';
+  cx.lineWidth = 1.7;
+  cx.beginPath();
+  cx.ellipse(0, 0, 36, 26, -0.35, 0, 7);
+  cx.fill();
+  cx.stroke();
+  cx.fillStyle = 'rgba(255,108,58,.28)';
+  cx.strokeStyle = 'rgba(255,118,68,.75)';
+  cx.beginPath();
+  cx.arc(16, -8, 17, -1.6, 1.4);
+  cx.fill();
+  cx.stroke();
+  cx.strokeStyle = 'rgba(250,206,162,.68)';
+  cx.beginPath();
+  cx.arc(22, -22, 15, 0, 7);
+  cx.stroke();
+  cx.fillStyle = 'rgba(255,228,196,.85)';
+  cx.beginPath();
+  cx.arc(26, -24, 2.3, 0, 7);
+  cx.fill();
+  cx.beginPath();
+  cx.moveTo(36, -23);
+  cx.lineTo(49, -20);
+  cx.lineTo(36, -18);
+  cx.stroke();
+  cx.beginPath();
+  cx.moveTo(-8, -10);
+  cx.quadraticCurveTo(-28, 2, -46, 18);
+  cx.moveTo(-30, 14);
+  cx.lineTo(-68, 34);
+  cx.lineTo(-64, 41);
+  cx.lineTo(-26, 20);
+  cx.moveTo(-2, 23);
+  cx.lineTo(-6, 48);
+  cx.moveTo(-14, 48);
+  cx.lineTo(4, 48);
+  cx.moveTo(8, 21);
+  cx.lineTo(6, 46);
+  cx.moveTo(-2, 46);
+  cx.lineTo(14, 46);
+  cx.stroke();
+  cx.restore();
+  cap('Erithacus rubecula', 'il Pettirosso: erede vivente dei teropodi aviani', W * 0.22 - px * 0.9, H * 0.77 + py + 76 * s, 'rgba(255,152,102,');
+
+  // 3. GRILLO DI KAUAI
+  cx.save();
+  cx.lineCap = 'round';
+  cx.lineJoin = 'round';
+  cx.translate(W * 0.78 + px * 1.2, H * 0.74 + py + Math.cos(t * 0.0006) * 5 * rm);
+  cx.scale(s * 0.95, s * 0.95);
+  cx.strokeStyle = 'rgba(112,200,86,.68)';
+  cx.fillStyle = 'rgba(112,200,86,.12)';
+  cx.lineWidth = 1.8;
+  cx.beginPath();
+  cx.ellipse(0, 0, 42, 13, 0, 0, 7);
+  cx.fill();
+  cx.stroke();
+  cx.beginPath();
+  cx.arc(52, -3, 11, 0, 7);
+  cx.stroke();
+  cx.beginPath();
+  [-1, 1].forEach(d => {
+    cx.moveTo(60, -10);
+    cx.bezierCurveTo(90, -40 + Math.sin(t * 0.003 + d) * 6 * rm, 120, -30 + d * 10, 150, -60 + d * 14 + Math.sin(t * 0.0025) * 8 * rm);
+  });
+  cx.moveTo(-30, -10);
+  cx.quadraticCurveTo(0, -30, 34, -8);
+  cx.quadraticCurveTo(0, -12, -30, -10);
+  cx.moveTo(-10, 8);
+  cx.lineTo(-40, -14);
+  cx.lineTo(-66, 26);
+  cx.lineTo(-76, 34);
+  cx.moveTo(28, 10);
+  cx.lineTo(38, 32);
+  cx.lineTo(30, 42);
+  cx.moveTo(10, 11);
+  cx.lineTo(16, 34);
+  cx.lineTo(8, 44);
+  cx.moveTo(-42, 0);
+  cx.lineTo(-62, -6);
+  cx.moveTo(-42, 3);
+  cx.lineTo(-64, 6);
+  cx.stroke();
+  cx.setLineDash([2, 7]);
+  for (let i = 0; i < 3; i++) {
+    const q = (t * 0.0005 + i / 3) % 1;
+    cx.strokeStyle = 'rgba(140,222,104,' + (Math.pow(1 - q, 3) * 0.7) + ')';
+    cx.beginPath();
+    cx.arc(0, -20, 14 + q * 80, -1.4, -0.2);
+    cx.stroke();
+  }
+  cx.setLineDash([]);
+  cx.restore();
+  cap('Kauai: i grilli che hanno perso il canto', 'l’ala piatta li rende muti e li salva dalla mosca parassita', W * 0.78 + px * 1.2 - 20 * s, H * 0.74 + py + 72 * s, 'rgba(132,214,100,');
+}
+
+export function draw3DBackground(cx, t) {
+  const { W, H, cam3D, mx, my } = state;
+  const cX = W / 2 + cam3D.panX;
+  const cY = H / 2 + cam3D.panY;
+  const g0 = cx.createRadialGradient(cX, cY, 0, cX, cY, Math.max(W, H) * 0.85);
+  g0.addColorStop(0, '#7a3216');
+  g0.addColorStop(0.5, '#3b170b');
+  g0.addColorStop(1, '#150704');
+  cx.fillStyle = g0;
   cx.fillRect(0, 0, W, H);
 
-  for (let i = 0; i < stars.length; i++) {
-    const st = stars[i];
-    const p = project3D(st.x, st.y, st.z);
-    if (p.sx < -20 || p.sx > W + 20 || p.sy < -20 || p.sy > H + 20) continue;
-    cx.fillStyle = `rgba(246, 196, 150, ${st.a})`;
+  if (mx > 0) {
+    const sg = cx.createRadialGradient(mx, my, 0, mx, my, 240);
+    sg.addColorStop(0, 'rgba(255,205,150,.15)');
+    sg.addColorStop(1, 'rgba(255,205,150,0)');
+    cx.fillStyle = sg;
+    cx.fillRect(0, 0, W, H);
+  }
+
+  dust.forEach(d => {
+    d.y -= d.v;
+    if (d.y < 0) d.y = 1;
+    const x = (((d.x * W + cam3D.panX * 0.2 * d.s) % W) + W) % W;
+    cx.fillStyle = 'rgba(255,214,170,' + (0.25 + 0.22 * Math.sin(t * 0.002 + d.p)) + ')';
     cx.beginPath();
-    cx.arc(p.sx, p.sy, st.r * p.scale * 160, 0, Math.PI * 2);
+    cx.arc(x, d.y * H, d.s, 0, Math.PI * 2);
     cx.fill();
-  }
-
-  if (viewState.viewMode === 'geo') {
-    drawGeoGridAndHubs(cx, W, H);
-  }
-
-  const items = state.items;
-  if (!items.length) return;
-
-  projected = items.map((it, i) => {
-    const wc = nodeWorldCoords(it);
-    const p = project3D(wc.wx, wc.wy, wc.wz);
-    const size = Math.min(108, Math.max(22, 62 * p.scale * 190));
-    return { sx: p.sx, sy: p.sy, size, depth: p.depth, idx: i };
   });
 
-  // Connessioni tra tavole affini
+  cx.strokeStyle = 'rgba(250, 205, 165, 0.14)';
   cx.lineWidth = 1;
-  cx.globalAlpha = 0.2;
-  items.forEach((a, i) => {
-    if (!isVisible(i)) return;
-    (state.NM[i] || []).forEach(j => {
-      if (!items[j] || !isVisible(j)) return;
-      cx.beginPath();
-      cx.moveTo(projected[i].sx, projected[i].sy);
-      cx.lineTo(projected[j].sx, projected[j].sy);
-      cx.strokeStyle = state.col[a.cat];
-      cx.stroke();
-    });
-  });
-  cx.globalAlpha = 1;
-
-  // Raggi verso i 5 più affini al passaggio del mouse
-  const hIdx = viewState.hovered;
-  if (hIdx >= 0 && state.Dm && projected[hIdx]) {
-    cx.strokeStyle = '#ffe2bd';
-    cx.lineWidth = 1.5;
-    cx.setLineDash([5, 6]);
-    cx.globalAlpha = 0.65;
-    nearestIndices(hIdx, 5).forEach(j => {
-      if (!projected[j]) return;
-      cx.beginPath();
-      cx.moveTo(projected[hIdx].sx, projected[hIdx].sy);
-      cx.lineTo(projected[j].sx, projected[j].sy);
-      cx.stroke();
-    });
-    cx.setLineDash([]);
-    cx.globalAlpha = 1;
+  cx.setLineDash([4, 10]);
+  cx.beginPath();
+  for (let a = 0; a <= 64; a++) {
+    const ang = (a / 64) * Math.PI * 2;
+    const p = project3D(Math.cos(ang) * 0.95, 0, Math.sin(ang) * 0.95);
+    if (a === 0) cx.moveTo(p.sx, p.sy);
+    else cx.lineTo(p.sx, p.sy);
   }
+  cx.stroke();
+  cx.setLineDash([]);
 
-  // Ordina per profondità dal più lontano al più vicino
-  const ordered = [...projected].sort((a, b) => b.depth - a.depth);
-
-  ordered.forEach(o => {
-    const i = o.idx, it = items[i], c = state.col[it.cat];
-    const vis = isVisible(i);
-    const isHov = i === hIdx;
-    const depthFade = Math.max(0.32, Math.min(1, 1 - (o.depth + 500) / 1400));
-
-    if (!vis) {
-      cx.globalAlpha = 0.16 * depthFade;
-      cx.beginPath(); cx.arc(o.sx, o.sy, 3, 0, Math.PI * 2);
-      cx.fillStyle = c; cx.fill();
-      cx.globalAlpha = 1;
-      return;
-    }
-
-    if (!it.ready || viewState.mode !== 'thumb' || !it.polaroid) {
-      cx.globalAlpha = depthFade;
-      cx.beginPath(); cx.arc(o.sx, o.sy, isHov ? 9 : 6, 0, Math.PI * 2);
-      cx.fillStyle = c; cx.fill();
-      if (isHov) { cx.lineWidth = 2; cx.strokeStyle = '#fff'; cx.stroke(); }
-      cx.globalAlpha = 1;
-      return;
-    }
-
-    // Disegno offscreen pre-renderizzato (zero shadowBlur per frame)
-    const s = o.size * (isHov ? 1.18 : 1);
-    const aspect = it.polaroid.height / it.polaroid.width;
-    const dw = s;
-    const dh = s * aspect;
-
-    cx.save();
-    cx.globalAlpha = depthFade;
-    cx.drawImage(it.polaroid, o.sx - dw / 2, o.sy - dh / 2, dw, dh);
-    if (isHov) {
-      cx.lineWidth = 2.5;
-      cx.strokeStyle = '#ee9a5b';
-      cx.strokeRect(o.sx - dw / 2, o.sy - dh / 2, dw, dh);
-    }
-    cx.restore();
-  });
-}
-
-export function pickNode(px, py) {
-  for (let idx = projected.length - 1; idx >= 0; idx--) {
-    const p = projected[idx];
-    if (!p || !isVisible(idx)) continue;
-    const half = (viewState.mode === 'thumb' ? p.size / 2 : 11);
-    if (Math.abs(px - p.sx) <= half && Math.abs(py - p.sy) <= half) return idx;
-  }
-  return -1;
+  drawBackgroundArt(cx, t);
 }
