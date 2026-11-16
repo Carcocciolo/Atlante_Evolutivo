@@ -5,107 +5,97 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Atlante Evolutivo 3D &amp; Geografico</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
-  <!-- Leaflet CSS per la Mappa Geografica reale -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
-    <!-- Area Visualizzazione Principale -->
+    <!-- Area Visualizzazione Principale (Unico Canvas ultra-fluido per Spazio 3D e Mappa Stilizzata) -->
     <main id="wrap">
-      <!-- Vista 1: Spazio 3D dei Nodi -->
-      <canvas id="cv" aria-label="Mappa tridimensionale delle immagini"></canvas>
-
-      <!-- Vista 2: Mappa Geografica Interattiva Reale (Leaflet) -->
-      <div id="geo-map" hidden aria-label="Mappa geografica dei ritrovamenti"></div>
-
+      <canvas id="cv" aria-label="Atlante interattivo delle immagini"></canvas>
       <div id="tip"></div>
+    </main>
 
-      <!-- Controlli Flottanti in basso a destra -->
-      <div class="hud-bottom">
-        <div id="hud-hint" class="hud-pill">Trascina per ruotare in 3D · Shift+Trascina per spostare · Rotella per zoom</div>
-        <div class="zoom">
+    <!-- Header discreto in alto a sinistra -->
+    <header class="brand-badge">
+      <h1>Atlante Evolutivo</h1>
+      <p class="sub">Dall’<em>Archaeopteryx</em> al Pettirosso</p>
+    </header>
+
+    <!-- ALTO A DESTRA: Menu a tendina Categorie & Ricerca -->
+    <div class="top-right-dock">
+      <details class="dropdown-card" id="cat-dropdown">
+        <summary>
+          <span>Categorie &amp; Ricerca</span>
+          <span class="badge-count" id="vis-count">0</span>
+        </summary>
+        <div class="dropdown-body">
+          <input type="search" id="q" placeholder="Cerca ID, luogo, soggetto…">
+          <div class="chips-grid" id="chips"></div>
+          <div class="divider"></div>
+          <details class="sub-acc" id="dati-acc">
+            <summary>Sorgente Dati (CSV / Immagini)</summary>
+            <div class="sub-acc-body">
+              <label for="fc">database_immagini.csv</label>
+              <input type="file" id="fc" accept=".csv,text/csv">
+              <label for="fi">Cartella immagini</label>
+              <input type="file" id="fi" accept="image/*" multiple>
+              <div class="row">
+                <button type="button" class="p" id="go">Crea mappa</button>
+                <button type="button" id="ex">Dati esempio</button>
+              </div>
+            </div>
+          </details>
+          <p id="st" aria-live="polite"></p>
+          <p id="wn"></p>
+        </div>
+      </details>
+    </div>
+
+    <!-- SINISTRA: Pannello scorrevole della Tavola Selezionata -->
+    <aside id="detail-drawer" aria-hidden="true">
+      <div class="drawer-head">
+        <span class="drawer-eyebrow">Scheda Tavola</span>
+        <button type="button" id="close-det" class="icon-btn" aria-label="Chiudi scheda" title="Chiudi scheda">✕</button>
+      </div>
+      <div class="drawer-scroll">
+        <canvas id="big" width="440" height="330"></canvas>
+        <h2 id="det-title"></h2>
+        <dl id="dl"></dl>
+        <div class="note">Tavole più affini nello spazio visivo:</div>
+        <div id="nb"></div>
+      </div>
+    </aside>
+
+    <!-- BASSO A DESTRA: Switch Vista + Pulsante Impostazioni Visualizzazione + Zoom -->
+    <div class="bottom-right-dock">
+      <div id="view-settings-popover" class="popover-card" hidden>
+        <div class="popover-title">Impostazioni Visualizzazione</div>
+        <div class="settings-list">
+          <button type="button" id="rot-auto" aria-pressed="true">↻ Rotazione 3D: ON</button>
+          <button type="button" id="md">✦ Solo punti luminosi</button>
+          <button type="button" id="tr">▶ Passeggiata guidata</button>
+          <button type="button" id="cp">⧉ Esporta coordinate</button>
+        </div>
+        <textarea id="out" hidden readonly></textarea>
+        <div class="zoom-bar">
           <button id="zi" type="button" aria-label="Ingrandisci" title="Ingrandisci">+</button>
           <button id="zo" type="button" aria-label="Riduci" title="Riduci">−</button>
           <button id="zr" type="button" aria-label="Ripristina vista" title="Ripristina vista">⟲</button>
         </div>
       </div>
-    </main>
 
-    <!-- Pulsante apri/chiudi pannello per massimizzare la mappa -->
-    <button id="toggle-panel" type="button" class="panel-toggle" aria-expanded="true" title="Mostra/Nascondi pannello">
-      ☰ Controlli
-    </button>
-
-    <!-- Pannello Laterale Pulito con Menu a Tendina (Accordion) -->
-    <aside id="sidebar">
-      <div class="side-header">
-        <h1>Atlante Evolutivo</h1>
-        <p class="sub">Dall’<em>Archaeopteryx</em> al Pettirosso: esplora le affinità nello spazio 3D o i luoghi geografici.</p>
-
-        <!-- Selettore Modalità Principale -->
-        <div class="view-tabs" role="group" aria-label="Modalità di visualizzazione">
-          <button id="vw-3d" type="button" class="p" aria-pressed="true">✦ Spazio 3D</button>
+      <div class="bottom-controls-bar">
+        <div class="segmented-switch" role="group" aria-label="Cambia visualizzazione">
+          <button id="vw-3d" type="button" class="is-active" aria-pressed="true">✦ Spazio 3D</button>
           <button id="vw-geo" type="button" aria-pressed="false">⌖ Mappa Geografica</button>
         </div>
+        <button id="btn-settings" type="button" class="settings-trigger" aria-expanded="false" aria-controls="view-settings-popover" title="Impostazioni visualizzazione">
+          ⚙ Opzioni
+        </button>
       </div>
-
-      <!-- Menu a tendina 1: Ricerca & Categorie -->
-      <details class="acc" open>
-        <summary>Ricerca &amp; Categorie</summary>
-        <div class="acc-body">
-          <label for="q">Cerca per ID, soggetto, autore o luogo</label>
-          <input type="search" id="q" placeholder="es. Solnhofen, Berlino, IMG_0014…">
-          <div class="row" id="chips"></div>
-        </div>
-      </details>
-
-      <!-- Menu a tendina 2: Controlli Vista & Navigazione -->
-      <details class="acc" open>
-        <summary>Strumenti Vista</summary>
-        <div class="acc-body">
-          <div class="row">
-            <button type="button" id="md">Solo punti luminosi</button>
-            <button type="button" id="rot-auto" aria-pressed="true">Rotazione 3D: ON</button>
-            <button type="button" id="tr">Passeggiata guidata</button>
-            <button type="button" id="cp">Esporta coordinate</button>
-          </div>
-          <textarea id="out" hidden readonly></textarea>
-          <p id="st" aria-live="polite"></p>
-          <p id="wn"></p>
-        </div>
-      </details>
-
-      <!-- Menu a tendina 3: Caricamento Dati (chiuso di default se carica da GitHub) -->
-      <details class="acc" id="dati-acc">
-        <summary>Sorgente Dati (CSV / Immagini)</summary>
-        <div class="acc-body" id="dati">
-          <label for="fc">database_immagini.csv</label>
-          <input type="file" id="fc" accept=".csv,text/csv">
-          <label for="fi">Cartella immagini (selezionale tutte)</label>
-          <input type="file" id="fi" accept="image/*" multiple>
-          <div class="row">
-            <button type="button" class="p" id="go">Crea la mappa</button>
-            <button type="button" id="ex">Dati di esempio</button>
-          </div>
-        </div>
-      </details>
-
-      <!-- Menu a tendina 4: Dettagli Tavola Selezionata -->
-      <details class="acc" id="det-acc" hidden open>
-        <summary>Tavola Selezionata</summary>
-        <div class="acc-body" id="det">
-          <canvas id="big" width="400" height="300"></canvas>
-          <dl id="dl"></dl>
-          <div class="note">Tavole più affini nello spazio visivo:</div>
-          <div id="nb"></div>
-        </div>
-      </details>
-    </aside>
+    </div>
   </div>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="script.js" defer></script>
 </body>
 </html>
