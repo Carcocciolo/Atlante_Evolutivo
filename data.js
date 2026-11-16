@@ -50,8 +50,12 @@ export const ease = a => {
   a = Math.min(1, Math.max(0, a));
   return 1 + 2.70158 * Math.pow(a - 1, 3) + 1.70158 * Math.pow(a - 1, 2);
 };
-export const esc = s => String(s).replace(/[&<>"]/g, c => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+export const esc = s => String(s).replace(/[&<>"']/g, c => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
 }[c]));
 export const msg = t => {
   const el = document.querySelector('#st');
@@ -143,23 +147,18 @@ export function makePolaroidCanvas(th, catColor, idx) {
   c.height = base + pad + bottom;
   const g = c.getContext('2d');
 
-  // Sfondo carta polaroid
   g.fillStyle = '#f4efe3';
   g.fillRect(0, 0, c.width, c.height);
 
-  // Bordo sottile
   g.strokeStyle = 'rgba(28, 12, 6, 0.22)';
   g.lineWidth = 1;
   g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
 
-  // Miniatura
   g.drawImage(th, pad, pad, base, base);
 
-  // Fascia categoria in basso
   g.fillStyle = catColor || '#ee9a5b';
   g.fillRect(pad, pad + base + Math.round(pad * 0.6), base * 0.45, Math.max(3, Math.round(pad * 0.55)));
 
-  // Piccolo ID discreto
   if (idx != null) {
     g.fillStyle = 'rgba(40, 18, 8, 0.55)';
     g.font = '600 9px Figtree, sans-serif';
