@@ -3,74 +3,109 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Atlante Evolutivo — Archaeopteryx &amp; Erithacus rubecula</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
+  <title>Atlante Evolutivo 3D &amp; Geografico</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
+  <!-- Leaflet CSS per la Mappa Geografica reale -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
-    <div id="wrap">
-      <canvas id="cv" aria-label="Mappa interattiva delle immagini"></canvas>
-      <div id="empty">Carica il CSV e le immagini a sinistra, oppure prova i dati di esempio.</div>
+    <!-- Area Visualizzazione Principale -->
+    <main id="wrap">
+      <!-- Vista 1: Spazio 3D dei Nodi -->
+      <canvas id="cv" aria-label="Mappa tridimensionale delle immagini"></canvas>
+
+      <!-- Vista 2: Mappa Geografica Interattiva Reale (Leaflet) -->
+      <div id="geo-map" hidden aria-label="Mappa geografica dei ritrovamenti"></div>
+
       <div id="tip"></div>
-      <div class="zoom">
-        <button id="zi" type="button" aria-label="Ingrandisci" title="Ingrandisci">+</button>
-        <button id="zo" type="button" aria-label="Riduci" title="Riduci">−</button>
-        <button id="zr" type="button" aria-label="Ripristina vista" title="Ripristina vista">⟲</button>
+
+      <!-- Controlli Flottanti in basso a destra -->
+      <div class="hud-bottom">
+        <div id="hud-hint" class="hud-pill">Trascina per ruotare in 3D · Shift+Trascina per spostare · Rotella per zoom</div>
+        <div class="zoom">
+          <button id="zi" type="button" aria-label="Ingrandisci" title="Ingrandisci">+</button>
+          <button id="zo" type="button" aria-label="Riduci" title="Riduci">−</button>
+          <button id="zr" type="button" aria-label="Ripristina vista" title="Ripristina vista">⟲</button>
+        </div>
       </div>
-    </div>
+    </main>
 
-    <aside>
-      <h1>Atlante delle immagini</h1>
-      <p class="sub">Dall’<em>Archaeopteryx</em> al Pettirosso: esplora le affinità visive o i luoghi dei ritrovamenti. Trascina per muoverti, usa la rotella per lo zoom.</p>
+    <!-- Pulsante apri/chiudi pannello per massimizzare la mappa -->
+    <button id="toggle-panel" type="button" class="panel-toggle" aria-expanded="true" title="Mostra/Nascondi pannello">
+      ☰ Controlli
+    </button>
 
-      <fieldset>
-        <legend>Modalità Atlante</legend>
-        <div class="view-tabs" role="group" aria-label="Tipo di mappa">
-          <button id="vw-tsne" type="button" class="p" aria-pressed="true">✦ Spazio dei Nodi</button>
+    <!-- Pannello Laterale Pulito con Menu a Tendina (Accordion) -->
+    <aside id="sidebar">
+      <div class="side-header">
+        <h1>Atlante Evolutivo</h1>
+        <p class="sub">Dall’<em>Archaeopteryx</em> al Pettirosso: esplora le affinità nello spazio 3D o i luoghi geografici.</p>
+
+        <!-- Selettore Modalità Principale -->
+        <div class="view-tabs" role="group" aria-label="Modalità di visualizzazione">
+          <button id="vw-3d" type="button" class="p" aria-pressed="true">✦ Spazio 3D</button>
           <button id="vw-geo" type="button" aria-pressed="false">⌖ Mappa Geografica</button>
         </div>
-        <p id="view-desc" class="note">Rete t-SNE: le immagini simili per forma, piumaggio e palette si attraggono nello spazio.</p>
-      </fieldset>
+      </div>
 
-      <fieldset id="dati">
-        <legend>Dati</legend>
-        <label for="fc">database_immagini.csv (facoltativo)</label>
-        <input type="file" id="fc" accept=".csv,text/csv">
-        <label for="fi">Immagini (selezionale tutte insieme)</label>
-        <input type="file" id="fi" accept="image/*" multiple>
-        <div class="row">
-          <button type="button" class="p" id="go">Crea la mappa</button>
-          <button type="button" id="ex">Dati di esempio</button>
+      <!-- Menu a tendina 1: Ricerca & Categorie -->
+      <details class="acc" open>
+        <summary>Ricerca &amp; Categorie</summary>
+        <div class="acc-body">
+          <label for="q">Cerca per ID, soggetto, autore o luogo</label>
+          <input type="search" id="q" placeholder="es. Solnhofen, Berlino, IMG_0014…">
+          <div class="row" id="chips"></div>
         </div>
-        <p id="st" aria-live="polite"></p>
-        <p id="wn"></p>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Esplora &amp; Filtra</legend>
-        <label for="q">Cerca per ID, soggetto, autore o luogo</label>
-        <input type="search" id="q" placeholder="es. Solnhofen, Berlino, IMG_0014…">
-        <div class="row" id="chips"></div>
-        <div class="row">
-          <button type="button" id="md">Mostra solo punti</button>
-          <button type="button" id="tr">Passeggiata</button>
-          <button type="button" id="cp">Copia coordinate</button>
+      <!-- Menu a tendina 2: Controlli Vista & Navigazione -->
+      <details class="acc" open>
+        <summary>Strumenti Vista</summary>
+        <div class="acc-body">
+          <div class="row">
+            <button type="button" id="md">Solo punti luminosi</button>
+            <button type="button" id="rot-auto" aria-pressed="true">Rotazione 3D: ON</button>
+            <button type="button" id="tr">Passeggiata guidata</button>
+            <button type="button" id="cp">Esporta coordinate</button>
+          </div>
+          <textarea id="out" hidden readonly></textarea>
+          <p id="st" aria-live="polite"></p>
+          <p id="wn"></p>
         </div>
-        <textarea id="out" hidden readonly></textarea>
-      </fieldset>
+      </details>
 
-      <fieldset id="det" hidden>
-        <legend>Tavola selezionata</legend>
-        <canvas id="big" width="400" height="300"></canvas>
-        <dl id="dl"></dl>
-        <div class="note">Tavole più affini nello spazio visivo. Cliccale per confrontarle:</div>
-        <div id="nb"></div>
-      </fieldset>
+      <!-- Menu a tendina 3: Caricamento Dati (chiuso di default se carica da GitHub) -->
+      <details class="acc" id="dati-acc">
+        <summary>Sorgente Dati (CSV / Immagini)</summary>
+        <div class="acc-body" id="dati">
+          <label for="fc">database_immagini.csv</label>
+          <input type="file" id="fc" accept=".csv,text/csv">
+          <label for="fi">Cartella immagini (selezionale tutte)</label>
+          <input type="file" id="fi" accept="image/*" multiple>
+          <div class="row">
+            <button type="button" class="p" id="go">Crea la mappa</button>
+            <button type="button" id="ex">Dati di esempio</button>
+          </div>
+        </div>
+      </details>
 
-      <p class="note" id="foot-note">150 milioni di anni di transizione evolutiva: dai calcari litografici del Giurassico superiore all’avifauna europea moderna.</p>
+      <!-- Menu a tendina 4: Dettagli Tavola Selezionata -->
+      <details class="acc" id="det-acc" hidden open>
+        <summary>Tavola Selezionata</summary>
+        <div class="acc-body" id="det">
+          <canvas id="big" width="400" height="300"></canvas>
+          <dl id="dl"></dl>
+          <div class="note">Tavole più affini nello spazio visivo:</div>
+          <div id="nb"></div>
+        </div>
+      </details>
     </aside>
   </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="script.js" defer></script>
 </body>
 </html>
