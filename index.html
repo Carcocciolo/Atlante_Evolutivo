@@ -3,27 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Atlante Evolutivo 3D &amp; Geografico</title>
+  <title>Atlante Evolutivo — Archaeopteryx, Pettirossi &amp; Grilli</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
-    <!-- Area Visualizzazione Principale (Unico Canvas ultra-fluido per Spazio 3D e Mappa Stilizzata) -->
     <main id="wrap">
       <canvas id="cv" aria-label="Atlante interattivo delle immagini"></canvas>
       <div id="tip"></div>
     </main>
 
-    <!-- Header discreto in alto a sinistra -->
     <header class="brand-badge">
       <h1>Atlante Evolutivo</h1>
-      <p class="sub">Dall’<em>Archaeopteryx</em> al Pettirosso</p>
+      <p class="sub"><em>Archaeopteryx</em>, Pettirossi &amp; Grilli</p>
     </header>
 
-    <!-- ALTO A DESTRA: Menu a tendina Categorie & Ricerca -->
     <div class="top-right-dock">
-      <details class="dropdown-card" id="cat-dropdown">
+      <details class="dropdown-card" id="cat-dropdown" open>
         <summary>
           <span>Categorie &amp; Ricerca</span>
           <span class="badge-count" id="vis-count">0</span>
@@ -51,22 +48,21 @@
       </details>
     </div>
 
-    <!-- SINISTRA: Pannello scorrevole della Tavola Selezionata -->
+    <!-- Scheda 2D aperta solo quando viene visualizzata un'immagine -->
     <aside id="detail-drawer" aria-hidden="true">
       <div class="drawer-head">
-        <span class="drawer-eyebrow">Scheda Tavola</span>
-        <button type="button" id="close-det" class="icon-btn" aria-label="Chiudi scheda" title="Chiudi scheda">✕</button>
+        <span class="drawer-eyebrow">Scheda Tavola (2D)</span>
+        <button type="button" id="close-det" class="icon-btn" aria-label="Torna al 3D" title="Torna al 3D">✕</button>
       </div>
       <div class="drawer-scroll">
         <canvas id="big" width="440" height="330"></canvas>
         <h2 id="det-title"></h2>
         <dl id="dl"></dl>
-        <div class="note">Tavole più affini nello spazio visivo:</div>
+        <div class="note">Tavole più affini nello spazio 3D:</div>
         <div id="nb"></div>
       </div>
     </aside>
 
-    <!-- BASSO A DESTRA: Switch Vista + Pulsante Impostazioni Visualizzazione + Zoom -->
     <div class="bottom-right-dock">
       <div id="view-settings-popover" class="popover-card" hidden>
         <div class="popover-title">Impostazioni Visualizzazione</div>
@@ -87,7 +83,7 @@
       <div class="bottom-controls-bar">
         <div class="segmented-switch" role="group" aria-label="Cambia visualizzazione">
           <button id="vw-3d" type="button" class="is-active" aria-pressed="true">✦ Spazio 3D</button>
-          <button id="vw-geo" type="button" aria-pressed="false">⌖ Mappa Geografica</button>
+          <button id="vw-geo" type="button" aria-pressed="false">⌖ Mappa d3-geo</button>
         </div>
         <button id="btn-settings" type="button" class="settings-trigger" aria-expanded="false" aria-controls="view-settings-popover" title="Impostazioni visualizzazione">
           ⚙ Opzioni
@@ -96,6 +92,8 @@
     </div>
   </div>
 
-  <script src="script.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-array@3/dist/d3-array.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-geo@3/dist/d3-geo.min.js"></script>
+  <script type="module" src="ui.js"></script>
 </body>
 </html>
