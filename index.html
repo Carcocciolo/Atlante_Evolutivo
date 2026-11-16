@@ -1,47 +1,149 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mappa delle immagini</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atlante Evolutivo — Da Archaeopteryx al Pettirosso</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div class="app">
-<div id="wrap">
-<canvas id="cv" aria-label="Mappa interattiva delle immagini"></canvas>
-<div id="empty">Carica il CSV e le immagini a sinistra, oppure prova i dati di esempio.</div>
-<div id="tip"></div>
-<div class="zoom"><button id="zi" aria-label="Ingrandisci">+</button><button id="zo" aria-label="Riduci">−</button><button id="zr" aria-label="Ripristina vista">⟲</button></div>
-</div>
-<aside>
-<h1>Mappa delle immagini</h1>
-<p class="sub">Le immagini simili finiscono vicine. Trascina per spostarti, usa la rotella o i tasti per lo zoom, tocca un’immagine per i dettagli.</p>
-<fieldset id="dati"><legend>Dati</legend>
-<label for="fc">database_immagini.csv (facoltativo)</label>
-<input type="file" id="fc" accept=".csv,text/csv">
-<label for="fi">Immagini (selezionale tutte insieme)</label>
-<input type="file" id="fi" accept="image/*" multiple>
-<div class="row"><button class="p" id="go">Crea la mappa</button><button id="ex">Dati di esempio</button></div>
-<p id="st" aria-live="polite"></p><p id="wn"></p>
-</fieldset>
-<fieldset><legend>Vista</legend>
-<label for="q">Cerca per id o soggetto</label>
-<input type="search" id="q">
-<div class="row" id="chips"></div>
-<div class="row"><button id="md">Mostra solo punti</button><button id="tr">Passeggiata</button><button id="cp">Copia coordinate</button></div>
-<textarea id="out" hidden readonly></textarea>
-</fieldset>
-<fieldset id="det" hidden><legend>Immagine selezionata</legend>
-<canvas id="big" width="400" height="300"></canvas>
-<dl id="dl"></dl>
-<div class="note">Le più simili nello spazio originale delle immagini. Confrontale con i vicini sulla mappa.</div>
-<div id="nb"></div>
-</fieldset>
-<p class="note">Le posizioni nascono da colori, disposizione dei colori e direzione dei contorni. Non è una classificazione: t-SNE conserva le vicinanze locali, non le distanze tra gruppi.</p>
-</aside>
-</div>
-<script src="script.js" defer></script>
+
+  <!-- Barra superiore di controllo -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="badge-era">150 Ma → Oggi</span>
+      <h1>Atlante Iconografico Evolutivo</h1>
+    </div>
+
+    <div class="controls">
+      <!-- Cambio modalità di visualizzazione -->
+      <div class="view-switcher" role="group" aria-label="Modalità vista">
+        <button id="btn-view-map" class="active" title="Esplora sulla mappa libera">Mappa Evolutiva</button>
+        <button id="btn-view-grid" title="Visualizza come archivio ordinato">Griglia Archivio</button>
+      </div>
+
+      <!-- Ricerca testuale -->
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Cerca ID, soggetto, autore, note..." />
+        <button id="clear-search" title="Cancella ricerca">×</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Barra filtri per Categoria e Soggetto -->
+  <nav class="filterbar">
+    <div class="filter-group">
+      <span class="filter-label">Categoria:</span>
+      <div id="category-filters" class="pill-container">
+        <button class="pill active" data-category="ALL">Tutte (<span id="count-all">0</span>)</button>
+        <button class="pill" data-category="Fossile"><span class="dot dot-fossile"></span>Fossile</button>
+        <button class="pill" data-category="Illustrazione"><span class="dot dot-illustrazione"></span>Illustrazione</button>
+        <button class="pill" data-category="Animale vivente"><span class="dot dot-vivente"></span>Animale vivente</button>
+        <button class="pill" data-category="Non classificato"><span class="dot dot-altro"></span>Da classificare</button>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Taxon:</span>
+      <select id="taxon-select">
+        <option value="ALL">Tutti i soggetti</option>
+        <option value="Archaeopteryx">Archaeopteryx</option>
+        <option value="Pettirosso">Pettirosso (Erithacus rubecula)</option>
+        <option value="Teropode">Teropode</option>
+        <option value="NON_SPECIFICATO">Soggetto non assegnato</option>
+      </select>
+    </div>
+
+    <div class="stats-counter">
+      Visualizzati: <strong id="visible-count">0</strong> / <span id="total-count">0</span>
+    </div>
+  </nav>
+
+  <!-- Area principale: Mappa interattiva con Pan & Zoom -->
+  <main id="viewport" class="viewport mode-map">
+    <div id="canvas" class="canvas">
+      <!-- Sfondo vettoriale della mappa evolutiva (linee temporali e cluster) -->
+      <svg id="map-connections" class="map-svg" viewBox="0 0 2600 1600" preserveAspectRatio="none">
+        <!-- Etichette delle macro-aree sulla mappa -->
+        <g class="map-zones">
+          <rect x="80" y="100" width="760" height="1400" rx="24" class="zone-box zone-fossil" />
+          <text x="120" y="165" class="zone-title">I. REGISTRO FOSSILE & TEROPODI</text>
+          <text x="120" y="195" class="zone-sub">Calcari di Solnhofen · Giurassico Superiore (~150 Ma)</text>
+
+          <rect x="920" y="100" width="760" height="1400" rx="24" class="zone-box zone-art" />
+          <text x="960" y="165" class="zone-title">II. RICOSTRUZIONI & PALEOARTE</text>
+          <text x="960" y="195" class="zone-sub">Interpretazioni anatomiche, piumaggio e transizione al volo</text>
+
+          <rect x="1760" y="100" width="760" height="1400" rx="24" class="zone-box zone-modern" />
+          <text x="1800" y="165" class="zone-title">III. AVIFAUNA MODERNA & ARCHIVIO</text>
+          <text x="1800" y="195" class="zone-sub">Erithacus rubecula (Pettirosso) e tavole in fase di catalogazione</text>
+        </g>
+
+        <!-- Connessione evolutiva centrale -->
+        <path d="M 840 800 C 880 800, 880 800, 920 800" class="evo-link" />
+        <path d="M 1680 800 C 1720 800, 1720 800, 1760 800" class="evo-link" />
+      </svg>
+
+      <!-- Qui verranno iniettati i nodi delle immagini via JS -->
+      <div id="nodes-container" class="nodes-container"></div>
+    </div>
+
+    <!-- Controlli flottanti della mappa -->
+    <div class="map-hud">
+      <div class="hud-hint">Trascina per esplorare · Rotella per zoomare · Clicca una scheda per i dettagli</div>
+      <div class="zoom-controls">
+        <button id="zoom-in" title="Zoom avanti">+</button>
+        <button id="zoom-reset" title="Adatta allo schermo">⌂</button>
+        <button id="zoom-out" title="Zoom indietro">−</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modale / Lightbox dettagli immagine -->
+  <dialog id="detail-modal" class="detail-modal">
+    <div class="modal-content">
+      <button id="close-modal" class="close-modal" aria-label="Chiudi scheda">×</button>
+      
+      <div class="modal-image-col">
+        <img id="modal-img" src="" alt="" />
+        <div class="modal-img-bar">
+          <span id="modal-id" class="mono">IMG_0000</span>
+          <span id="modal-filename" class="mono">filename.jpg</span>
+        </div>
+      </div>
+
+      <div class="modal-info-col">
+        <span id="modal-category-badge" class="category-badge">Categoria</span>
+        <h2 id="modal-subject">Soggetto dell'immagine</h2>
+
+        <dl class="meta-list">
+          <div class="meta-item">
+            <dt>Autore / Studio</dt>
+            <dd id="modal-author">non noto</dd>
+          </div>
+          <div class="meta-item">
+            <dt>Note di catalogazione</dt>
+            <dd id="modal-notes">Nessuna nota aggiuntiva.</dd>
+          </div>
+          <div class="meta-item">
+            <dt>Fonte originale</dt>
+            <dd>
+              <a id="modal-source" href="#" target="_blank" rel="noopener noreferrer">Apri link sorgente ↗</a>
+            </dd>
+          </div>
+        </dl>
+
+        <div class="modal-nav">
+          <button id="prev-item">← Precedente</button>
+          <button id="next-item">Successiva →</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="script.js"></script>
 </body>
 </html>
