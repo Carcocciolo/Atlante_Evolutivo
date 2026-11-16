@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mappa delle immagini</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+<div id="wrap">
+<canvas id="cv" aria-label="Mappa interattiva delle immagini"></canvas>
+<div id="empty">Carica il CSV e le immagini a sinistra, oppure prova i dati di esempio.</div>
+<div id="tip"></div>
+<div class="zoom"><button id="zi" aria-label="Ingrandisci">+</button><button id="zo" aria-label="Riduci">−</button><button id="zr" aria-label="Ripristina vista">⟲</button></div>
+</div>
+<aside>
+<h1>Mappa delle immagini</h1>
+<p class="sub">Le immagini simili finiscono vicine. Trascina per spostarti, usa la rotella o i tasti per lo zoom, tocca un’immagine per i dettagli.</p>
+<fieldset id="dati"><legend>Dati</legend>
+<label for="fc">database_immagini.csv (facoltativo)</label>
+<input type="file" id="fc" accept=".csv,text/csv">
+<label for="fi">Immagini (selezionale tutte insieme)</label>
+<input type="file" id="fi" accept="image/*" multiple>
+<div class="row"><button class="p" id="go">Crea la mappa</button><button id="ex">Dati di esempio</button></div>
+<p id="st" aria-live="polite"></p><p id="wn"></p>
+</fieldset>
+<fieldset><legend>Vista</legend>
+<label for="q">Cerca per id o soggetto</label>
+<input type="search" id="q">
+<div class="row" id="chips"></div>
+<div class="row"><button id="md">Mostra solo punti</button><button id="tr">Passeggiata</button><button id="cp">Copia coordinate</button></div>
+<textarea id="out" hidden readonly></textarea>
+</fieldset>
+<fieldset id="det" hidden><legend>Immagine selezionata</legend>
+<canvas id="big" width="400" height="300"></canvas>
+<dl id="dl"></dl>
+<div class="note">Le più simili nello spazio originale delle immagini. Confrontale con i vicini sulla mappa.</div>
+<div id="nb"></div>
+</fieldset>
+<p class="note">Le posizioni nascono da colori, disposizione dei colori e direzione dei contorni. Non è una classificazione: t-SNE conserva le vicinanze locali, non le distanze tra gruppi.</p>
+</aside>
+</div>
+<script src="script.js" defer></script>
+</body>
+</html>
