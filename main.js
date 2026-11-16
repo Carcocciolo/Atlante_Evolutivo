@@ -1,11 +1,11 @@
 import {
-  CONFIG, CAT_COLORS, PAL, state, RM, ease, msg,
-  markDirty, invalidateVisCache, vis, parseCSV, applyBitmapToItem
+  CONFIG, state, RM, ease, msg,
+  markDirty, vis, parseCSV, applyBitmapToItem
 } from './data.js';
 import { geoToScreen, drawGeoMap } from './geo.js';
 import { project3D, draw3DBackground } from './view3d.js';
 import {
-  updateVisibleBadge, focusCameraOnNode, closeSelection,
+  focusCameraOnNode, closeSelection,
   show, initItemsSkeleton, finalizeLayoutFromLoaded, bindUI
 } from './ui.js';
 
@@ -138,7 +138,6 @@ function render(t) {
     drawGeoMap(cx);
   }
 
-  // Velo scuro semi-trasparente al posto del filtro blur globale
   if (sel >= 0) {
     cx.fillStyle = 'rgba(12, 4, 2, 0.34)';
     cx.fillRect(0, 0, W, H);
@@ -174,7 +173,6 @@ function render(t) {
       return { ...p, a, size, idx: i };
     });
 
-    // Connessioni tra nodi
     cx.lineWidth = 1;
     cx.globalAlpha = sel >= 0 ? 0.08 : 0.2;
     items.forEach((a, i) => {
@@ -190,7 +188,6 @@ function render(t) {
     });
     cx.globalAlpha = 1;
 
-    // Raggi verso i 5 più simili
     cx.lineWidth = 2;
     cx.setLineDash([6, 8]);
     cx.lineDashOffset = -t * 0.04;
@@ -250,7 +247,6 @@ function render(t) {
       cx.translate(o.sx, o.sy);
       cx.rotate(big ? 0 : (((i * 37 % 11) - 5) * 0.012 + Math.sin(t * 0.0009 + i) * 0.015 * rm));
 
-      // DrawImage della polaroid pre-renderizzata offscreen (zero shadowBlur a frame)
       cx.drawImage(it.polaroid, -s / 2 - p, -s / 2 - p, s + 2 * p, s + p * 3.4);
 
       if (big || hov === i) {
@@ -290,7 +286,6 @@ function render(t) {
   cx.globalAlpha = 1;
 }
 
-/* ===== POINTER INTERACTIONS ===== */
 cv.addEventListener('pointerdown', e => {
   state.targetCam3D = null;
   state.targetCamGeo = null;
@@ -386,14 +381,16 @@ cv.addEventListener('wheel', e => {
   markDirty();
 }, { passive: false });
 
-new ResizeObserver(() => {
+function syncCanvasSize() {
   state.dpr = Math.min(window.devicePixelRatio || 1, 2);
-  state.W = wrap.clientWidth;
-  state.H = wrap.clientHeight;
-  cv.width = state.W * state.dpr;
-  cv.height = state.H * state.dpr;
+  state.W = wrap.clientWidth || window.innerWidth || 800;
+  state.H = wrap.clientHeight || window.innerHeight || 600;
+  cv.width = Math.max(1, Math.round(state.W * state.dpr));
+  cv.height = Math.max(1, Math.round(state.H * state.dpr));
   markDirty();
-}).observe(wrap);
+}
+syncCanvasSize();
+new ResizeObserver(syncCanvasSize).observe(wrap);
 
 (function loop(t) {
   const now = t || 0;
@@ -404,7 +401,6 @@ new ResizeObserver(() => {
   requestAnimationFrame(loop);
 })(0);
 
-/* ===== CARICAMENTO UNIFICATO ===== */
 async function loadRowsWithLoader(rows, resolver) {
   initItemsSkeleton(rows);
   let miss = 0;
@@ -449,8 +445,9 @@ async function autoload() {
       return createImageBitmap(await rs.blob());
     });
   } catch (_) {
+    $('#cat-dropdown').open = true;
     $('#dati-acc').open = true;
-    msg('Apri su GitHub Pages / Live Server oppure carica i file qui sotto.');
+    msg('Apri su GitHub Pages / Live Server oppure carica i file / Dati esempio qui sotto.');
   }
 }
 
