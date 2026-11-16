@@ -272,7 +272,7 @@ export function bindUI(handlers) {
     markDirty();
   };
 
-  $('#cp').onclick = () => {
+    $('#cp').onclick = () => {
     if (!state.items.length) return msg('Carica prima i dati.');
     const header = 'id,filename,category,site,geo_status,lon,lat,x3d,y3d,z3d';
     const body = state.items.map(i => [

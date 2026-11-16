@@ -246,5 +246,4 @@ export function drawGeoMap(cx) {
     cx.fillText(hub.label, p.sx + 7, p.sy + 4);
   });
   cx.restore();
-  markDirty();
 }
