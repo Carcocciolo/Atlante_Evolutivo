@@ -68,7 +68,9 @@ export function initItemsSkeleton(rows) {
     const z = Math.sin(theta) * Math.sin(phi) * 0.78;
     return {
       r, cat, th: null, cards: null, src: null, ready: false, vis: true,
-      rot: ((i * 37 % 11) - 5) * 0.011,
+      baseRot: ((i * 37 % 13) - 6) * 0.014,
+      rot: ((i * 37 % 13) - 6) * 0.014,
+      vrot: 0,
       x, y, z, tx: x, ty: y, tz: z,
       lon: geo.lon, lat: geo.lat, hubId: geo.hubId, siteName: geo.siteName, geoStatus: geo.geoStatus,
       hubRank: 0, hubSize: 1, nn: [],
