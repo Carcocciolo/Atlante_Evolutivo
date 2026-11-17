@@ -12,13 +12,13 @@ export const CONFIG = {
 };
 
 export const CAT_COLORS = {
-  'Archaeopteryx': '#f6b27a',
-  'Pettirossi': '#ff6b4a',
-  'Grilli': '#70c856',
-  'da classificare': '#c9a68a'
+  'Archaeopteryx': '#e8c382',
+  'Pettirossi': '#ff6b5b',
+  'Grilli': '#4ee6a8',
+  'da classificare': '#7aa2d4'
 };
 
-export const PAL = ['#f8d9b4', '#f0a35e', '#d9703b', '#b5492a', '#f4c08a', '#e58a4c', '#c85c33', '#fbe6cc'];
+export const PAL = ['#e8c382', '#ff6b5b', '#4ee6a8', '#5ce1e6', '#b794f4', '#f6ad55', '#68d391', '#fc8181'];
 
 /** Proporzioni della cornice "polaroid" rispetto al lato della foto. */
 export const CARD = { pad: 0.08, bottom: 0.24 };
@@ -166,48 +166,48 @@ export function makeCardCanvas(th, color, idx) {
   c.height = S + pad + bottom;
   const g = c.getContext('2d');
 
-  // Gradiente carta avorio caldo
-  const paper = g.createLinearGradient(0, 0, c.width, c.height);
-  paper.addColorStop(0, '#fbf6ec');
-  paper.addColorStop(0.55, '#f2eadb');
-  paper.addColorStop(1, '#e4d8c3');
-  g.fillStyle = paper;
+  // Passepartout ossidiana scura da gabinetto scientifico
+  const slate = g.createLinearGradient(0, 0, c.width, c.height);
+  slate.addColorStop(0, '#182234');
+  slate.addColorStop(0.55, '#0f1624');
+  slate.addColorStop(1, '#090e18');
+  g.fillStyle = slate;
   g.fillRect(0, 0, c.width, c.height);
 
-  // Luce radente sul bordo superiore e sinistro della carta
-  g.fillStyle = 'rgba(255, 255, 255, 0.65)';
+  // Riflesso superiore vetroso
+  g.fillStyle = 'rgba(255, 255, 255, 0.14)';
   g.fillRect(0, 0, c.width, 1.5);
   g.fillRect(0, 0, 1.5, c.height);
 
-  // Foto
+  // Foto specimen
   g.drawImage(th, pad, pad);
 
-  // Cornice interna incassata attorno alla foto
-  g.strokeStyle = 'rgba(28, 12, 6, 0.25)';
+  // Filetto interno incassato
+  g.strokeStyle = 'rgba(232, 195, 130, 0.25)';
   g.lineWidth = 1;
   g.strokeRect(pad + 0.5, pad + 0.5, S - 1, S - 1);
 
   // Bordo esterno sottile
-  g.strokeStyle = 'rgba(28, 12, 6, 0.32)';
+  g.strokeStyle = 'rgba(190, 215, 245, 0.22)';
   g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
 
-  // Barretta categoria con gradiente
-  const barY = pad + S + Math.round(pad * 0.65);
-  const barW = S * 0.46;
-  const barH = Math.max(3, Math.round(pad * 0.52));
-  const col = color || '#ee9a5b';
+  // Tacca luminosa di categoria
+  const barY = pad + S + Math.round(pad * 0.72);
+  const barW = S * 0.42;
+  const barH = Math.max(2.5, Math.round(pad * 0.42));
+  const col = color || '#e8c382';
   const barGrad = g.createLinearGradient(pad, barY, pad + barW, barY);
   barGrad.addColorStop(0, col);
-  barGrad.addColorStop(1, rgba(col, 0.55));
+  barGrad.addColorStop(1, rgba(col, 0.35));
   g.fillStyle = barGrad;
   g.fillRect(pad, barY, barW, barH);
 
-  // Numero tavola
+  // Codice catalogo
   if (idx != null) {
-    g.fillStyle = 'rgba(42, 18, 8, 0.58)';
-    g.font = `600 ${Math.round(S * 0.075)}px Figtree, sans-serif`;
+    g.fillStyle = 'rgba(232, 195, 130, 0.72)';
+    g.font = `600 ${Math.round(S * 0.072)}px "JetBrains Mono", monospace`;
     g.textAlign = 'right';
-    g.fillText(`#${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.52));
+    g.fillText(`FIG.${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.52));
   }
   return c;
 }

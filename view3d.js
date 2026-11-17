@@ -40,10 +40,10 @@ export function buildBackground() {
   bg = document.createElement('canvas');
   bg.width = w; bg.height = h;
   const g = bg.getContext('2d');
-  const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.78);
-  r.addColorStop(0, '#3b170b');
-  r.addColorStop(0.52, '#190804');
-  r.addColorStop(1, '#080201');
+  const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.82);
+  r.addColorStop(0, '#132138');
+  r.addColorStop(0.5, '#080e1a');
+  r.addColorStop(1, '#03050a');
   g.fillStyle = r;
   g.fillRect(0, 0, w, h);
 
@@ -52,8 +52,9 @@ export function buildBackground() {
     spotSprite.width = spotSprite.height = 256;
     const sg = spotSprite.getContext('2d');
     const gr = sg.createRadialGradient(128, 128, 0, 128, 128, 128);
-    gr.addColorStop(0, 'rgba(255, 196, 140, 0.11)');
-    gr.addColorStop(1, 'rgba(255, 196, 140, 0)');
+    gr.addColorStop(0, 'rgba(92, 225, 230, 0.09)');
+    gr.addColorStop(0.5, 'rgba(232, 195, 130, 0.04)');
+    gr.addColorStop(1, 'rgba(92, 225, 230, 0)');
     sg.fillStyle = gr;
     sg.fillRect(0, 0, 256, 256);
   }
@@ -67,7 +68,7 @@ const dust = Array.from({ length: 65 }, () => ({
 function drawDust(cx, t) {
   if (state.ecoMode) return;
   const { W, H, cam3D } = state;
-  cx.fillStyle = 'rgba(255, 214, 170, 0.22)';
+  cx.fillStyle = 'rgba(185, 222, 255, 0.22)';
   cx.beginPath();
   for (const d of dust) {
     if (!RM) { d.y -= d.v; if (d.y < 0) d.y = 1; }
@@ -86,17 +87,27 @@ function drawRings(cx) {
   if (state.ecoMode) return;
   cx.save();
   cx.lineWidth = 1;
-  cx.setLineDash([4, 10]);
-  [[0.95, 0.12], [0.55, 0.07]].forEach(([R, a]) => {
-    cx.strokeStyle = `rgba(250, 205, 165, ${a})`;
+  // Equatore astrolabico
+  cx.setLineDash([3, 8]);
+  [[1.02, 0.16], [0.58, 0.08]].forEach(([R, a]) => {
+    cx.strokeStyle = `rgba(232, 195, 130, ${a})`;
     cx.beginPath();
-    for (let i = 0; i <= 60; i++) {
-      const ang = (i / 60) * Math.PI * 2;
+    for (let i = 0; i <= 64; i++) {
+      const ang = (i / 64) * Math.PI * 2;
       project3D(Math.cos(ang) * R, 0, Math.sin(ang) * R, _p);
       if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
     }
     cx.stroke();
   });
+  // Meridiano verticale ortogonale
+  cx.strokeStyle = 'rgba(92, 225, 230, 0.09)';
+  cx.beginPath();
+  for (let i = 0; i <= 64; i++) {
+    const ang = (i / 64) * Math.PI * 2;
+    project3D(Math.cos(ang) * 1.02, Math.sin(ang) * 1.02, 0, _p);
+    if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+  }
+  cx.stroke();
   cx.restore();
 }
 
@@ -152,9 +163,9 @@ export function drawClusterLabels(cx, labels, alpha) {
   for (const L of labels) {
     project3D(L.x, L.y, L.z, _p);
     const a = clamp((_p.scale - 0.55) / 0.8, 0.22, 1) * alpha;
-    cx.font = `italic 600 ${Math.max(13, 17 * _p.scale)}px Fraunces, Georgia, serif`;
+    cx.font = `italic 600 ${Math.max(14, 19 * _p.scale)}px "Cormorant Garamond", Georgia, serif`;
     cx.globalAlpha = a;
-    cx.strokeStyle = 'rgba(10, 3, 1, 0.88)';
+    cx.strokeStyle = 'rgba(4, 7, 13, 0.9)';
     cx.strokeText(L.text, _p.sx, _p.sy);
     cx.fillStyle = L.color;
     cx.fillText(L.text, _p.sx, _p.sy);
@@ -168,7 +179,7 @@ function drawBackgroundArt(cx, t) {
   const s = Math.min(W, H) / 560;
   const rm = RM ? 0 : 1;
   const px = 0, py = 0;
-  const F = 'Fraunces,Georgia,serif';
+  const F = '"Cormorant Garamond",Georgia,serif';
 
   const cap = (a, b, x, y, rgb) => {
     const sg = rgb || 'rgba(250,214,176,';
@@ -191,7 +202,7 @@ function drawBackgroundArt(cx, t) {
   cx.rotate(-0.08 + Math.sin(t * 0.0004) * 0.018 * rm);
   cx.scale(s * 0.95, s * 0.95);
 
-  cx.strokeStyle = 'rgba(255,152,56,.68)';
+  cx.strokeStyle = 'rgba(232,195,130,.68)';
   cx.fillStyle = 'rgba(255,180,68,.09)';
   cx.lineWidth = 1.65;
   cx.beginPath();
@@ -218,13 +229,13 @@ function drawBackgroundArt(cx, t) {
   cx.arc(-71, -38, 1.8, 0, Math.PI * 2);
   cx.fill();
 
-  cx.strokeStyle = 'rgba(255,182,64,.62)';
+  cx.strokeStyle = 'rgba(232,195,130,.62)';
   cx.lineWidth = 1.4;
   cx.beginPath();
   cx.moveTo(42, 4);
   cx.quadraticCurveTo(130, 14, 224, 24);
   cx.stroke();
-  cx.strokeStyle = 'rgba(255,182,64,.42)';
+  cx.strokeStyle = 'rgba(232,195,130,.42)';
   cx.lineWidth = 1.2;
   cx.beginPath();
   for (let i = 1; i <= 15; i++) {
@@ -240,7 +251,7 @@ function drawBackgroundArt(cx, t) {
   cx.stroke();
 
   const fl = Math.sin(t * 0.0014) * 0.09 * rm;
-  cx.strokeStyle = 'rgba(255,214,96,.72)';
+  cx.strokeStyle = 'rgba(245,218,160,.72)';
   cx.lineWidth = 1.5;
   cx.beginPath();
   for (let k = 0; k < 11; k++) {
@@ -259,7 +270,7 @@ function drawBackgroundArt(cx, t) {
   cx.quadraticCurveTo(-35, -66, -41, -65);
   cx.stroke();
 
-  cx.strokeStyle = 'rgba(255,152,56,.66)';
+  cx.strokeStyle = 'rgba(232,195,130,.66)';
   cx.lineWidth = 1.6;
   cx.beginPath();
   cx.moveTo(2, 16);
@@ -272,7 +283,7 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(-17, 63);
   cx.stroke();
   cx.restore();
-  cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 106 * s, 'rgba(255,176,68,');
+  cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 106 * s, 'rgba(232,195,130,');
 
   // 2. PETTIROSSO
   cx.save();
@@ -311,8 +322,8 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  cx.fillStyle = 'rgba(255,104,54,.30)';
-  cx.strokeStyle = 'rgba(255,122,72,.78)';
+  cx.fillStyle = 'rgba(255,107,91,.30)';
+  cx.strokeStyle = 'rgba(255,107,91,.78)';
   cx.beginPath();
   cx.moveTo(22, -26);
   cx.bezierCurveTo(34, -18, 34, 4, 18, 15);
@@ -351,7 +362,7 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(11, 47);
   cx.stroke();
   cx.restore();
-  cap('Erithacus rubecula', 'il Pettirosso: erede vivente dei teropodi aviani', W * 0.22 - px * 0.9, H * 0.77 + py + 76 * s, 'rgba(255,152,102,');
+  cap('Erithacus rubecula', 'il Pettirosso: erede vivente dei teropodi aviani', W * 0.22 - px * 0.9, H * 0.77 + py + 76 * s, 'rgba(255,128,112,');
 
   // 3. GRILLO DI KAUAI
   cx.save();
@@ -360,8 +371,8 @@ function drawBackgroundArt(cx, t) {
   cx.translate(W * 0.78 + px * 1.2, H * 0.74 + py + Math.cos(t * 0.0006) * 5 * rm);
   cx.scale(s * 0.96, s * 0.96);
 
-  cx.strokeStyle = 'rgba(116,208,88,.68)';
-  cx.fillStyle = 'rgba(116,208,88,.11)';
+  cx.strokeStyle = 'rgba(78,230,168,.68)';
+  cx.fillStyle = 'rgba(78,230,168,.11)';
   cx.lineWidth = 1.65;
   cx.beginPath();
   cx.ellipse(-4, 2, 38, 12, -0.04, 0, Math.PI * 2);
@@ -381,8 +392,8 @@ function drawBackgroundArt(cx, t) {
   cx.arc(53, -5, 2, 0, Math.PI * 2);
   cx.fill();
 
-  cx.fillStyle = 'rgba(130,224,102,.14)';
-  cx.strokeStyle = 'rgba(130,224,102,.72)';
+  cx.fillStyle = 'rgba(92,225,230,.14)';
+  cx.strokeStyle = 'rgba(92,225,230,.72)';
   cx.beginPath();
   cx.moveTo(-28, -8);
   cx.quadraticCurveTo(2, -23, 30, -8);
@@ -390,7 +401,7 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  cx.strokeStyle = 'rgba(116,208,88,.55)';
+  cx.strokeStyle = 'rgba(78,230,168,.55)';
   cx.lineWidth = 1.3;
   cx.beginPath();
   [-1, 1].forEach(d => {
@@ -403,8 +414,8 @@ function drawBackgroundArt(cx, t) {
   });
   cx.stroke();
 
-  cx.fillStyle = 'rgba(116,208,88,.16)';
-  cx.strokeStyle = 'rgba(116,208,88,.76)';
+  cx.fillStyle = 'rgba(78,230,168,.16)';
+  cx.strokeStyle = 'rgba(78,230,168,.76)';
   cx.lineWidth = 1.6;
   cx.beginPath();
   cx.moveTo(-4, 6);
@@ -438,5 +449,5 @@ function drawBackgroundArt(cx, t) {
   }
   cx.setLineDash([]);
   cx.restore();
-  cap('Kauai: i grilli che hanno perso il canto', 'l’ala piatta li rende muti e li salva dalla mosca parassita', W * 0.78 + px * 1.2 - 20 * s, H * 0.74 + py + 72 * s, 'rgba(132,214,100,');
+  cap('Kauai: i grilli che hanno perso il canto', 'l’ala piatta li rende muti e li salva dalla mosca parassita', W * 0.78 + px * 1.2 - 20 * s, H * 0.74 + py + 72 * s, 'rgba(78,230,168,');
 }

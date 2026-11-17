@@ -148,17 +148,17 @@ function rasterize(cam, now) {
     const d3 = window.d3;
     const path = d3.geoPath(p, g);
     g.beginPath(); path({ type: 'Sphere' });
-    g.fillStyle = 'rgba(255, 190, 140, 0.04)'; g.fill();
-    g.strokeStyle = 'rgba(255, 214, 170, 0.22)'; g.lineWidth = 1; g.stroke();
+    g.fillStyle = 'rgba(92, 225, 230, 0.03)'; g.fill();
+    g.strokeStyle = 'rgba(232, 195, 130, 0.24)'; g.lineWidth = 1; g.stroke();
 
     if (!graticule) graticule = d3.geoGraticule10();
     g.beginPath(); path(graticule);
-    g.strokeStyle = 'rgba(255, 224, 188, 0.08)'; g.stroke();
+    g.strokeStyle = 'rgba(140, 195, 240, 0.08)'; g.stroke();
 
     if (land) {
       g.beginPath(); path(land);
-      g.fillStyle = 'rgba(246, 176, 120, 0.22)'; g.fill();
-      g.strokeStyle = 'rgba(255, 216, 174, 0.52)'; g.lineWidth = 0.9; g.stroke();
+      g.fillStyle = 'rgba(32, 68, 98, 0.42)'; g.fill();
+      g.strokeStyle = 'rgba(92, 225, 230, 0.48)'; g.lineWidth = 0.9; g.stroke();
     }
   }
   layerCam = { x: cam.x, y: cam.y, k: cam.k };
@@ -176,9 +176,9 @@ function drawGeoBg(cx) {
     geoBg.width = w; geoBg.height = h;
     const g = geoBg.getContext('2d');
     const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.8);
-    r.addColorStop(0, '#2c1409');
-    r.addColorStop(0.6, '#150804');
-    r.addColorStop(1, '#080201');
+    r.addColorStop(0, '#111e33');
+    r.addColorStop(0.6, '#070d18');
+    r.addColorStop(1, '#03050a');
     g.fillStyle = r;
     g.fillRect(0, 0, w, h);
   }
@@ -288,8 +288,8 @@ export function drawGeoHalos(cx) {
     haloSprite.width = haloSprite.height = 128;
     const g = haloSprite.getContext('2d');
     const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-    r.addColorStop(0, 'rgba(255, 170, 90, 0.26)');
-    r.addColorStop(1, 'rgba(255, 170, 90, 0)');
+    r.addColorStop(0, 'rgba(92, 225, 230, 0.24)');
+    r.addColorStop(1, 'rgba(92, 225, 230, 0)');
     g.fillStyle = r;
     g.fillRect(0, 0, 128, 128);
   }
@@ -301,16 +301,16 @@ export function drawGeoHalos(cx) {
     }
 
     if (Math.hypot(h.x - h.tx, h.y - h.ty) > 6) {
-      cx.strokeStyle = 'rgba(255, 200, 140, 0.45)';
+      cx.strokeStyle = 'rgba(232, 195, 130, 0.52)';
       cx.lineWidth = 1;
       cx.setLineDash([3, 4]);
       cx.beginPath(); cx.moveTo(h.tx, h.ty); cx.lineTo(h.x, h.y); cx.stroke();
       cx.setLineDash([]);
     }
 
-    cx.fillStyle = 'rgba(255, 190, 125, 0.24)';
+    cx.fillStyle = 'rgba(232, 195, 130, 0.24)';
     cx.beginPath(); cx.arc(h.tx, h.ty, 9, 0, Math.PI * 2); cx.fill();
-    cx.fillStyle = '#ffbe7d';
+    cx.fillStyle = '#e8c382';
     cx.beginPath(); cx.arc(h.tx, h.ty, 3.4, 0, Math.PI * 2); cx.fill();
   }
 }
@@ -320,19 +320,19 @@ export function drawGeoLabels(cx) {
   cx.textAlign = 'center';
   cx.lineJoin = 'round';
   cx.lineWidth = 3.5;
-  cx.strokeStyle = 'rgba(20, 8, 4, 0.85)';
+  cx.strokeStyle = 'rgba(4, 7, 13, 0.9)';
   for (const [id, n] of hubVis) {
     const h = hubLayout.get(id);
     if (!h) continue;
     const y = h.y + h.R * 0.85 + 15;
-    cx.font = 'italic 600 13px Fraunces, Georgia, serif';
+    cx.font = 'italic 600 14.5px "Cormorant Garamond", Georgia, serif';
     cx.strokeText(h.hub.label, h.x, y);
-    cx.fillStyle = 'rgba(255, 238, 218, 0.96)';
+    cx.fillStyle = 'rgba(242, 246, 252, 0.96)';
     cx.fillText(h.hub.label, h.x, y);
-    cx.font = '500 11px Figtree, sans-serif';
+    cx.font = '500 10.5px "JetBrains Mono", monospace';
     const sub = `${n} ${n === 1 ? 'tavola' : 'tavole'}`;
     cx.strokeText(sub, h.x, y + 15);
-    cx.fillStyle = 'rgba(246, 190, 140, 0.9)';
+    cx.fillStyle = 'rgba(232, 195, 130, 0.92)';
     cx.fillText(sub, h.x, y + 15);
   }
   cx.restore();
