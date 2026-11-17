@@ -125,10 +125,11 @@ export const SPECIMENS = [
       0.17
     ),
     summary:
-      'Discendente diretto dei dinosauri teropodi maniraptori: incarna la completa radiazione aviana con scheletro pneumatico leggero, becco corneo edentulo, pigostilo fuso e sofisticata comunicazione visivo-acustica.',
+      'Discendente diretto dei dinosauri teropodi maniraptori: incarna la completa radiazione aviana con scheletro pneumatico leggero, becco corneo edentulo, pigostilo fuso, comunicazione bivocale e una capsula quantica retinica a criptocromo-4 per la magnetoricezione.',
     history: [
       'Dal punto di vista filogenetico, ogni passeriforme vivente è un dinosauro teropode aviano. In 150 milioni di anni di evoluzione, la linea che da forme simili ad Archaeopteryx porta a Erithacus rubecula ha fuso le vertebre caudali nel pigostilo, sostituito i denti con un becco leggero e sviluppato uno sterno carenato ad alta efficienza.',
-      'Celebre negli studi etologici di David Lack, il pettirosso impiega lo scudo pettorale arancio-rosso come segnale territoriale innato (difeso da entrambi i sessi tutto l’anno) e utilizza nella retina proteine criptocromo-4 sensibili al campo geomagnetico terrestre per orientarsi nelle migrazioni.'
+      'Celebre negli studi etologici di David Lack, il pettirosso impiega lo scudo pettorale arancio-rosso come segnale territoriale innato (difeso da entrambi i sessi tutto l’anno) e modula nella siringe due flussi acustici indipendenti per comunicare nel sottobosco.',
+      'La capsula quantica dei pettirossi: organismo modello della biologia quantistica, Erithacus rubecula ospita nei fotorecettori a doppio cono della retina la flavoproteina criptocromo-4 (Cry4). L’assorbimento di fotoni di luce blu innesca una “capsula quantica” a coppie di radicali (FAD•− e residui di triptofano) con spin elettronici entangled: l’inclinazione del campo geomagnetico terrestre altera la transizione tra stati di singoletto e tripletto, sovrapponendo al campo visivo dell’uccello una vera bussola quantistica per le migrazioni.'
     ],
     callouts: [
       {
@@ -170,6 +171,14 @@ export const SPECIMENS = [
         short: 'Articolazione aviana per salto e posa',
         detail: 'La fusione delle ossa tarsali e metatarsali crea una leva elastica leggera che consente sia il salto agile sul terreno sia la presa sicura sui rami.',
         pos: [0.06, 0.72, 0.16]
+      },
+      {
+        id: 'quantum_capsule',
+        code: '06',
+        label: 'Capsula quantica retinica',
+        short: 'Bussola a coppie di radicali (Cry4)',
+        detail: 'Nei fotorecettori a doppio cono della retina, la proteina criptocromo-4 racchiude una capsula quantica foto-attivata: i fotoni blu generano coppie di radicali con spin entangled la cui dinamica singoletto-tripletto risponde all’inclinazione del campo geomagnetico terrestre.',
+        pos: [0.43, -0.39, 0.14]
       }
     ]
   },
@@ -255,15 +264,45 @@ let activeCalloutBoxes = [];
 const _p = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
 const _p2 = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
 const _p3 = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
+const FOV_LOCAL = 2.6;
 
 function projLocal(spec, lx, ly, lz, out = _p) {
   const s = spec.modelScale;
-  return project3D(
-    spec.anchor.x + lx * s,
-    spec.anchor.y + ly * s,
-    spec.anchor.z + lz * s,
-    out
-  );
+  const isSelected = state.specimenSel >= 0 && SPECIMENS[state.specimenSel] === spec;
+  if (isSelected) {
+    return project3D(
+      spec.anchor.x + lx * s,
+      spec.anchor.y + ly * s,
+      spec.anchor.z + lz * s,
+      out
+    );
+  }
+
+  // Durante la rotazione delle immagini nella vista 3D generale, l'ancora ruota
+  // con la costellazione ma gli assi locali dell'archetipo restano invariati.
+  const { W, H } = state;
+  const c = state.cam3D;
+  const m = c.rot;
+  const dx = spec.anchor.x - (c.targetX || 0);
+  const dy = spec.anchor.y - (c.targetY || 0);
+  const dz = spec.anchor.z - (c.targetZ || 0);
+
+  const ax1 = m[0] * dx + m[1] * dy + m[2] * dz;
+  const ay2 = m[4] * dx + m[5] * dy + m[6] * dz;
+  const az2 = m[8] * dx + m[9] * dy + m[10] * dz;
+
+  const x1 = ax1 + lx * s;
+  const y2 = ay2 + ly * s;
+  const z2 = az2 + lz * s;
+
+  const depth = FOV_LOCAL / Math.max(0.35, FOV_LOCAL + z2);
+  const baseScale = W <= 760 ? 0.48 : 0.44;
+  const k = Math.min(W, H) * baseScale * c.zoom * depth;
+  out.sx = W / 2 + c.panX + x1 * k;
+  out.sy = H / 2 + c.panY + y2 * k;
+  out.scale = depth;
+  out.zOrder = z2;
+  return out;
 }
 
 function specimenColor(spec) {
@@ -686,13 +725,28 @@ function drawPettirosso3D(cx, spec, t, sa, fa, col, rgb) {
   projLocal(spec, 0.81, -0.35 + headBob, 0, _p); cx.lineTo(_p.sx, _p.sy);
   cx.stroke();
 
-  // Occhio bilaterale con anello perioculare
+  // Occhio bilaterale con anello perioculare e capsula quantica retinica (Cry4)
+  const qSpin = rm ? t * 0.0016 : 0.4;
+  const qHot = state.specimenSel === 1 && state.calloutSel === 5;
   for (const side of [-1, 1]) {
     projLocal(spec, 0.43, -0.39 + headBob, side * 0.13, _p);
+    const eyeR = Math.max(2.4, 3.8 * _p.scale);
     cx.fillStyle = col;
     cx.beginPath();
-    cx.arc(_p.sx, _p.sy, Math.max(2.4, 3.8 * _p.scale), 0, Math.PI * 2);
+    cx.arc(_p.sx, _p.sy, eyeR, 0, Math.PI * 2);
     cx.fill();
+
+    // Guscio quantico a coppie di radicali intorno alla retina
+    cx.save();
+    cx.strokeStyle = col;
+    cx.lineWidth = qHot ? 1.45 : 0.95;
+    cx.globalAlpha = (qHot ? 0.92 : 0.48) * sa;
+    cx.setLineDash([3, 3]);
+    cx.beginPath();
+    cx.arc(_p.sx, _p.sy, eyeR * (qHot ? 2.45 : 1.95), qSpin * side, qSpin * side + Math.PI * 1.45);
+    cx.stroke();
+    cx.setLineDash([]);
+    cx.restore();
   }
 
   // 5. Ali piegate bilaterali con copritrici e remiganti sovrapposte
@@ -1027,13 +1081,14 @@ function drawOrbitalPlane3D(cx, spec, isSelected, isHovered, t) {
 
   cx.beginPath();
   const steps = isSelected ? 72 : 48;
+  const invS = 1 / spec.modelScale;
   for (let i = 0; i <= steps; i++) {
     const ang = (i / steps) * Math.PI * 2;
     const ca = Math.cos(ang), sa = Math.sin(ang);
-    const wx = ax + R * (ca * u[0] + sa * v[0]);
-    const wy = ay + R * (ca * u[1] + sa * v[1]);
-    const wz = az + R * (ca * u[2] + sa * v[2]);
-    project3D(wx, wy, wz, _p);
+    const lx = R * (ca * u[0] + sa * v[0]) * invS;
+    const ly = R * (ca * u[1] + sa * v[1]) * invS;
+    const lz = R * (ca * u[2] + sa * v[2]) * invS;
+    projLocal(spec, lx, ly, lz, _p);
     if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
   }
   cx.stroke();
