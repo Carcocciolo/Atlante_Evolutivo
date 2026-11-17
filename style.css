@@ -2,7 +2,7 @@
    Atlante Evolutivo — stile ad alte prestazioni (zero blur GPU)
    ============================================================ */
 :root {
-  --bg: #0b0706;
+  --bg: #140805;
   --glass: rgba(26, 11, 5, 0.88);
   --glass-solid: rgba(20, 8, 4, 0.96);
   --ink: #fbeee0;
@@ -38,7 +38,7 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; curso
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 45%, transparent 50%, rgba(4, 2, 2, 0.65) 100%);
+  background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(8, 3, 1, 0.5) 100%);
 }
 
 /* ---------- elementi comuni ---------- */

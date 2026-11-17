@@ -227,9 +227,7 @@ function exportCSV() {
     i.r.id, i.r.filename || '', i.cat, i.siteName, i.geoStatus,
     i.lon.toFixed(4), i.lat.toFixed(4), i.tx.toFixed(4), i.ty.toFixed(4), i.tz.toFixed(4)
   ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
-  const blob = new Blob(['﻿' + head.join(',') + '
-' + rows.join('
-')], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob(['\uFEFF' + head.join(',') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'atlante_coordinate.csv';
