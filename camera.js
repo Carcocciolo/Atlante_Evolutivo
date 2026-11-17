@@ -85,24 +85,30 @@ function lerpRot(cur, goal, k) {
 /**
  * Calcola la matrice di rotazione della camera sul piano orbitale dedicato
  * di uno specifico archetipo evolutivo alla fase `phase` e elevazione `elev`.
+ * Nel sistema di proiezione canvas +Y è verso il basso, quindi la normale n
+ * (con n[1] > 0) mantiene sempre l'orientamento verticale corretto senza capovolgimenti.
  */
 export function computeOrbitalRotation(spec, phase, elev, outRot = new Float64Array(16)) {
   const { u, v, n } = spec.orbitalPlane;
   const cp = Math.cos(phase), sp = Math.sin(phase);
   const ce = Math.cos(elev), se = Math.sin(elev);
 
+  // Garantisce che la normale di riferimento punti sempre verso +Y (basso schermo)
+  const sign = n[1] >= 0 ? 1 : -1;
+  const nx = n[0] * sign, ny = n[1] * sign, nz = n[2] * sign;
+
   // Vettore radiale dal centro dello specimen verso la camera nel suo piano orbitale
-  const rx = ce * (cp * u[0] + sp * v[0]) - se * n[0];
-  const ry = ce * (cp * u[1] + sp * v[1]) - se * n[1];
-  const rz = ce * (cp * u[2] + sp * v[2]) - se * n[2];
+  const rx = ce * (cp * u[0] + sp * v[0]) - se * nx;
+  const ry = ce * (cp * u[1] + sp * v[1]) - se * ny;
+  const rz = ce * (cp * u[2] + sp * v[2]) - se * nz;
 
   // Asse Z camera (direzione di profondità lungo la visuale)
   let zx = -rx, zy = -ry, zz = -rz;
   const zl = Math.hypot(zx, zy, zz) || 1;
   zx /= zl; zy /= zl; zz /= zl;
 
-  // L'alto della camera segue la normale del piano orbitale (-n)
-  const ux = -n[0], uy = -n[1], uz = -n[2];
+  // Asse +Y camera allineato alla normale del piano orbitale (così -Y resta l'alto sullo schermo)
+  const ux = nx, uy = ny, uz = nz;
 
   // X = normalize(up x Z)
   let xx = uy * zz - uz * zy;
@@ -143,7 +149,6 @@ export function stepCamera(dt) {
     const activeSpec = s.specimenSel >= 0 ? SPECIMENS[s.specimenSel] : null;
 
     if (activeSpec) {
-      // Vista orbitale bloccata sul piano orbitale proprio dell'organismo
       if (!s.drag) {
         if (s.autoRotate && !instant) {
           s.orbitPhase += dt * 0.24;
@@ -327,7 +332,7 @@ export function focusOnSpecimen(spec) {
   g.targetZ = spec.anchor.z;
 
   computeOrbitalRotation(spec, state.orbitPhase, state.orbitElev, g.rot);
-  g.zoom = state.W <= 760 ? 1.88 : 2.38;
+  g.zoom = state.W <= 760 ? 1.65 : 1.98;
   g.panX = want.x - state.W / 2;
   g.panY = want.y - state.H / 2;
   state.dirty = true;
@@ -342,11 +347,9 @@ export function focusOnCallout(spec, calloutIdx) {
   const c = spec.callouts[calloutIdx];
   const [lx, ly, lz] = c.pos;
   const { u, v } = spec.orbitalPlane;
-  // Proietta il vettore locale del callout sulla base (u, v) del piano orbitale
   const pu = lx * u[0] + ly * u[1] + lz * u[2];
   const pv = lx * v[0] + ly * v[1] + lz * v[2];
   if (Math.hypot(pu, pv) > 1e-4) {
-    // Leggero offset di 0.36 rad per evitare scorcio frontale piatto
     state.orbitPhase = Math.atan2(pv, pu) + 0.36;
   }
   state.orbitElev = spec.orbitalPlane.initialElev;
