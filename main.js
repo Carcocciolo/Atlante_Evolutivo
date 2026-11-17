@@ -254,7 +254,7 @@ function drawLinks(t) {
     cx.lineWidth = 1.6;
     cx.setLineDash([6, 8]);
     cx.lineDashOffset = (RM || S.ecoMode) ? 0 : -t * 0.04;
-    cx.strokeStyle = '#e8c382';
+    cx.strokeStyle = '#f2a65a';
     for (const k of [S.hov, S.sel]) {
       if (k < 0 || !items[k]) continue;
       cx.globalAlpha = k === S.sel ? 0.85 : 0.55;
@@ -336,7 +336,7 @@ function drawNode(i, big, is3D, baseSize) {
   // Ombra morbida espansa quando la tavola è sollevata
   if (!S.ecoMode) {
     const lift = 1 + it.hs * 1.4;
-    cx.fillStyle = big ? 'rgba(2, 4, 8, 0.65)' : 'rgba(2, 4, 8, 0.45)';
+    cx.fillStyle = big ? 'rgba(6, 2, 1, 0.65)' : 'rgba(6, 2, 1, 0.45)';
     cx.fillRect(-s / 2 - pad + s * 0.03 * lift, -s / 2 - pad + s * 0.055 * lift, w, h);
   }
 
@@ -360,7 +360,7 @@ function drawNode(i, big, is3D, baseSize) {
   // Bordo luminoso su hover o selezione
   if (big || S.hov === i) {
     cx.lineWidth = big ? 2.5 : 1.8;
-    cx.strokeStyle = big ? '#e8c382' : c;
+    cx.strokeStyle = big ? '#f2a65a' : c;
     cx.strokeRect(-s / 2 - pad, -s / 2 - pad, w, h);
   }
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -398,7 +398,7 @@ function drawOverlays(t, is3D) {
 
   const sp = (t - S.switchT) / 520;
   if (!S.ecoMode && sp < 1) {
-    cx.fillStyle = `rgba(4, 7, 13, ${0.92 * (1 - sp) ** 2})`;
+    cx.fillStyle = `rgba(11, 4, 2, ${0.92 * (1 - sp) ** 2})`;
     cx.fillRect(0, 0, S.W, S.H);
     flags.busy = true;
   }
@@ -455,7 +455,7 @@ function render(t, dt) {
   }
 
   if (S.focus > 0.01) {
-    cx.fillStyle = `rgba(3, 6, 12, ${0.42 * S.focus})`;
+    cx.fillStyle = `rgba(8, 3, 1, ${0.42 * S.focus})`;
     cx.fillRect(0, 0, W, H);
   }
 

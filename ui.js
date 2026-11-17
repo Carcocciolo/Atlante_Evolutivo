@@ -10,7 +10,7 @@ import { playClick, playSelect, playSwitch, syncMusic, unlockAudio } from './aud
 const $ = (s, root = document) => root.querySelector(s);
 const body = document.body;
 
-const PREFS_KEY = 'atlante:prefs:v11';
+const PREFS_KEY = 'atlante:prefs:v13';
 
 function loadPrefs() {
   try {
