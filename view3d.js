@@ -166,10 +166,7 @@ export function draw3DBackground(cx, t, focus) {
   drawArmillary(cx);
   drawClusterNebulae(cx, focus);
 
-  cx.save();
-  cx.globalAlpha = 1 - 0.65 * focus;
-  drawBackgroundArt(cx, t);
-  cx.restore();
+  drawBackgroundArt(cx, t, 1 - 0.65 * focus);
 }
 
 /** Nome di ogni gruppo sospeso al centro della sua nuvola di tavole. */
@@ -200,7 +197,7 @@ function artHighlight(catName) {
 }
 
 /* ---------- illustrazioni di sfondo (Archaeopteryx, pettirosso, grillo) ---------- */
-function drawBackgroundArt(cx, t) {
+function drawBackgroundArt(cx, t, baseAlpha = 1) {
   const { W, H, cam3D } = state;
   const s = Math.min(W, H) / 560;
   const rm = RM ? 0 : 1;
@@ -224,7 +221,7 @@ function drawBackgroundArt(cx, t) {
   // 1. ARCHAEOPTERYX
   const hArch = artHighlight('Archaeopteryx');
   cx.save();
-  cx.globalAlpha *= clamp(hArch, 0.35, 1.3);
+  cx.globalAlpha = baseAlpha * clamp(hArch, 0.35, 1.3);
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.56 + px, H * 0.21 + py + Math.sin(t * 0.0005) * 7 * rm);
@@ -317,7 +314,7 @@ function drawBackgroundArt(cx, t) {
   // 2. PETTIROSSO — Erithacus rubecula
   const hRob = artHighlight('Pettirossi');
   cx.save();
-  cx.globalAlpha *= clamp(hRob, 0.35, 1.3);
+  cx.globalAlpha = baseAlpha * clamp(hRob, 0.35, 1.3);
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.22 - px * 0.9, H * 0.77 + py + Math.sin(t * 0.0006 + 1.2) * 5 * rm);
@@ -398,7 +395,7 @@ function drawBackgroundArt(cx, t) {
   // 3. GRILLO DI KAUAI — Teleogryllus oceanicus
   const hGril = artHighlight('Grilli');
   cx.save();
-  cx.globalAlpha *= clamp(hGril, 0.35, 1.3);
+  cx.globalAlpha = baseAlpha * clamp(hGril, 0.35, 1.3);
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.78 + px * 1.2, H * 0.74 + py + Math.cos(t * 0.0006) * 5 * rm);
