@@ -20,8 +20,17 @@ export function setLoader(done, total, label = 'Carico le tavole') {
 }
 
 export function openWelcome(on) {
+  if (on) openContacts(false);
   $('#welcome').hidden = !on;
   if (on) $('#fi').focus({ preventScroll: true });
+}
+
+export function openContacts(on) {
+  if (on) openWelcome(false);
+  $('#contacts').hidden = !on;
+  const btn = $('#open-contacts');
+  if (btn) btn.setAttribute('aria-pressed', on);
+  if (on) $('#close-contacts').focus({ preventScroll: true });
 }
 
 /* ---------- filtri ---------- */
@@ -299,51 +308,13 @@ export function bindUI() {
   $('#cp').onclick = exportCSV;
   $('#open-data').onclick = () => openWelcome($('#welcome').hidden);
   $('#close-welcome').onclick = () => openWelcome(false);
+  $('#open-contacts').onclick = () => openContacts($('#contacts').hidden);
+  $('#close-contacts').onclick = () => openContacts(false);
+  $('#contacts').onclick = e => { if (e.target === e.currentTarget) openContacts(false); };
+  $('#welcome').onclick = e => { if (e.target === e.currentTarget) openWelcome(false); };
 
   const lb = $('#lightbox');
   $('#big').onclick = () => {
     const it = state.items[state.sel];
     if (!it || !it.src) return;
-    $('img', lb).src = it.src;
-    lb.hidden = false;
-  };
-  lb.onclick = () => { lb.hidden = true; };
-
-  $('#md').onclick = e => {
-    state.mode = state.mode === 'thumb' ? 'dot' : 'thumb';
-    e.currentTarget.setAttribute('aria-pressed', state.mode === 'thumb');
-    markDirty();
-  };
-
-  $('#q').oninput = e => {
-    state.q = e.target.value.trim().toLowerCase();
-    refreshVis();
-    updateCount();
-  };
-
-  addEventListener('keydown', e => {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.target.closest('input, textarea')) {
-      if (e.key === 'Escape') e.target.blur();
-      return;
-    }
-    switch (e.key) {
-      case 'Escape':
-        if (!$('#lightbox').hidden) $('#lightbox').hidden = true;
-        else if (!$('#welcome').hidden) openWelcome(false);
-        else closeSelection();
-        break;
-      case 'ArrowRight': stepSelection(1); break;
-      case 'ArrowLeft': stepSelection(-1); break;
-      case '+': case '=': zoomBy(1.2); break;
-      case '-': case '_': zoomBy(1 / 1.2); break;
-      case '0': closeSelection(); resetView(); break;
-      case 'g': case 'G': setViewMode(state.viewMode === '3d' ? 'geo' : '3d'); break;
-      case ' ':
-        if (state.viewMode === '3d') { e.preventDefault(); toggleAutoRotate(); }
-        break;
-      case '/': e.preventDefault(); $('#q').focus(); break;
-      default: return;
-    }
-  });
-}
+    $('img',
