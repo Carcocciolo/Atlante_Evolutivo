@@ -13,7 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/d3-geo@3.1.1/dist/d3-geo.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js" defer></script>
 </head>
-<body data-view="3d">
+<body data-view="3d" data-theme="auto" data-palette="amber">
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
       <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></symbol>
@@ -116,7 +116,30 @@
     <div class="card settings-card" role="dialog" aria-modal="true" aria-labelledby="st-title">
       <button type="button" id="close-settings" class="icon-btn" aria-label="Chiudi" title="Chiudi (Esc)"><svg class="ic"><use href="#i-close"/></svg></button>
       <h2 id="st-title">Configurazione</h2>
-      <p class="st-sub">Regola l’esperienza audiovisiva e la resa grafica dell’atlante.</p>
+      <p class="st-sub">Personalizza atmosfera, colori e comportamento dell’atlante.</p>
+      <section class="appearance-box" aria-label="Aspetto della pagina">
+        <div class="appearance-heading">
+          <span class="appearance-icon">✦</span>
+          <div><strong>Aspetto della pagina</strong><small>La scelta viene salvata automaticamente</small></div>
+        </div>
+        <label class="setting-select-label" for="opt-theme">Modalità</label>
+        <select id="opt-theme" class="setting-select">
+          <option value="auto">Automatico · segue il dispositivo</option>
+          <option value="dark">Scuro</option>
+          <option value="light">Chiaro</option>
+        </select>
+        <label class="setting-select-label" for="opt-palette">Palette cromatica</label>
+        <select id="opt-palette" class="setting-select">
+          <option value="amber">Ambra · originale</option>
+          <option value="ocean">Oceano · blu petrolio</option>
+          <option value="forest">Bosco · verde salvia</option>
+          <option value="violet">Iris · viola</option>
+          <option value="rose">Rosa antico</option>
+        </select>
+        <div class="palette-preview" aria-hidden="true">
+          <i data-p="amber"></i><i data-p="ocean"></i><i data-p="forest"></i><i data-p="violet"></i><i data-p="rose"></i>
+        </div>
+      </section>
       <div class="st-list">
         <label class="st-item" for="opt-sound">
           <span class="st-text">
