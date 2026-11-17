@@ -1,8 +1,8 @@
 /* ============================================================
    loader.js — caricamento immagini con preferenza automatica
-   per WebP, decodifica ridimensionata e ingresso coreografico
+   per WebP, decodifica ridimensionata in hardware, vicini visivi
    ============================================================ */
-import { CONFIG, RM, state, msg, parseCSV, setItemImage, feat, prep, tsne3D, refreshVis, markDirty } from './data.js';
+import { CONFIG, state, msg, parseCSV, setItemImage, feat, prep, tsne3D, refreshVis, markDirty } from './data.js';
 import { assignHubRanks } from './geo.js';
 import {
   initItemsSkeleton, buildChips, updateCount, setLoader, openWelcome, closeSelection
@@ -46,20 +46,13 @@ async function finalizeLayout() {
   const F = prep(state.items.map(i => feat(i.th)));
   await tsne3D(F, p => setLoader(p * 100, 100, 'Dispongo le tavole'));
   computeNeighbors();
-
-  // Ingresso coreografico: espansione dal centro e carrellata dolce della camera
-  if (!RM && state.viewMode === '3d' && state.sel < 0) {
-    const now = performance.now();
-    state.items.forEach((it, i) => {
-      it.x *= 0.18; it.y *= 0.18; it.z *= 0.18;
-      it.b = now + i * 9;
-    });
-    state.cam3D.zoom = 0.72;
-    state.goal3D.zoom = 1.0;
-  }
   markDirty();
 }
 
+/**
+ * Decodifica un Blob direttamente alla dimensione della miniatura tramite createImageBitmap.
+ * Evita di allocare bitmap giganteschi da 4000x3000px in RAM/VRAM quando servono 144px!
+ */
 async function decodeThumbBitmap(blob) {
   const S = CONFIG.thumb * 2;
   try {
@@ -101,7 +94,7 @@ async function loadRows(rows, resolver) {
   state.busy = false;
 }
 
-/* ---------- caricamento automatico dal progetto ---------- */
+/* ---------- caricamento automatico dal progetto (tenta prima .webp, poi l'originale) ---------- */
 export async function autoload() {
   try {
     const res = await fetch(CONFIG.csv);
@@ -173,7 +166,7 @@ async function loadExample() {
   await loadRows(rows, async (_, i) => ({ bitmap: await samplePlate(i % 3), src: null }));
 }
 
-/* ---------- caricamento da file scelti dall'utente ---------- */
+/* ---------- caricamento da file scelti dall'utente (supporta anche .webp con stesso nome base) ---------- */
 async function loadFromFiles() {
   const imgs = [...$('#fi').files];
   const csv = $('#fc').files[0];
@@ -186,6 +179,7 @@ async function loadFromFiles() {
     const low = f.name.toLowerCase();
     exactMap.set(low, f);
     const base = low.replace(/\.[^.]+$/, '');
+    // Se ci sono sia .jpg che .webp con lo stesso nome, preferisce .webp
     if (!baseMap.has(base) || low.endsWith('.webp')) {
       baseMap.set(base, f);
     }

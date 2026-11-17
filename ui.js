@@ -1,6 +1,6 @@
 /* ============================================================
-   ui.js — pannelli, scheda della tavola, filtri con hover
-   interattivo, dock dei controlli e scorciatoie da tastiera
+   ui.js — pannelli, scheda della tavola, filtri, dock dei
+   controlli e scorciatoie da tastiera
    ============================================================ */
 import { state, esc, msg, markDirty, refreshVis, getNotes, CAT_COLORS, PAL } from './data.js';
 import { assignGeoHub, assignHubRanks } from './geo.js';
@@ -42,12 +42,9 @@ export function buildChips() {
     b.style.setProperty('--c', state.col[cat]);
     b.setAttribute('aria-pressed', state.on.has(cat));
     b.innerHTML = `<i></i>${esc(cat)}<small>${counts[cat]}</small>`;
-    b.onpointerenter = () => { state.hovCat = cat; markDirty(); };
-    b.onpointerleave = () => { if (state.hovCat === cat) { state.hovCat = ''; markDirty(); } };
     b.onclick = () => {
       state.on.has(cat) ? state.on.delete(cat) : state.on.add(cat);
       b.setAttribute('aria-pressed', state.on.has(cat));
-      if (!state.on.has(cat) && state.hovCat === cat) state.hovCat = '';
       refreshVis();
       updateCount();
     };

@@ -1,6 +1,5 @@
 /* ============================================================
-   main.js — ciclo di rendering ultra-fluido, archi curvi,
-   micro-tilt organico sulle polaroid, input e avvio
+   main.js — ciclo di rendering ultra-fluido, input, hover e avvio
    ============================================================ */
 import { state, RM, CARD, ease, clamp, rgba, esc, markDirty } from './data.js';
 import {
@@ -35,19 +34,6 @@ function glow(color) {
   g.fillRect(0, 0, 96, 96);
   glowCache.set(color, c);
   return c;
-}
-
-/** Disegna un arco di Bezier morbido incurvato verso l'esterno rispetto al centro schermo. */
-function drawArc(cx, ax, ay, bx, by, W, H) {
-  const mx = (ax + bx) * 0.5;
-  const my = (ay + by) * 0.5;
-  const vx = mx - W * 0.5;
-  const vy = my - H * 0.5;
-  const len = Math.hypot(vx, vy) || 1;
-  const dist = Math.hypot(bx - ax, by - ay);
-  const bow = Math.min(46, dist * 0.22);
-  cx.moveTo(ax, ay);
-  cx.quadraticCurveTo(mx + (vx / len) * bow, my + (vy / len) * bow, bx, by);
 }
 
 /* ---------- picking ---------- */
@@ -107,7 +93,7 @@ function render(t, dt) {
   }
 
   if (S.focus > 0.01) {
-    cx.fillStyle = `rgba(8, 2, 1, ${0.38 * S.focus})`;
+    cx.fillStyle = `rgba(12, 4, 2, ${0.34 * S.focus})`;
     cx.fillRect(0, 0, W, H);
   }
 
@@ -154,10 +140,10 @@ function render(t, dt) {
   for (let i = 0; i < n; i++) order[i] = i;
   order.sort((a, b) => S.proj[b].zOrder - S.proj[a].zOrder);
 
-  /* --- legami curvi tra tavole simili (solo in vista 3D) --- */
+  /* --- legami tra tavole simili (solo in vista 3D) --- */
   if (n && is3D) {
     cx.lineWidth = 1;
-    cx.globalAlpha = 0.16 * (1 - 0.6 * S.focus);
+    cx.globalAlpha = 0.17 * (1 - 0.6 * S.focus);
     for (const cat of Object.keys(col)) {
       cx.beginPath();
       for (let i = 0; i < n; i++) {
@@ -166,7 +152,7 @@ function render(t, dt) {
         for (let k = 0; k < 2 && k < a.nn.length; k++) {
           const b = items[a.nn[k]];
           if (!b || !b.vis) continue;
-          drawArc(cx, a.sx, a.sy, b.sx, b.sy, W, H);
+          cx.moveTo(a.sx, a.sy); cx.lineTo(b.sx, b.sy);
         }
       }
       cx.strokeStyle = col[cat];
@@ -174,19 +160,19 @@ function render(t, dt) {
     }
   }
 
-  /* --- legami attivi curvi su hover/selezione --- */
+  /* --- legami attivi su hover/selezione --- */
   if (n && (S.hov >= 0 || S.sel >= 0)) {
-    cx.lineWidth = 1.65;
+    cx.lineWidth = 1.6;
     cx.setLineDash([6, 8]);
     cx.lineDashOffset = -t * 0.04;
     cx.strokeStyle = '#ffe2bd';
     for (const k of [S.hov, S.sel]) {
       if (k < 0 || !items[k]) continue;
-      cx.globalAlpha = k === S.sel ? 0.88 : 0.58;
+      cx.globalAlpha = k === S.sel ? 0.85 : 0.55;
       cx.beginPath();
       for (const j of items[k].nn) {
         if (!items[j] || !items[j].vis) continue;
-        drawArc(cx, items[k].sx, items[k].sy, items[j].sx, items[j].sy, W, H);
+        cx.moveTo(items[k].sx, items[k].sy); cx.lineTo(items[j].sx, items[j].sy);
       }
       cx.stroke();
     }
@@ -195,15 +181,14 @@ function render(t, dt) {
     if (!RM) busy = true;
   }
 
-  /* --- tavole: micro-inclinazione organica a riposo, dritta su hover/selezione --- */
+  /* --- tavole: fast-path senza save()/restore()/rotate() --- */
   const margin = baseSize * 2.2;
   const drawNode = (i, big) => {
     const it = items[i], o = S.proj[i];
     if (!big && (o.sx < -margin || o.sx > W + margin || o.sy < -margin || o.sy > H + margin)) return;
 
     const c = col[it.cat];
-    const catDim = (S.hovCat && S.hovCat !== it.cat && !big) ? 0.34 : 1;
-    const dim = ((S.sel >= 0 && !big) ? 1 - 0.66 * S.focus : 1) * catDim;
+    const dim = (S.sel >= 0 && !big) ? 1 - 0.66 * S.focus : 1;
     const depth = (is3D ? clamp(o.scale * 0.92, 0.35, 1) : 1) * dim;
 
     if (it.vf < 0.98) {
@@ -214,10 +199,10 @@ function render(t, dt) {
     if (it.vf < 0.02) return;
 
     const live = it.ready && mode === 'thumb';
-    if (big || (i === S.hov && live) || (S.hovCat && S.hovCat === it.cat && live)) {
-      const R = (live ? o.size : 22) * (big ? 1.55 : 1.35);
+    if (big || (i === S.hov && live)) {
+      const R = (live ? o.size : 22) * 1.5;
       cx.globalCompositeOperation = 'lighter';
-      cx.globalAlpha = (big ? 0.58 : 0.34) * depth;
+      cx.globalAlpha = (big ? 0.55 : 0.4) * depth;
       cx.drawImage(glow(c), o.sx - R, o.sy - R, R * 2, R * 2);
       cx.globalCompositeOperation = 'source-over';
     }
@@ -238,33 +223,18 @@ function render(t, dt) {
 
     const s = o.size, pad = s * CARD.pad;
     const w = s * (1 + 2 * CARD.pad), h = s * (1 + CARD.pad + CARD.bottom);
-    const tilt = big ? 0 : (((i * 2654435761) % 100) / 100 - 0.5) * 0.11 * (1 - it.hs);
+    const x0 = Math.round(o.sx - s / 2 - pad);
+    const y0 = Math.round(o.sy - s / 2 - pad);
 
     cx.globalAlpha = Math.min(1, it.a * 1.4) * depth * it.vf;
-    if (Math.abs(tilt) > 0.002) {
-      const cos = Math.cos(tilt), sin = Math.sin(tilt);
-      cx.setTransform(dpr * cos, dpr * sin, -dpr * sin, dpr * cos, dpr * o.sx, dpr * o.sy);
-      const x0 = -s / 2 - pad, y0 = -s / 2 - pad;
-      cx.fillStyle = 'rgba(4, 1, 0, 0.45)';
-      cx.fillRect(x0 + s * 0.04, y0 + s * 0.06, w, h);
-      cx.drawImage(it.card, x0, y0, w, h);
-      if (S.hov === i) {
-        cx.lineWidth = 2;
-        cx.strokeStyle = c;
-        cx.strokeRect(x0, y0, w, h);
-      }
-      cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    } else {
-      const x0 = Math.round(o.sx - s / 2 - pad);
-      const y0 = Math.round(o.sy - s / 2 - pad);
-      cx.fillStyle = 'rgba(4, 1, 0, 0.45)';
-      cx.fillRect(x0 + s * 0.04, y0 + s * 0.06, w, h);
-      cx.drawImage(it.card, x0, y0, w, h);
-      if (big || S.hov === i) {
-        cx.lineWidth = big ? 3 : 2;
-        cx.strokeStyle = big ? '#ee9a5b' : c;
-        cx.strokeRect(x0, y0, w, h);
-      }
+    cx.fillStyle = 'rgba(8, 3, 1, 0.36)';
+    cx.fillRect(x0 + s * 0.03, y0 + s * 0.05, w, h);
+    cx.drawImage(it.card, x0, y0, w, h);
+
+    if (big || S.hov === i) {
+      cx.lineWidth = big ? 3 : 2;
+      cx.strokeStyle = big ? '#ee9a5b' : c;
+      cx.strokeRect(x0, y0, w, h);
     }
   };
 
@@ -287,7 +257,7 @@ function render(t, dt) {
       const a = acc[cat];
       if (a.n >= 2) labels.push({ text: cat, color: col[cat], x: a.x / a.n, y: a.top - 0.16, z: a.z / a.n });
     }
-    drawClusterLabels(cx, labels, 0.78 * (1 - 0.7 * S.focus));
+    drawClusterLabels(cx, labels, 0.75 * (1 - 0.7 * S.focus));
   } else if (n) drawGeoLabels(cx);
 
   /* --- onda d'urto alla selezione --- */
@@ -313,7 +283,7 @@ function render(t, dt) {
   /* --- dissolvenza al cambio vista --- */
   const sp = (t - S.switchT) / 520;
   if (sp < 1) {
-    cx.fillStyle = `rgba(10, 3, 1, ${0.92 * (1 - sp) ** 2})`;
+    cx.fillStyle = `rgba(20, 8, 4, ${0.92 * (1 - sp) ** 2})`;
     cx.fillRect(0, 0, W, H);
     busy = true;
   }
