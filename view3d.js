@@ -37,11 +37,28 @@ export function buildBackground() {
   bg = document.createElement('canvas');
   bg.width = w; bg.height = h;
   const g = bg.getContext('2d');
-  const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.78);
-  r.addColorStop(0, '#3b170b');
-  r.addColorStop(0.52, '#190804');
-  r.addColorStop(1, '#080201');
+
+  // Base radiale calda
+  const r = g.createRadialGradient(w * 0.5, h * 0.48, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.82);
+  r.addColorStop(0, '#441a0c');
+  r.addColorStop(0.45, '#1d0904');
+  r.addColorStop(0.85, '#0b0301');
+  r.addColorStop(1, '#050100');
   g.fillStyle = r;
+  g.fillRect(0, 0, w, h);
+
+  // Luce secondaria ambrata in alto a destra (area Archaeopteryx)
+  const g1 = g.createRadialGradient(w * 0.72, h * 0.22, 0, w * 0.72, h * 0.22, Math.max(w, h) * 0.45);
+  g1.addColorStop(0, 'rgba(255, 165, 85, 0.14)');
+  g1.addColorStop(1, 'rgba(255, 165, 85, 0)');
+  g.fillStyle = g1;
+  g.fillRect(0, 0, w, h);
+
+  // Luce secondaria verde-muschio morbida in basso a destra (area Kauai)
+  const g2 = g.createRadialGradient(w * 0.78, h * 0.78, 0, w * 0.78, h * 0.78, Math.max(w, h) * 0.38);
+  g2.addColorStop(0, 'rgba(115, 200, 90, 0.08)');
+  g2.addColorStop(1, 'rgba(115, 200, 90, 0)');
+  g.fillStyle = g2;
   g.fillRect(0, 0, w, h);
 
   if (!spotSprite) {
@@ -49,21 +66,19 @@ export function buildBackground() {
     spotSprite.width = spotSprite.height = 256;
     const sg = spotSprite.getContext('2d');
     const gr = sg.createRadialGradient(128, 128, 0, 128, 128, 128);
-    gr.addColorStop(0, 'rgba(255, 196, 140, 0.11)');
-    gr.addColorStop(1, 'rgba(255, 196, 140, 0)');
+    gr.addColorStop(0, 'rgba(255, 204, 150, 0.14)');
+    gr.addColorStop(0.45, 'rgba(255, 175, 110, 0.05)');
+    gr.addColorStop(1, 'rgba(255, 175, 110, 0)');
     sg.fillStyle = gr;
     sg.fillRect(0, 0, 256, 256);
   }
 }
 
-const dust = Array.from({ length: 65 }, () => ({
-  x: Math.random(), y: Math.random(), z: Math.random(),
-  s: Math.random() * 1.5 + 0.5, p: Math.random() * 6.3, v: Math.random() * 0.0003 + 0.0001
-}));
-
 function drawDust(cx, t) {
-  const { W, H, cam3D } = state;
-  cx.fillStyle = 'rgba(255, 214, 170, 0.22)';
+  const { W, H, cam3D, spin } = state;
+  const streak = clamp(spin.yaw * 18, -32, 32);
+
+  cx.fillStyle = 'rgba(255, 218, 178, 0.25)';
   cx.beginPath();
   for (const d of dust) {
     if (!RM) { d.y -= d.v; if (d.y < 0) d.y = 1; }
@@ -74,6 +89,21 @@ function drawDust(cx, t) {
     cx.arc(x, y, rad, 0, Math.PI * 2);
   }
   cx.fill();
+
+  // Scia leggera sulle particelle durante una rotazione rapida
+  if (!RM && Math.abs(streak) > 2) {
+    cx.strokeStyle = 'rgba(255, 218, 178, 0.14)';
+    cx.lineWidth = 1.1;
+    cx.beginPath();
+    for (const d of dust) {
+      if (d.z < 0.45) continue;
+      const x = (((d.x * W - cam3D.yaw * W * 0.16 * (0.3 + d.z) + cam3D.panX * 0.2 * d.z) % W) + W) % W;
+      const y = (((d.y * H - cam3D.pitch * H * 0.1 * d.z) % H) + H) % H;
+      cx.moveTo(x, y);
+      cx.lineTo(x + streak * d.z, y);
+    }
+    cx.stroke();
+  }
 }
 
 const _p = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
