@@ -123,7 +123,7 @@ export async function loadLand() {
   }
 }
 
-/* ---------- cache raster della mappa (evita migliaia di path GeoJSON a ogni frame) ---------- */
+/* ---------- cache raster della mappa ---------- */
 function getMapLayer() {
   const { W, H, dpr, camGeo } = state;
   const key = `${W}|${H}|${dpr}|${camGeo.x.toFixed(1)}|${camGeo.y.toFixed(1)}|${camGeo.k.toFixed(4)}|${land ? 1 : 0}`;
@@ -137,7 +137,7 @@ function getMapLayer() {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const bg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.8);
-  bg.addColorStop(0, '#241008');
+  bg.addColorStop(0, '#261108');
   bg.addColorStop(0.6, '#130704');
   bg.addColorStop(1, '#080201');
   g.fillStyle = bg;
@@ -150,7 +150,7 @@ function getMapLayer() {
 
     g.beginPath(); path({ type: 'Sphere' });
     g.fillStyle = 'rgba(255, 190, 140, 0.04)'; g.fill();
-    g.strokeStyle = 'rgba(255, 214, 170, 0.22)'; g.lineWidth = 1; g.stroke();
+    g.strokeStyle = 'rgba(255, 214, 170, 0.24)'; g.lineWidth = 1.1; g.stroke();
 
     if (!graticule) graticule = d3.geoGraticule10();
     g.beginPath(); path(graticule);
@@ -158,8 +158,8 @@ function getMapLayer() {
 
     if (land) {
       g.beginPath(); path(land);
-      g.fillStyle = 'rgba(246, 176, 120, 0.22)'; g.fill();
-      g.strokeStyle = 'rgba(255, 216, 174, 0.52)'; g.lineWidth = 0.9; g.stroke();
+      g.fillStyle = 'rgba(246, 176, 120, 0.23)'; g.fill();
+      g.strokeStyle = 'rgba(255, 216, 174, 0.56)'; g.lineWidth = 0.95; g.stroke();
     }
   }
   return mapLayer;
@@ -226,32 +226,39 @@ export function layoutHubs(size, cam = state.camGeo, out = hubLayout) {
   return out;
 }
 
-export function drawGeoHalos(cx) {
+export function drawGeoHalos(cx, t = 0) {
   activeHubs.clear();
   for (const it of state.items) {
     if (it.vis) activeHubs.add(it.hubId);
   }
 
+  const pulse = 0.5 + 0.5 * Math.sin(t * 0.0024);
+
   for (const h of hubLayout.values()) {
     if (!activeHubs.has(h.id)) continue;
     const g = cx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.R);
-    g.addColorStop(0, 'rgba(255, 170, 90, 0.24)');
-    g.addColorStop(1, 'rgba(255, 170, 90, 0)');
+    g.addColorStop(0, 'rgba(255, 174, 94, 0.26)');
+    g.addColorStop(1, 'rgba(255, 174, 94, 0)');
     cx.fillStyle = g;
     cx.beginPath(); cx.arc(h.x, h.y, h.R, 0, Math.PI * 2); cx.fill();
 
     if (Math.hypot(h.x - h.tx, h.y - h.ty) > 6) {
-      cx.strokeStyle = 'rgba(255, 200, 140, 0.45)';
+      cx.strokeStyle = 'rgba(255, 204, 144, 0.5)';
       cx.lineWidth = 1;
       cx.setLineDash([3, 4]);
       cx.beginPath(); cx.moveTo(h.tx, h.ty); cx.lineTo(h.x, h.y); cx.stroke();
       cx.setLineDash([]);
     }
 
-    cx.fillStyle = 'rgba(255, 190, 125, 0.24)';
+    // Beacon pulsante sul punto geografico reale
+    cx.strokeStyle = `rgba(255, 196, 130, ${0.42 * (1 - pulse)})`;
+    cx.lineWidth = 1.2;
+    cx.beginPath(); cx.arc(h.tx, h.ty, 5 + pulse * 11, 0, Math.PI * 2); cx.stroke();
+
+    cx.fillStyle = 'rgba(255, 190, 125, 0.28)';
     cx.beginPath(); cx.arc(h.tx, h.ty, 9, 0, Math.PI * 2); cx.fill();
     cx.fillStyle = '#ffbe7d';
-    cx.beginPath(); cx.arc(h.tx, h.ty, 3.4, 0, Math.PI * 2); cx.fill();
+    cx.beginPath(); cx.arc(h.tx, h.ty, 3.6, 0, Math.PI * 2); cx.fill();
   }
 }
 
@@ -262,19 +269,19 @@ export function drawGeoLabels(cx) {
   cx.textAlign = 'center';
   cx.lineJoin = 'round';
   cx.lineWidth = 3.5;
-  cx.strokeStyle = 'rgba(20, 8, 4, 0.85)';
+  cx.strokeStyle = 'rgba(20, 8, 4, 0.88)';
   for (const [id, n] of counts) {
     const h = hubLayout.get(id);
     if (!h) continue;
     const y = h.y + h.R * 0.85 + 15;
-    cx.font = 'italic 600 13px Fraunces, Georgia, serif';
+    cx.font = "italic 600 13px 'Fraunces', Georgia, serif";
     cx.strokeText(h.hub.label, h.x, y);
-    cx.fillStyle = 'rgba(255, 238, 218, 0.96)';
+    cx.fillStyle = 'rgba(255, 240, 220, 0.96)';
     cx.fillText(h.hub.label, h.x, y);
-    cx.font = '500 11px Figtree, sans-serif';
+    cx.font = "500 11px 'Figtree', sans-serif";
     const sub = `${n} ${n === 1 ? 'tavola' : 'tavole'}`;
     cx.strokeText(sub, h.x, y + 15);
-    cx.fillStyle = 'rgba(246, 190, 140, 0.9)';
+    cx.fillStyle = 'rgba(246, 192, 142, 0.92)';
     cx.fillText(sub, h.x, y + 15);
   }
   cx.restore();

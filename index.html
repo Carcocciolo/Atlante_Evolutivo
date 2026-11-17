@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#140805">
-  <title>Atlante Evolutivo</title>
+  <meta name="theme-color" content="#0d0502">
+  <title>Atlante Evolutivo — Spazio & Geografia</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/d3-array@3.2.4/dist/d3-array.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-geo@3.1.1/dist/d3-geo.min.js" defer></script>
@@ -27,17 +27,22 @@
       <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5m0 0L8 9m4-4 4 4M5 20h14"/></symbol>
       <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+      <symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/></symbol>
     </defs>
   </svg>
 
   <main id="wrap">
     <canvas id="cv" role="img" aria-label="Atlante interattivo delle tavole: trascina per ruotare, scorri per ingrandire, clicca una tavola per aprirla"></canvas>
   </main>
+  <div class="grain" aria-hidden="true"></div>
   <div class="vignette" aria-hidden="true"></div>
   <div id="tip" role="tooltip"></div>
   <div id="toast" role="status" aria-live="polite"></div>
 
   <header class="brand">
+    <div class="brand-kicker"><span class="pulse-dot"></span> ARCHIVIO MORFOLOGICO INTERATTIVO</div>
     <h1>Atlante Evolutivo</h1>
     <p>Archaeopteryx, pettirossi e grilli</p>
   </header>
@@ -45,27 +50,58 @@
   <section class="panel filters" aria-label="Cerca e filtra">
     <label class="search">
       <svg class="ic"><use href="#i-search"/></svg>
-      <input type="search" id="q" placeholder="Cerca per ID, luogo o soggetto" autocomplete="off" aria-label="Cerca tavole">
+      <input type="search" id="q" placeholder="Cerca ID, specie, luogo… (/)" autocomplete="off" aria-label="Cerca tavole">
       <span class="count" id="vis-count" title="Tavole visibili">0</span>
     </label>
     <div class="chips" id="chips" role="group" aria-label="Categorie"></div>
   </section>
 
+  <!-- HUD Telemetria & Coordinate in basso a sinistra -->
+  <div class="hud-telemetry" id="hud-telemetry" aria-hidden="true">
+    <div class="hud-row">
+      <span class="hud-badge" id="hud-mode">SPAZIO t-SNE 3D</span>
+      <span class="hud-coords" id="hud-coords">YAW 0.35 · PITCH 0.18 · 1.0×</span>
+    </div>
+    <div class="hud-hint">Trascina · Scorri per zoom · <kbd>G</kbd> Vista · <kbd>/</kbd> Cerca</div>
+  </div>
+
+  <!-- Scheda di dettaglio tavola -->
   <aside id="detail-drawer" aria-hidden="true" aria-labelledby="det-title">
-    <button type="button" id="close-det" class="icon-btn" aria-label="Chiudi scheda" title="Chiudi (Esc)">
-      <svg class="ic"><use href="#i-close"/></svg>
-    </button>
-    <figure class="media"><img id="big" alt=""></figure>
+    <div class="drawer-topbar">
+      <div class="drawer-nav">
+        <button type="button" id="prev-det" class="icon-btn" aria-label="Tavola precedente" title="Precedente (←)">
+          <svg class="ic"><use href="#i-prev"/></svg>
+        </button>
+        <span class="drawer-index" id="det-index">01 / 36</span>
+        <button type="button" id="next-det" class="icon-btn" aria-label="Tavola successiva" title="Successiva (→)">
+          <svg class="ic"><use href="#i-next"/></svg>
+        </button>
+      </div>
+      <button type="button" id="close-det" class="icon-btn" aria-label="Chiudi scheda" title="Chiudi (Esc)">
+        <svg class="ic"><use href="#i-close"/></svg>
+      </button>
+    </div>
+
+    <figure class="media">
+      <div class="media-glow" id="media-glow"></div>
+      <img id="big" alt="">
+      <span class="media-id" id="det-id-badge">IMG_0001</span>
+    </figure>
+
     <div class="drawer-scroll">
       <h2 id="det-title"></h2>
       <div class="tags" id="det-tags"></div>
       <div class="notes" id="det-notes" hidden></div>
       <dl id="dl"></dl>
-      <h3>Tavole affini</h3>
+      <div class="affini-head">
+        <h3>Tavole morfologicamente affini</h3>
+        <span class="affini-sub">Distanza visiva</span>
+      </div>
       <div id="nb"></div>
     </div>
   </aside>
 
+  <!-- Dock dei controlli -->
   <nav class="dock" aria-label="Controlli della vista">
     <div class="seg" id="seg" data-view="3d" role="group" aria-label="Tipo di vista">
       <button type="button" id="vw-3d" aria-pressed="true" title="Spazio 3D (G)"><svg class="ic"><use href="#i-cube"/></svg><span>Spazio</span></button>
@@ -74,6 +110,7 @@
     <span class="sep"></span>
     <button type="button" class="tool" id="rot-auto" aria-pressed="true" aria-label="Rotazione automatica" title="Rotazione automatica (Spazio)"><svg class="ic"><use href="#i-rotate"/></svg></button>
     <button type="button" class="tool" id="md" aria-pressed="true" aria-label="Mostra miniature" title="Miniature / punti luminosi"><svg class="ic"><use href="#i-image"/></svg></button>
+    <button type="button" class="tool" id="fx-links" aria-pressed="true" aria-label="Rete sinaptica" title="Mostra/nascondi legami visivi"><svg class="ic"><use href="#i-spark"/></svg></button>
     <span class="sep"></span>
     <button type="button" class="tool" id="zo" aria-label="Riduci" title="Riduci (−)"><svg class="ic"><use href="#i-minus"/></svg></button>
     <button type="button" class="tool" id="zi" aria-label="Ingrandisci" title="Ingrandisci (+)"><svg class="ic"><use href="#i-plus"/></svg></button>
@@ -91,8 +128,9 @@
   <div id="welcome" class="overlay" hidden>
     <div class="card" role="dialog" aria-modal="true" aria-labelledby="wl-title">
       <button type="button" id="close-welcome" class="icon-btn" aria-label="Chiudi" title="Chiudi (Esc)"><svg class="ic"><use href="#i-close"/></svg></button>
+      <div class="card-kicker">SORGENTE DATI</div>
       <h2 id="wl-title">Carica le tavole</h2>
-      <p>Se apri il progetto da un server (GitHub Pages, Live Server) il database si carica da solo. Altrimenti scegli qui i file.</p>
+      <p>Se apri il progetto da un server (GitHub Pages, Live Server) il database si carica da solo. Altrimenti seleziona i file locali.</p>
       <label for="fc">Database CSV <small>02_database/database_immagini.csv</small></label>
       <input type="file" id="fc" accept=".csv,text/csv">
       <label for="fi">Immagini <small>l’intera cartella 01_immagini (jpg, webp, png)</small></label>

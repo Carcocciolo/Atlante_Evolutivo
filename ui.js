@@ -2,7 +2,7 @@
    ui.js — pannelli, scheda della tavola, filtri, dock dei
    controlli e scorciatoie da tastiera
    ============================================================ */
-import { state, esc, msg, markDirty, refreshVis, getNotes, CAT_COLORS, PAL } from './data.js';
+import { state, esc, rgba, msg, markDirty, refreshVis, getNotes, CAT_COLORS, PAL } from './data.js';
 import { assignGeoHub, assignHubRanks } from './geo.js';
 import { focusOn, releaseFocus, zoomBy, resetView } from './camera.js';
 
@@ -93,7 +93,18 @@ function thumbURL(it) {
   return it.thumbURL || (it.thumbURL = it.th.toDataURL('image/jpeg', 0.85));
 }
 
-function fillDrawer(it) {
+function updateDrawerIndex(idx) {
+  const visList = state.items.map((it, i) => (it.ready && it.vis ? i : -1)).filter(i => i >= 0);
+  const pos = visList.indexOf(idx);
+  const el = $('#det-index');
+  if (el) {
+    el.textContent = pos >= 0
+      ? `${String(pos + 1).padStart(2, '0')} / ${String(visList.length).padStart(2, '0')}`
+      : `${String(idx + 1).padStart(2, '0')} / ${String(state.items.length).padStart(2, '0')}`;
+  }
+}
+
+function fillDrawer(it, idx) {
   const img = $('#big');
   const token = ++loadToken;
   img.src = thumbURL(it);
@@ -109,8 +120,14 @@ function fillDrawer(it) {
     full.src = it.src;
   }
 
-  $('#det-title').textContent = it.r.subject || it.r.id;
   const c = state.col[it.cat];
+  const glowEl = $('#media-glow');
+  if (glowEl) glowEl.style.setProperty('--cat-glow', rgba(c, 0.28));
+  const idBadge = $('#det-id-badge');
+  if (idBadge) idBadge.textContent = it.r.id || `#${idx + 1}`;
+  updateDrawerIndex(idx);
+
+  $('#det-title').textContent = it.r.subject || it.r.id;
   $('#det-tags').innerHTML =
     `<span class="tag" style="--c:${c}"><i></i>${esc(it.cat)}</span>` +
     `<span class="tag tag-geo${it.geoStatus === 'inferito' ? ' is-guess' : ''}" ` +
@@ -163,7 +180,10 @@ export function setAutoRotate(on, userAction = false) {
 export function boom(it, color) {
   state.fx.push({
     it, c: color, t0: performance.now(),
-    sp: Array.from({ length: 16 }, (_, k) => ({ a: k / 16 * 6.283 + Math.random() * 0.3, v: 55 + Math.random() * 80 }))
+    sp: Array.from({ length: 20 }, (_, k) => ({
+      a: k / 20 * 6.283 + Math.random() * 0.25,
+      v: 58 + Math.random() * 92
+    }))
   });
   markDirty();
 }
@@ -172,7 +192,7 @@ export function show(i) {
   const it = state.items[i];
   if (!it || !it.ready) return;
   state.sel = i;
-  fillDrawer(it);
+  fillDrawer(it, i);
   const d = $('#detail-drawer');
   d.classList.add('is-open');
   d.setAttribute('aria-hidden', 'false');
@@ -196,7 +216,7 @@ export function closeSelection() {
   markDirty();
 }
 
-function stepSelection(dir) {
+export function stepSelection(dir) {
   const list = state.items.map((it, i) => (it.ready && it.vis ? i : -1)).filter(i => i >= 0);
   if (!list.length) return;
   const at = list.indexOf(state.sel);
@@ -215,6 +235,9 @@ export function setViewMode(mode) {
   $('#vw-3d').setAttribute('aria-pressed', mode === '3d');
   $('#vw-geo').setAttribute('aria-pressed', mode === 'geo');
   $('#rot-auto').hidden = mode !== '3d';
+  $('#fx-links').hidden = mode !== '3d';
+  const hudMode = $('#hud-mode');
+  if (hudMode) hudMode.textContent = mode === '3d' ? 'SPAZIO t-SNE 3D' : 'MAPPA NATURAL EARTH';
   if (state.sel >= 0) focusOn(state.items[state.sel]);
   markDirty();
 }
@@ -239,6 +262,8 @@ function exportCSV() {
 /* ---------- collegamento dei controlli ---------- */
 export function bindUI() {
   $('#close-det').onclick = closeSelection;
+  $('#prev-det').onclick = () => stepSelection(-1);
+  $('#next-det').onclick = () => stepSelection(1);
   $('#vw-3d').onclick = () => setViewMode('3d');
   $('#vw-geo').onclick = () => setViewMode('geo');
   $('#zi').onclick = () => zoomBy(1.3);
@@ -250,6 +275,13 @@ export function bindUI() {
     msg(next ? 'Rotazione automatica attivata' : 'Rotazione automatica disattivata', 1600);
   };
   $('#rot-auto').setAttribute('aria-pressed', state.autoRotate);
+
+  $('#fx-links').onclick = e => {
+    state.showLinks = !state.showLinks;
+    e.currentTarget.setAttribute('aria-pressed', state.showLinks);
+    markDirty();
+  };
+
   $('#cp').onclick = exportCSV;
   $('#open-data').onclick = () => openWelcome($('#welcome').hidden);
   $('#close-welcome').onclick = () => openWelcome(false);

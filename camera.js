@@ -86,8 +86,8 @@ export function releaseFocus() {
 /** Centro dell'area libera accanto alla scheda (a sinistra su desktop, in basso su mobile). */
 function freeCenter() {
   const { W, H } = state;
-  if (W > 760) { const left = 398; return { x: left + (W - left) / 2, y: H / 2 }; }
-  return { x: W / 2, y: H * 0.26 };
+  if (W > 760) { const left = 408; return { x: left + (W - left) / 2, y: H / 2 }; }
+  return { x: W / 2, y: H * 0.25 };
 }
 
 const _probe = {}, _off = {};
@@ -100,7 +100,7 @@ export function focusOn(it) {
     const h = Math.hypot(it.x, it.z);
     const yaw = cur.yaw + wrapAngle(Math.atan2(-it.x, -it.z) - cur.yaw);
     const pitch = clamp(-Math.atan2(it.y, h), -1.1, 1.1);
-    const zoom = 1.7;
+    const zoom = 1.75;
     project3D(it.x, it.y, it.z, _probe, { yaw, pitch, zoom, panX: 0, panY: 0 });
     Object.assign(g, { yaw, pitch, zoom, panX: want.x - _probe.sx, panY: want.y - _probe.sy });
   } else {

@@ -36,6 +36,7 @@ export const state = {
   sel: -1,
   hov: -1,
   mode: 'thumb',          // 'thumb' | 'dot'
+  showLinks: true,        // mostra legami sinaptici tra tavole affini
   viewMode: '3d',         // '3d' | 'geo'
   W: 0, H: 0, dpr: 1,
   cam3D: { ...HOME_3D },
@@ -148,18 +149,18 @@ export function makeCardCanvas(th, color, idx) {
   c.width = S + pad * 2;
   c.height = S + pad + bottom;
   const g = c.getContext('2d');
-  g.fillStyle = '#f4efe3';
+  g.fillStyle = '#f6f1e6';
   g.fillRect(0, 0, c.width, c.height);
   g.drawImage(th, pad, pad);
-  g.strokeStyle = 'rgba(28, 12, 6, 0.22)';
+  g.strokeStyle = 'rgba(28, 12, 6, 0.25)';
   g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
   g.fillStyle = color || '#ee9a5b';
-  g.fillRect(pad, pad + S + Math.round(pad * 0.6), S * 0.45, Math.max(3, Math.round(pad * 0.55)));
+  g.fillRect(pad, pad + S + Math.round(pad * 0.65), S * 0.44, Math.max(3, Math.round(pad * 0.55)));
   if (idx != null) {
-    g.fillStyle = 'rgba(40, 18, 8, 0.55)';
-    g.font = `600 ${Math.round(S * 0.075)}px Figtree, sans-serif`;
+    g.fillStyle = 'rgba(40, 18, 8, 0.58)';
+    g.font = `600 ${Math.round(S * 0.075)}px 'JetBrains Mono', monospace`;
     g.textAlign = 'right';
-    g.fillText(`#${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.5));
+    g.fillText(`#${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.55));
   }
   return c;
 }
@@ -168,7 +169,6 @@ export async function setItemImage(it, bm, idx) {
   it.th = makeThumb(bm);
   const cardCanvas = makeCardCanvas(it.th, state.col[it.cat], idx);
   if (typeof bm.close === 'function') bm.close();
-  // Trasferisce la card direttamente in memoria GPU (ImageBitmap) per drawImage a 0-copy
   it.card = typeof createImageBitmap === 'function' ? await createImageBitmap(cardCanvas) : cardCanvas;
   it.ready = true;
   it.b = performance.now();
