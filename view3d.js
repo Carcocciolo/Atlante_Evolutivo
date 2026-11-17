@@ -3,7 +3,7 @@
    orbitale), sfondo stellato e sfera armillare
    ============================================================ */
 import { state, RM } from './data.js';
-import { getThemeTokens, getResolvedTheme } from './theme.js';
+import { getThemeTokens, getResolvedTheme, registerThemeHook } from './theme.js';
 import { drawSpecimens3D } from './specimens.js';
 
 const FOV = 2.6;
@@ -64,6 +64,13 @@ export function buildBackground() {
   g.fillStyle = spot;
   g.fillRect(0, 0, w, h);
 }
+
+export function invalidateView3DTheme() {
+  bg = null;
+  if (state.W > 0 && state.H > 0) buildBackground();
+}
+
+registerThemeHook(invalidateView3DTheme);
 
 const _p = {};
 
