@@ -3,31 +3,31 @@
    Architettura cinetica, vetrini ottici & HUD museale
    ============================================================ */
 :root {
-  --bg: #070504;
-  --panel-top: rgba(26, 15, 10, 0.84);
-  --panel-bot: rgba(10, 6, 4, 0.92);
-  --glass-solid: rgba(13, 8, 5, 0.96);
-  --ink: #fbf2e6;
-  --mute: #c9b098;
-  --line: rgba(242, 166, 90, 0.16);
-  --line-strong: rgba(242, 166, 90, 0.34);
-  --specular: rgba(255, 236, 210, 0.12);
-  --acc: #f2a65a;
-  --acc-2: #df8238;
-  --acc-ink: #240f04;
-  --chip-bg: rgba(242, 166, 90, 0.07);
-  --chip-hover: rgba(242, 166, 90, 0.15);
+  --bg: #07080a;
+  --panel-top: rgba(22, 24, 30, 0.86);
+  --panel-bot: rgba(10, 11, 15, 0.93);
+  --glass-solid: rgba(12, 14, 18, 0.96);
+  --ink: #f4f5f7;
+  --mute: #a6abb6;
+  --line: rgba(229, 197, 142, 0.15);
+  --line-strong: rgba(229, 197, 142, 0.30);
+  --specular: rgba(255, 255, 255, 0.10);
+  --acc: #e5c58e;
+  --acc-2: #c7a46b;
+  --acc-ink: #1a150c;
+  --chip-bg: rgba(255, 255, 255, 0.06);
+  --chip-hover: rgba(255, 255, 255, 0.12);
   --shadow: rgba(0, 0, 0, 0.78);
-  --vignette: rgba(3, 1, 0, 0.72);
-  --hud: rgba(242, 166, 90, 0.34);
-  --title-1: #fff8ee;
-  --title-2: #f4ba7a;
-  --sub-ink: #ecd3ba;
-  --card-glow: rgba(242, 166, 90, 0.12);
-  --overlay-bg: rgba(5, 2, 1, 0.80);
-  --media-1: #1a0d06;
-  --media-2: #050201;
-  --nb-frame: #1b120c;
+  --vignette: rgba(3, 4, 6, 0.70);
+  --hud: rgba(229, 197, 142, 0.30);
+  --title-1: #ffffff;
+  --title-2: #e5c58e;
+  --sub-ink: #cfd4de;
+  --card-glow: rgba(229, 197, 142, 0.09);
+  --overlay-bg: rgba(4, 5, 8, 0.82);
+  --media-1: #16181e;
+  --media-2: #060709;
+  --nb-frame: #181a20;
   --r-lg: 18px;
   --r-md: 12px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -55,25 +55,18 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; curso
 
 .aurora-veil {
   position: fixed;
-  inset: -15%;
+  inset: 0;
   pointer-events: none;
   z-index: 1;
   background:
     radial-gradient(45% 38% at 22% 18%, var(--card-glow), transparent 70%),
     radial-gradient(40% 42% at 80% 78%, var(--card-glow), transparent 72%);
-  mix-blend-mode: screen;
-  opacity: 0.85;
-  animation: aurora-drift 18s ease-in-out infinite alternate;
+  opacity: 0.72;
 }
 html[data-theme="light"] .aurora-veil {
-  mix-blend-mode: multiply;
-  opacity: 0.45;
+  opacity: 0.42;
 }
 body.is-eco .aurora-veil { display: none; }
-@keyframes aurora-drift {
-  0% { transform: translate3d(-1.5%, -1%, 0) scale(1); }
-  100% { transform: translate3d(1.5%, 1.5%, 0) scale(1.04); }
-}
 
 .vignette {
   position: fixed;
@@ -85,16 +78,7 @@ body.is-eco .aurora-veil { display: none; }
 }
 body.is-eco .vignette { display: none; }
 
-.grain {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-  opacity: 0.032;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-html[data-theme="light"] .grain { opacity: 0.04; }
-body.is-eco .grain { display: none; }
+.grain { display: none; }
 
 /* ---------- mirini angolari ottici & meridiano ---------- */
 .hud-frame {
@@ -232,8 +216,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   box-shadow:
     0 20px 48px var(--shadow),
     inset 0 1px 0 var(--specular);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
   transition: background 0.4s ease, border-color 0.35s ease, box-shadow 0.4s ease, color 0.35s ease;
 }
 
@@ -492,52 +476,61 @@ html[data-theme="dark"] .search input::-webkit-search-cancel-button { filter: in
 .optical-reticle-overlay {
   position: absolute;
   inset: 0;
+  z-index: 4;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.28s ease;
+  transition: opacity 0.24s ease;
   background-image:
-    linear-gradient(to right, var(--line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
-  background-size: 28px 28px;
+    linear-gradient(to right, rgba(255, 255, 255, 0.26) 1px, rgba(0, 0, 0, 0.24) 2px, transparent 2px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.26) 1px, rgba(0, 0, 0, 0.24) 2px, transparent 2px);
+  background-size: 32px 32px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 }
-.media.has-grid .optical-reticle-overlay {
+.media.has-grid .optical-reticle-overlay,
+.lightbox-stage.has-grid .optical-reticle-overlay {
   opacity: 1;
 }
 .op-cross-h {
   position: absolute;
   left: 0; right: 0; top: 50%;
-  height: 1px;
+  height: 1.5px;
   background: var(--acc);
-  opacity: 0.45;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.85);
+  opacity: 0.92;
 }
 .op-cross-v {
   position: absolute;
   top: 0; bottom: 0; left: 50%;
-  width: 1px;
+  width: 1.5px;
   background: var(--acc);
-  opacity: 0.45;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.85);
+  opacity: 0.92;
 }
 .op-ring-1, .op-ring-2 {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  border: 1px dashed var(--acc);
-  opacity: 0.42;
+  border: 1.5px dashed var(--acc);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.75), inset 0 0 5px rgba(0, 0, 0, 0.75);
+  opacity: 0.88;
 }
 .op-ring-1 { width: 92px; height: 92px; }
 .op-ring-2 { width: 176px; height: 176px; }
+.lightbox-stage .op-ring-1 { width: 150px; height: 150px; }
+.lightbox-stage .op-ring-2 { width: 290px; height: 290px; }
 .op-scale-bar {
   position: absolute;
   left: 12px;
   bottom: 10px;
-  padding: 3px 8px;
-  border-radius: 5px;
+  padding: 4px 9px;
+  border-radius: 6px;
   font: 600 9.5px/1 "JetBrains Mono", monospace;
   letter-spacing: 0.08em;
   color: var(--acc);
   background: var(--glass-solid);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--acc);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
 }
 
 .zoom-badge {
@@ -676,14 +669,83 @@ body.has-sel .telemetry {
 }
 
 /* ---------- visualizzatore a tutto schermo ---------- */
-.lightbox { z-index: 60; background: var(--overlay-bg); backdrop-filter: blur(12px); cursor: zoom-out; }
-.lightbox img {
-  max-width: min(94vw, 1500px); max-height: 92vh;
-  object-fit: contain;
+.lightbox { z-index: 60; background: var(--overlay-bg); backdrop-filter: blur(10px); cursor: zoom-out; }
+.lightbox-stage {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
   border-radius: 12px;
+  overflow: hidden;
   border: 1px solid var(--line-strong);
   box-shadow: 0 30px 80px var(--shadow);
-  animation: rise 0.4s var(--ease);
+  animation: rise 0.35s var(--ease);
+}
+.lightbox-stage img {
+  display: block;
+  max-width: min(86vw, 1440px);
+  max-height: 84vh;
+  object-fit: contain;
+}
+.lb-toolbar {
+  position: fixed;
+  top: 18px;
+  left: 20px;
+  right: 20px;
+  z-index: 62;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+.lb-caption {
+  padding: 7px 13px;
+  border-radius: 10px;
+  font: 600 11.5px/1.2 "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  background: var(--glass-solid);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 8px 24px var(--shadow);
+  pointer-events: auto;
+}
+.lb-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+.lb-nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 62;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--glass-solid);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  box-shadow: 0 10px 28px var(--shadow);
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s var(--ease);
+}
+.lb-nav:hover {
+  background: var(--chip-hover);
+  border-color: var(--acc);
+  color: var(--acc);
+  transform: translateY(-50%) scale(1.06);
+}
+.lb-prev { left: 18px; }
+.lb-next { right: 18px; }
+@media (max-width: 760px) {
+  .lightbox-stage img { max-width: 94vw; max-height: 76vh; }
+  .lb-nav { width: 38px; height: 38px; }
+  .lb-prev { left: 8px; }
+  .lb-next { right: 8px; }
+  .lb-caption { font-size: 10px; max-width: 64vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
 /* ---------- console prismatica dei controlli (dock) ---------- */

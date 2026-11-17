@@ -47,7 +47,7 @@ export const state = {
   mode: 'thumb',          // 'thumb' | 'dot'
   viewMode: '3d',         // '3d' | 'geo'
   themeMode: 'auto',      // 'auto' | 'light' | 'dark'
-  palette: 'amber',       // 'amber' | 'cyanotype' | 'emerald' | 'monolith' | 'amethyst'
+  palette: 'monolith',    // 'amber' | 'cyanotype' | 'emerald' | 'monolith' | 'amethyst'
   W: 0, H: 0, dpr: 1,
   cam3D: {
     yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0,
@@ -65,6 +65,7 @@ export const state = {
   soundEnabled: true,
   musicEnabled: false,
   ecoMode: RM,
+  gridEnabled: false,
   drag: null,
   mx: -999, my: -999,
   focus: 0,

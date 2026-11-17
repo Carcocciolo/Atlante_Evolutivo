@@ -29,7 +29,7 @@ const order = [];
 const off = {};
 const glowCache = new Map();
 const flags = { busy: false, moved: false };
-let lastView = '', lastN = -1, lastTel = '', lastAxis = '', lastVernier = '';
+let lastView = '', lastN = -1, lastTel = '', lastAxis = '', lastVernier = '', lastAstro = '';
 let sheenSprite = null;
 
 let prevCamX = 0, prevCamY = 0;
@@ -75,7 +75,7 @@ function pickLevel(cards, devW) {
 /* ---------- telemetria ottica, verniero & astrolabio live ---------- */
 function updateTelemetry() {
   const pal = PALETTE_MAP.get(state.palette);
-  const palName = pal ? pal.name.toUpperCase() : 'AMBRA';
+  const palName = pal ? pal.name.toUpperCase() : 'PRISMA PLATINO';
   let txt;
   if (state.viewMode === '3d') {
     const z = state.cam3D.zoom.toFixed(2);
@@ -89,7 +89,11 @@ function updateTelemetry() {
       axisReadoutEl.textContent = axStr;
     }
     if (astrolabeSvg && !state.ecoMode) {
-      astrolabeSvg.style.transform = `rotate(${(state.cam3D.yaw * 57.2958).toFixed(1)}deg)`;
+      const aStr = `rotate(${(state.cam3D.yaw * 57.2958).toFixed(1)}deg)`;
+      if (aStr !== lastAstro) {
+        lastAstro = aStr;
+        astrolabeSvg.style.transform = aStr;
+      }
     }
     if (vernierNeedle && vernierVal && !state.ecoMode) {
       const pct = clamp(50 - (pitchDeg / 90) * 42, 8, 92);
@@ -462,9 +466,9 @@ function drawNode(i, big, is3D, baseSize, t) {
 
   cx.drawImage(img, -s / 2 - pad, -s / 2 - pad, w, h);
 
-  if (!S.ecoMode && (it.hs > 0.05 || Math.abs(rot) > 0.04 || (is3D && o.scale > 0.85))) {
-    const tiltGlow = clamp(Math.abs(rot) * 0.65 + Math.abs(it.tiltY || 0) * 0.8, 0, 0.24);
-    const sheenAlpha = alpha * (0.28 * it.hs + tiltGlow + (is3D ? clamp((o.scale - 0.85) * 0.45, 0, 0.2) : 0));
+  if (!S.ecoMode && (it.hs > 0.05 || Math.abs(it.vrot) > 0.025 || Math.abs(it.tiltY || 0) > 0.02)) {
+    const tiltGlow = clamp(Math.abs(it.vrot) * 0.45 + Math.abs(it.tiltY || 0) * 0.8, 0, 0.22);
+    const sheenAlpha = alpha * (0.28 * it.hs + tiltGlow);
     if (sheenAlpha > 0.02) {
       cx.globalCompositeOperation = 'lighter';
       cx.globalAlpha = sheenAlpha;
@@ -771,8 +775,8 @@ setTimeout(hideHint, 12000);
    ============================================================ */
 const dprLevels = () => {
   if (state.ecoMode) return [1];
-  const m = Math.min(window.devicePixelRatio || 1, 2);
-  return [...new Set([m, Math.min(m, 1.5), 1])];
+  const m = Math.min(window.devicePixelRatio || 1, 1.5);
+  return [...new Set([m, 1])];
 };
 let dprLevel = 0;
 state.dpr = dprLevels()[0];
@@ -792,18 +796,18 @@ export function syncSize() {
 syncSize();
 new ResizeObserver(syncSize).observe(wrap);
 
-const perf = { sum: 0, n: 0, fast: 0, best: 1e9, bad: [0, 0, 0] };
+const perf = { sum: 0, n: 0, fast: 0, best: 1e9, bad: [0, 0] };
 function tuneDpr(ms) {
   if (state.ecoMode) return;
   if (state.busy) { perf.sum = perf.n = perf.fast = 0; return; }
   if (ms > 500) return;
   perf.sum += Math.min(ms, 120); perf.n++;
-  if (perf.n < 40) return;
+  if (perf.n < 18) return;
   const avg = perf.sum / perf.n;
   perf.sum = perf.n = 0;
   perf.best = Math.min(perf.best, avg);
   const levels = dprLevels();
-  if (avg > 23 && dprLevel < levels.length - 1) {
+  if (avg > 18 && dprLevel < levels.length - 1) {
     perf.bad[dprLevel]++;
     dprLevel++; perf.fast = 0;
     state.dpr = levels[dprLevel]; syncSize();
@@ -815,7 +819,9 @@ function tuneDpr(ms) {
 let last = 0, wasRendered = false;
 requestAnimationFrame(function loop(t) {
   const raw = t - last;
-  if (state.ecoMode && raw < 31) {
+  const isInteracting = Boolean(state.drag || state.hov >= 0 || state.fx.length);
+  const minInterval = state.ecoMode ? 32 : (isInteracting ? 15 : 24);
+  if (raw < minInterval) {
     requestAnimationFrame(loop);
     return;
   }

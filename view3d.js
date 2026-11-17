@@ -213,17 +213,17 @@ export function draw3DBackground(cx, t, focus) {
 }
 
 function drawArtLayer(cx, t, alpha) {
-  const { W, H, dpr, cam3D } = state;
-  const sc = Math.min(dpr, 1.5);
-  const key = `${W}|${H}|${sc}|${state.palette}|${state.themeMode}`;
+  const { W, H, cam3D } = state;
+  const sc = 1;
+  const key = `${W}|${H}|${state.palette}|${state.themeMode}`;
   if (!art) art = document.createElement('canvas');
   if (artKey !== key) {
-    art.width = Math.round(W * sc);
-    art.height = Math.round(H * sc);
+    art.width = Math.max(1, Math.round(W * sc));
+    art.height = Math.max(1, Math.round(H * sc));
     artKey = key;
     artT = -1;
   }
-  if (artT < 0 || (!RM && t - artT > 45)) {
+  if (artT < 0 || (!RM && t - artT > 240)) {
     const g = art.getContext('2d');
     g.setTransform(sc, 0, 0, sc, 0, 0);
     g.clearRect(0, 0, W, H);

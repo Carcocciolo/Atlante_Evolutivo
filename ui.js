@@ -204,11 +204,31 @@ export function setAutoRotate(v, remember = true) {
 /* ---------- scheda e visualizzatore a schermo intero ---------- */
 let showToken = 0;
 
+export function setOpticalGrid(enabled) {
+  state.gridEnabled = Boolean(enabled);
+  const mediaStage = $('#media-stage');
+  const lbStage = $('#lightbox-stage');
+  const toggleBtn = $('#toggle-grid');
+  const lbGridBtn = $('#lb-grid');
+  if (mediaStage) mediaStage.classList.toggle('has-grid', state.gridEnabled);
+  if (lbStage) lbStage.classList.toggle('has-grid', state.gridEnabled);
+  if (toggleBtn) toggleBtn.setAttribute('aria-pressed', state.gridEnabled ? 'true' : 'false');
+  if (lbGridBtn) lbGridBtn.setAttribute('aria-pressed', state.gridEnabled ? 'true' : 'false');
+}
+
 function openLightbox(src, alt) {
   const lb = $('#lightbox');
   const img = lb.querySelector('img');
+  const cap = $('#lb-caption');
+  const it = state.sel >= 0 ? state.items[state.sel] : null;
   img.src = src;
   img.alt = alt || '';
+  if (cap) {
+    cap.textContent = it
+      ? `SPECIMEN // ${String((it.cardIdx ?? state.sel) + 1).padStart(2, '0')} · ${it.r.subject || it.r.id}`
+      : (alt || '');
+  }
+  setOpticalGrid(state.gridEnabled);
   lb.hidden = false;
   playClick(520);
 }
@@ -219,6 +239,28 @@ function closeLightbox() {
   lb.hidden = true;
   lb.querySelector('img').removeAttribute('src');
   playClick(340);
+}
+
+export function stepSelection(delta) {
+  const n = state.items.length;
+  if (!n) return;
+  const visIndices = [];
+  for (let i = 0; i < n; i++) {
+    if (state.items[i].vis || i === state.sel) visIndices.push(i);
+  }
+  if (visIndices.length <= 1) return;
+  const curPos = visIndices.indexOf(state.sel);
+  const nextPos = curPos < 0
+    ? 0
+    : (curPos + delta + visIndices.length) % visIndices.length;
+  const nextIdx = visIndices[nextPos];
+  const lbWasOpen = !$('#lightbox').hidden;
+  show(nextIdx);
+  if (lbWasOpen) {
+    const it = state.items[nextIdx];
+    const fallbackSrc = it.src || (it.th ? it.th.toDataURL() : '');
+    if (fallbackSrc) openLightbox(fallbackSrc, it.r.subject || it.r.id);
+  }
 }
 
 export function show(i) {
@@ -260,6 +302,8 @@ export function show(i) {
     if (zoomHint) zoomHint.hidden = false;
   };
 
+  setOpticalGrid(state.gridEnabled);
+
   if (it.src) {
     const full = new Image();
     full.onload = () => {
@@ -267,6 +311,11 @@ export function show(i) {
         big.src = it.src;
         big.classList.remove('is-soft');
         enableZoom(it.src);
+        const lb = $('#lightbox');
+        if (lb && !lb.hidden) {
+          const lbImg = lb.querySelector('img');
+          if (lbImg) lbImg.src = it.src;
+        }
       }
     };
     full.src = it.src;
@@ -442,16 +491,30 @@ export function bindUI() {
     };
   }
 
-  // Toggle reticolo ottico nella scheda specimen
+  // Navigazione precedente/successivo e reticolo ottico (scheda + schermo intero)
+  const prevBtn = $('#prev-item');
+  const nextBtn = $('#next-item');
+  if (prevBtn) prevBtn.onclick = () => stepSelection(-1);
+  if (nextBtn) nextBtn.onclick = () => stepSelection(1);
+
   const toggleGridBtn = $('#toggle-grid');
-  const mediaStage = $('#media-stage');
-  if (toggleGridBtn && mediaStage) {
+  if (toggleGridBtn) {
     toggleGridBtn.onclick = () => {
       playClick(540);
-      const active = mediaStage.classList.toggle('has-grid');
-      toggleGridBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      setOpticalGrid(!state.gridEnabled);
     };
   }
+
+  const lbPrev = $('#lb-prev');
+  const lbNext = $('#lb-next');
+  const lbGrid = $('#lb-grid');
+  const lbClose = $('#lb-close');
+  const lbStage = $('#lightbox-stage');
+  if (lbPrev) lbPrev.onclick = e => { e.stopPropagation(); stepSelection(-1); };
+  if (lbNext) lbNext.onclick = e => { e.stopPropagation(); stepSelection(1); };
+  if (lbGrid) lbGrid.onclick = e => { e.stopPropagation(); playClick(540); setOpticalGrid(!state.gridEnabled); };
+  if (lbClose) lbClose.onclick = e => { e.stopPropagation(); closeLightbox(); };
+  if (lbStage) lbStage.onclick = e => { e.stopPropagation(); closeLightbox(); };
 
   $('#open-data').onclick = () => { playClick(460); openWelcome(true); };
   $('#close-welcome').onclick = () => { playClick(360); openWelcome(false); };
@@ -520,6 +583,18 @@ export function bindUI() {
       return closeSelection();
     }
     if (typing) return;
+    const modalOpen = !$('#settings').hidden || !$('#contacts').hidden || !$('#welcome').hidden;
+    if (!modalOpen && state.sel >= 0 && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      e.preventDefault();
+      stepSelection(e.key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
+    if (!modalOpen && state.sel >= 0 && (e.key === 'r' || e.key === 'R')) {
+      e.preventDefault();
+      playClick(540);
+      setOpticalGrid(!state.gridEnabled);
+      return;
+    }
     if (e.key === '/') { e.preventDefault(); $('#q').focus(); }
     else if (e.key === ' ') { e.preventDefault(); setAutoRotate(!state.autoRotate); }
     else if (e.key === 'g' || e.key === 'G') setViewMode(state.viewMode === '3d' ? 'geo' : '3d');

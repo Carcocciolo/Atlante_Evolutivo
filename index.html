@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="it" data-palette="amber" data-theme="dark">
+<html lang="it" data-palette="monolith" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#070504">
+  <meta name="theme-color" content="#07080a">
   <title>Atlante Evolutivo · Osservatorio Crono-Ottico XV</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,6 +35,8 @@
       <symbol id="i-expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
       <symbol id="i-prism" viewBox="0 0 24 24"><polygon points="12 3 21 19 3 19"/><path d="M12 3v16M7.5 11.5 21 19"/></symbol>
       <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></symbol>
+      <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
     </defs>
   </svg>
 
@@ -124,7 +126,13 @@
     <div class="drawer-topbar">
       <span class="drawer-code" id="det-code">SPECIMEN // 00</span>
       <div class="drawer-actions">
-        <button type="button" id="toggle-grid" class="icon-btn icon-btn-sm" aria-pressed="false" aria-label="Griglia ottica di misurazione" title="Griglia ottica">
+        <button type="button" id="prev-item" class="icon-btn icon-btn-sm" aria-label="Tavola precedente" title="Tavola precedente (←)">
+          <svg class="ic"><use href="#i-chev-l"/></svg>
+        </button>
+        <button type="button" id="next-item" class="icon-btn icon-btn-sm" aria-label="Tavola successiva" title="Tavola successiva (→)">
+          <svg class="ic"><use href="#i-chev-r"/></svg>
+        </button>
+        <button type="button" id="toggle-grid" class="icon-btn icon-btn-sm" aria-pressed="false" aria-label="Griglia ottica di misurazione" title="Griglia ottica (R)">
           <svg class="ic"><use href="#i-grid"/></svg>
         </button>
         <button type="button" id="close-det" class="icon-btn icon-btn-sm" aria-label="Chiudi scheda" title="Chiudi (Esc)">
@@ -158,7 +166,7 @@
 
   <div class="telemetry" id="telemetry" aria-hidden="true">
     <i class="tel-dot"></i>
-    <span id="telemetry-text">SPAZIO 3D · 1.00× · AMBRA FOSSILE</span>
+    <span id="telemetry-text">SPAZIO 3D · 1.00× · PRISMA PLATINO</span>
   </div>
 
   <!-- Console strumenti principale -->
@@ -189,7 +197,33 @@
   </button>
 
   <div id="lightbox" class="overlay lightbox" hidden>
-    <img alt="" draggable="false">
+    <div class="lb-toolbar">
+      <span class="lb-caption" id="lb-caption"></span>
+      <div class="lb-actions">
+        <button type="button" id="lb-grid" class="icon-btn" aria-pressed="false" aria-label="Griglia ottica di misurazione" title="Griglia ottica (R)">
+          <svg class="ic"><use href="#i-grid"/></svg>
+        </button>
+        <button type="button" id="lb-close" class="icon-btn" aria-label="Chiudi schermo intero" title="Chiudi (Esc)">
+          <svg class="ic"><use href="#i-close"/></svg>
+        </button>
+      </div>
+    </div>
+    <button type="button" id="lb-prev" class="lb-nav lb-prev" aria-label="Tavola precedente" title="Tavola precedente (←)">
+      <svg class="ic"><use href="#i-chev-l"/></svg>
+    </button>
+    <div class="lightbox-stage" id="lightbox-stage">
+      <img alt="" draggable="false">
+      <div class="optical-reticle-overlay" aria-hidden="true">
+        <span class="op-cross-h"></span>
+        <span class="op-cross-v"></span>
+        <span class="op-ring-1"></span>
+        <span class="op-ring-2"></span>
+        <span class="op-scale-bar">10 mm · RETICOLO OTTICO</span>
+      </div>
+    </div>
+    <button type="button" id="lb-next" class="lb-nav lb-next" aria-label="Tavola successiva" title="Tavola successiva (→)">
+      <svg class="ic"><use href="#i-chev-r"/></svg>
+    </button>
   </div>
 
   <div id="loader" class="loader" role="status">
