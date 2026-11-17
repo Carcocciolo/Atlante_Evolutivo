@@ -1,13 +1,13 @@
 /* ============================================================
    data.js — configurazione, stato condiviso, parsing, feature
-   visive e layout t-SNE 3D con texture GPU (ImageBitmap)
+   visive e layout t-SNE 3D
    ============================================================ */
 
 export const CONFIG = {
   csv: '02_database/database_immagini.csv',
   images: '01_immagini/',
-  concurrency: 6,
-  thumb: 144,
+  concurrency: 8,
+  thumb: 192,
   landUrl: 'https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json'
 };
 
@@ -44,14 +44,15 @@ export const state = {
   goalGeo: { ...HOME_GEO },
   spin: { yaw: 0, pitch: 0 },
   autoRotate: !RM,
-  autoRotatePref: !RM,
   drag: null,
   mx: -999, my: -999,
-  focus: 0,
-  switchT: -1e9,
+  focus: 0,               // 0..1, animato quando c'è una tavola selezionata
+  switchT: -1e9,          // istante dell'ultimo cambio vista (dissolvenza)
   fx: [],
   proj: [],
   Dm: null,
+  tour: 0,
+  seen: new Set(),
   busy: false,
   dirty: true
 };
@@ -72,6 +73,7 @@ export const rgba = (hex, a) => {
 export const markDirty = () => { state.dirty = true; };
 
 let toastTimer = 0;
+/** Messaggio breve in alto. ms = 0 lo lascia visibile finché non arriva `msg('')`. */
 export function msg(text, ms = 3200) {
   const el = document.getElementById('toast');
   if (!el) return;
@@ -82,6 +84,7 @@ export function msg(text, ms = 3200) {
   if (ms) toastTimer = setTimeout(() => el.classList.remove('is-on'), ms);
 }
 
+/** Ricalcola la visibilità di ogni tavola (categorie + ricerca). */
 export function refreshVis() {
   const q = state.q;
   for (const it of state.items) {
@@ -90,6 +93,7 @@ export function refreshVis() {
   markDirty();
 }
 
+/** Note mostrate nella scheda, una per riga. */
 export function getNotes(r) {
   const out = [];
   if (r.notes && r.notes !== 'nan') out.push(r.notes);
@@ -130,17 +134,18 @@ export function parseCSV(t) {
     .map(x => Object.fromEntries(head.map((k, i) => [k, (x[i] || '').trim()])));
 }
 
-/* ---------- miniature e cornici (convertite in ImageBitmap GPU) ---------- */
+/* ---------- miniature e cornici ---------- */
 export function makeThumb(bm, S = CONFIG.thumb) {
   const c = document.createElement('canvas');
   c.width = c.height = S;
   const g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
   const s = Math.max(S / bm.width, S / bm.height);
   g.drawImage(bm, (S - bm.width * s) / 2, (S - bm.height * s) / 2, bm.width * s, bm.height * s);
   return c;
 }
 
-export function makeCardCanvas(th, color, idx) {
+export function makeCard(th, color, idx) {
   const S = th.width;
   const pad = Math.round(S * CARD.pad);
   const bottom = Math.round(S * CARD.bottom);
@@ -164,14 +169,12 @@ export function makeCardCanvas(th, color, idx) {
   return c;
 }
 
-export async function setItemImage(it, bm, idx) {
+export function setItemImage(it, bm, idx) {
   it.th = makeThumb(bm);
-  const cardCanvas = makeCardCanvas(it.th, state.col[it.cat], idx);
-  if (typeof bm.close === 'function') bm.close();
-  // Trasferisce la card direttamente in memoria GPU (ImageBitmap) per drawImage a 0-copy
-  it.card = typeof createImageBitmap === 'function' ? await createImageBitmap(cardCanvas) : cardCanvas;
+  it.card = makeCard(it.th, state.col[it.cat], idx);
   it.ready = true;
   it.b = performance.now();
+  if (typeof bm.close === 'function') bm.close();
   markDirty();
 }
 
@@ -202,6 +205,7 @@ export function feat(th) {
   return [...grid, ...hist, ...eo];
 }
 
+/** Standardizza ogni dimensione e pesa i tre blocchi di feature in modo equo. */
 export function prep(F) {
   const n = F.length, d = F[0].length;
   for (let j = 0; j < d; j++) {
@@ -225,6 +229,11 @@ function mulberry32(seed) {
   };
 }
 
+/**
+ * Calcola il layout 3D e scrive le posizioni obiettivo (tx, ty, tz) su ogni tavola.
+ * Il seed è fisso: lo stesso dataset produce sempre lo stesso atlante.
+ * L'elaborazione è spezzata in fette da ~12 ms per non bloccare l'interfaccia.
+ */
 export function tsne3D(F, onProgress) {
   const n = F.length, items = state.items;
   const D = new Float64Array(n * n);
@@ -305,6 +314,8 @@ export function tsne3D(F, onProgress) {
     (function frame() {
       const t0 = performance.now();
       do step(); while (it < T && performance.now() - t0 < 12);
+      // Scala robusta: il 90° percentile (e non il massimo) fissa le dimensioni, così un
+      // singolo outlier non comprime tutto il resto. Gli estremi vengono limitati a ±1,3.
       const reach = Array.from({ length: n }, (_, i) =>
         Math.max(Math.abs(Y[3 * i]), Math.abs(Y[3 * i + 1]), Math.abs(Y[3 * i + 2]))).sort((a, b) => a - b);
       const sc = 0.95 / (reach[Math.floor((n - 1) * 0.9)] || extent);

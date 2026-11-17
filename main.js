@@ -1,5 +1,6 @@
 /* ============================================================
-   main.js — ciclo di rendering ultra-fluido, input, hover e avvio
+   main.js — ciclo di rendering, input (mouse, touch, pinch,
+   inerzia), hover e avvio
    ============================================================ */
 import { state, RM, CARD, ease, clamp, rgba, esc, markDirty } from './data.js';
 import {
@@ -7,7 +8,7 @@ import {
 } from './geo.js';
 import { project3D, thumbSize3D, draw3DBackground, drawClusterLabels, buildBackground } from './view3d.js';
 import { stepCamera, zoomBy, focusOn } from './camera.js';
-import { show, closeSelection, bindUI, setAutoRotate } from './ui.js';
+import { show, closeSelection, bindUI, stopTour, setAutoRotate } from './ui.js';
 import { autoload, bindLoaderUI } from './loader.js';
 
 const $ = s => document.querySelector(s);
@@ -20,6 +21,7 @@ const order = [];
 const off = {};
 const glowCache = new Map();
 
+/** Sprite luminoso per categoria: si disegna in modalità additiva. */
 function glow(color) {
   let c = glowCache.get(color);
   if (c) return c;
@@ -36,7 +38,7 @@ function glow(color) {
   return c;
 }
 
-/* ---------- picking ---------- */
+/* ---------- picking: restituisce la tavola più vicina sotto il puntatore ---------- */
 function pick(px, py) {
   const { items, proj, mode } = state;
   for (let k = order.length - 1; k >= 0; k--) {
@@ -61,7 +63,7 @@ function setTip(h) {
 
 function placeTip(px, py) {
   const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
-  tipEl.style.transform = `translate3d(${clamp(px + 16, 8, state.W - w - 8)}px, ${clamp(py + 16, 8, state.H - h - 8)}px, 0)`;
+  tipEl.style.transform = `translate(${clamp(px + 16, 8, state.W - w - 8)}px, ${clamp(py + 16, 8, state.H - h - 8)}px)`;
 }
 
 /* ---------- rendering ---------- */
@@ -77,19 +79,17 @@ function render(t, dt) {
   if (stepCamera(dt)) busy = true;
 
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  cx.imageSmoothingEnabled = true;
-  cx.imageSmoothingQuality = 'low';
+  cx.imageSmoothingQuality = 'high';
 
   const n = items.length;
   const baseSize = is3D ? thumbSize3D(S.cam3D.zoom) : geoThumbSize(S.camGeo.k);
   let hubs = null;
 
-  if (is3D) {
-    draw3DBackground(cx, t, S.focus);
-    if (S.autoRotate && !RM && S.sel < 0) busy = true;
-  } else {
+  if (is3D) draw3DBackground(cx, t, S.focus);
+  else {
     drawGeoBase(cx);
-    if (n) { hubs = layoutHubs(baseSize); drawGeoHalos(cx); }
+    if (n) { hubs = layoutHubs(baseSize); drawGeoHalos(cx, t); }
+    if (!RM) busy = true;
   }
 
   if (S.focus > 0.01) {
@@ -97,7 +97,7 @@ function render(t, dt) {
     cx.fillRect(0, 0, W, H);
   }
 
-  /* --- aggiornamento e proiezione --- */
+  /* --- aggiornamento e proiezione di ogni tavola --- */
   while (S.proj.length < n) S.proj.push({ sx: 0, sy: 0, scale: 1, zOrder: 0, size: 0 });
   S.proj.length = n;
   const mv = 1 - Math.exp(-dt * (RM ? 60 : 4.5));
@@ -119,10 +119,9 @@ function render(t, dt) {
     if (ap < 1) busy = true;
 
     if (is3D) {
-      const floatPhase = (S.autoRotate && !RM && S.sel < 0) ? 1 : 0;
       project3D(
-        it.x + Math.cos(t * 0.0011 + i * 1.7) * 0.004 * rm * floatPhase,
-        it.y + Math.sin(t * 0.0015 + i) * 0.005 * rm * floatPhase,
+        it.x + Math.cos(t * 0.0011 + i * 1.7) * 0.005 * rm,
+        it.y + Math.sin(t * 0.0015 + i) * 0.006 * rm,
         it.z, o
       );
     } else {
@@ -140,8 +139,8 @@ function render(t, dt) {
   for (let i = 0; i < n; i++) order[i] = i;
   order.sort((a, b) => S.proj[b].zOrder - S.proj[a].zOrder);
 
-  /* --- legami tra tavole simili (solo in vista 3D) --- */
-  if (n && is3D) {
+  /* --- legami tra tavole simili --- */
+  if (n) {
     cx.lineWidth = 1;
     cx.globalAlpha = 0.17 * (1 - 0.6 * S.focus);
     for (const cat of Object.keys(col)) {
@@ -158,10 +157,7 @@ function render(t, dt) {
       cx.strokeStyle = col[cat];
       cx.stroke();
     }
-  }
 
-  /* --- legami attivi su hover/selezione --- */
-  if (n && (S.hov >= 0 || S.sel >= 0)) {
     cx.lineWidth = 1.6;
     cx.setLineDash([6, 8]);
     cx.lineDashOffset = -t * 0.04;
@@ -171,27 +167,22 @@ function render(t, dt) {
       cx.globalAlpha = k === S.sel ? 0.85 : 0.55;
       cx.beginPath();
       for (const j of items[k].nn) {
-        if (!items[j] || !items[j].vis) continue;
+        if (!items[j]) continue;
         cx.moveTo(items[k].sx, items[k].sy); cx.lineTo(items[j].sx, items[j].sy);
       }
       cx.stroke();
     }
     cx.setLineDash([]);
     cx.globalAlpha = 1;
-    if (!RM) busy = true;
   }
 
-  /* --- tavole: fast-path senza save()/restore()/rotate() --- */
-  const margin = baseSize * 2.2;
+  /* --- tavole --- */
   const drawNode = (i, big) => {
-    const it = items[i], o = S.proj[i];
-    if (!big && (o.sx < -margin || o.sx > W + margin || o.sy < -margin || o.sy > H + margin)) return;
-
-    const c = col[it.cat];
+    const it = items[i], o = S.proj[i], c = col[it.cat];
     const dim = (S.sel >= 0 && !big) ? 1 - 0.66 * S.focus : 1;
     const depth = (is3D ? clamp(o.scale * 0.92, 0.35, 1) : 1) * dim;
 
-    if (it.vf < 0.98) {
+    if (it.vf < 0.98) {                    // tavola filtrata: resta un puntino spento
       cx.globalAlpha = 0.22 * depth * (1 - it.vf);
       cx.fillStyle = c;
       cx.beginPath(); cx.arc(o.sx, o.sy, 3 * o.scale, 0, 6.2832); cx.fill();
@@ -199,7 +190,7 @@ function render(t, dt) {
     if (it.vf < 0.02) return;
 
     const live = it.ready && mode === 'thumb';
-    if (big || (i === S.hov && live)) {
+    if (big || (i === S.hov && live)) {    // alone sotto la tavola attiva
       const R = (live ? o.size : 22) * 1.5;
       cx.globalCompositeOperation = 'lighter';
       cx.globalAlpha = (big ? 0.55 : 0.4) * depth;
@@ -207,7 +198,7 @@ function render(t, dt) {
       cx.globalCompositeOperation = 'source-over';
     }
 
-    if (!live) {
+    if (!live) {                           // punto luminoso
       const r = (big ? 11 : 6.5) * o.scale * (1 + 0.4 * it.hs) * it.vf;
       cx.globalCompositeOperation = 'lighter';
       cx.globalAlpha = 0.7 * depth;
@@ -223,19 +214,19 @@ function render(t, dt) {
 
     const s = o.size, pad = s * CARD.pad;
     const w = s * (1 + 2 * CARD.pad), h = s * (1 + CARD.pad + CARD.bottom);
-    const x0 = Math.round(o.sx - s / 2 - pad);
-    const y0 = Math.round(o.sy - s / 2 - pad);
-
+    cx.save();
     cx.globalAlpha = Math.min(1, it.a * 1.4) * depth * it.vf;
-    cx.fillStyle = 'rgba(8, 3, 1, 0.36)';
-    cx.fillRect(x0 + s * 0.03, y0 + s * 0.05, w, h);
-    cx.drawImage(it.card, x0, y0, w, h);
-
+    cx.translate(o.sx, o.sy);
+    cx.rotate(big ? 0 : ((i * 37 % 11) - 5) * 0.012 + Math.sin(t * 0.0009 + i) * 0.015 * rm);
+    cx.fillStyle = 'rgba(8, 3, 1, 0.35)';
+    cx.fillRect(-s / 2 - pad + s * 0.03, -s / 2 - pad + s * 0.05, w, h);
+    cx.drawImage(it.card, -s / 2 - pad, -s / 2 - pad, w, h);
     if (big || S.hov === i) {
       cx.lineWidth = big ? 3 : 2;
       cx.strokeStyle = big ? '#ee9a5b' : c;
-      cx.strokeRect(x0, y0, w, h);
+      cx.strokeRect(-s / 2 - pad, -s / 2 - pad, w, h);
     }
+    cx.restore();
   };
 
   for (const i of order) if (i !== S.sel && i !== S.hov) drawNode(i, false);
@@ -261,24 +252,22 @@ function render(t, dt) {
   } else if (n) drawGeoLabels(cx);
 
   /* --- onda d'urto alla selezione --- */
-  if (S.fx.length) {
-    S.fx = S.fx.filter(f => t - f.t0 < 1100);
-    for (const f of S.fx) {
-      const p = (t - f.t0) / 1100, it = f.it;
-      cx.globalAlpha = 1 - p;
-      cx.strokeStyle = cx.fillStyle = f.c;
-      cx.lineWidth = 2;
-      cx.beginPath(); cx.arc(it.sx, it.sy, 10 + p * 130 * it.sc, 0, 6.2832); cx.stroke();
-      for (const sp of f.sp) {
-        const d = sp.v * p * (2 - p) * it.sc;
-        cx.beginPath();
-        cx.arc(it.sx + Math.cos(sp.a) * d, it.sy + Math.sin(sp.a) * d, 2.5 * (1 - p) + 0.5, 0, 6.2832);
-        cx.fill();
-      }
-      busy = true;
+  S.fx = S.fx.filter(f => t - f.t0 < 1100);
+  for (const f of S.fx) {
+    const p = (t - f.t0) / 1100, it = f.it;
+    cx.globalAlpha = 1 - p;
+    cx.strokeStyle = cx.fillStyle = f.c;
+    cx.lineWidth = 2;
+    cx.beginPath(); cx.arc(it.sx, it.sy, 10 + p * 130 * it.sc, 0, 6.2832); cx.stroke();
+    for (const sp of f.sp) {
+      const d = sp.v * p * (2 - p) * it.sc;
+      cx.beginPath();
+      cx.arc(it.sx + Math.cos(sp.a) * d, it.sy + Math.sin(sp.a) * d, 2.5 * (1 - p) + 0.5, 0, 6.2832);
+      cx.fill();
     }
-    cx.globalAlpha = 1;
+    busy = true;
   }
+  cx.globalAlpha = 1;
 
   /* --- dissolvenza al cambio vista --- */
   const sp = (t - S.switchT) / 520;
@@ -308,11 +297,13 @@ const pinchDist = () => {
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  stopTour();
   if (pointers.size === 2) {
     state.drag = null;
     pinch = pinchDist();
     return;
   }
+  // Un nuovo gesto interrompe voli e inerzia: l'obiettivo diventa la posizione attuale.
   Object.assign(state.goal3D, state.cam3D);
   Object.assign(state.goalGeo, state.camGeo);
   state.spin.yaw = state.spin.pitch = 0;
@@ -356,7 +347,7 @@ cv.addEventListener('pointermove', e => {
       state.goal3D.panX = d.panX + dx;
       state.goal3D.panY = d.panY + dy;
     } else {
-      setAutoRotate(false, false);
+      setAutoRotate(false);
       state.goal3D.yaw = d.yaw + dx * 0.0065;
       state.goal3D.pitch = clamp(d.pitch + dy * 0.0065, -1.35, 1.35);
       const now = performance.now(), dtm = (now - d.lastT) / 1000;
@@ -382,7 +373,7 @@ cv.addEventListener('pointermove', e => {
 function endPointer(e) {
   pointers.delete(e.pointerId);
   if (pointers.size < 2) pinch = null;
-  if (e.pointerType !== 'mouse') {
+  if (e.pointerType !== 'mouse') {               // su touch non esiste "hover"
     state.mx = state.my = -999;
     state.hov = -1;
     tipEl.classList.remove('is-on');
@@ -395,7 +386,7 @@ function endPointer(e) {
       const h = pick(e.clientX - r.left, e.clientY - r.top);
       if (h >= 0) show(h); else closeSelection();
     } else if (performance.now() - d.lastT > 90) {
-      state.spin.yaw = state.spin.pitch = 0;
+      state.spin.yaw = state.spin.pitch = 0;      // si è fermato prima di rilasciare: niente inerzia
     }
     cv.style.cursor = state.hov >= 0 ? 'pointer' : 'grab';
   }
@@ -420,7 +411,7 @@ cv.addEventListener('wheel', e => {
 
 /* ---------- dimensioni e ciclo ---------- */
 function syncSize() {
-  state.dpr = 1;
+  state.dpr = Math.min(window.devicePixelRatio || 1, 2);
   state.W = wrap.clientWidth || innerWidth;
   state.H = wrap.clientHeight || innerHeight;
   cv.width = Math.round(state.W * state.dpr);
@@ -436,7 +427,7 @@ let last = 0;
 requestAnimationFrame(function loop(t) {
   const dt = Math.min(0.05, (t - last) / 1000) || 0.016;
   last = t;
-  if (state.dirty) render(t, dt);
+  if (state.dirty || (state.viewMode === '3d' && !RM)) render(t, dt);
   requestAnimationFrame(loop);
 });
 

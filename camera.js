@@ -8,7 +8,7 @@ import { project3D } from './view3d.js';
 import { geoThumbSize, geoOffset, layoutHubs } from './geo.js';
 
 export const ZOOM_3D = [0.45, 4.8];
-export const ZOOM_GEO = [0.75, 18];
+export const ZOOM_GEO = [0.7, 24];
 
 const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
 const KEYS_3D = ['yaw', 'pitch', 'zoom', 'panX', 'panY'];
@@ -22,10 +22,7 @@ export function stepCamera(dt) {
   if (s.viewMode === '3d') {
     const c = s.cam3D, g = s.goal3D;
     if (!s.drag) {
-      if (s.autoRotate && !RM && s.sel < 0) {
-        g.yaw += dt * 0.14;
-        moving = true;
-      }
+      if (s.autoRotate && !RM && s.sel < 0) g.yaw += dt * 0.12;
       if (Math.abs(s.spin.yaw) + Math.abs(s.spin.pitch) > 0.01) {
         g.yaw += s.spin.yaw * dt;
         g.pitch = clamp(g.pitch + s.spin.pitch * dt, -1.35, 1.35);
@@ -98,13 +95,14 @@ export function focusOn(it) {
   if (state.viewMode === '3d') {
     const cur = state.cam3D, g = state.goal3D;
     const h = Math.hypot(it.x, it.z);
+    // Ruota il mondo in modo che il punto arrivi sull'asse verso la camera (z negativo = vicino).
     const yaw = cur.yaw + wrapAngle(Math.atan2(-it.x, -it.z) - cur.yaw);
     const pitch = clamp(-Math.atan2(it.y, h), -1.1, 1.1);
     const zoom = 1.7;
     project3D(it.x, it.y, it.z, _probe, { yaw, pitch, zoom, panX: 0, panY: 0 });
     Object.assign(g, { yaw, pitch, zoom, panX: want.x - _probe.sx, panY: want.y - _probe.sy });
   } else {
-    const k = 3.0, size = geoThumbSize(k);
+    const k = 3.2, size = geoThumbSize(k);
     const h = layoutHubs(size, { x: 0, y: 0, k }, new Map()).get(it.hubId);
     geoOffset(it, size, _off);
     Object.assign(state.goalGeo, {
