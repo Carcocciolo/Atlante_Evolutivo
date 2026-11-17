@@ -1,5 +1,5 @@
 export const CONFIG = {
-  csv: '02_database/database_immagini.csv',
+  csv: 'database_immagini.csv',
   images: '01_immagini/',
   concurrency: 12
 };
@@ -50,12 +50,8 @@ export const ease = a => {
   a = Math.min(1, Math.max(0, a));
   return 1 + 2.70158 * Math.pow(a - 1, 3) + 1.70158 * Math.pow(a - 1, 2);
 };
-export const esc = s => String(s).replace(/[&<>"']/g, c => ({
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;'
+export const esc = s => String(s).replace(/[&<>"]/g, c => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
 }[c]));
 export const msg = t => {
   const el = document.querySelector('#st');

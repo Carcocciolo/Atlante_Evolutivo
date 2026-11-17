@@ -272,15 +272,15 @@ export function bindUI(handlers) {
     markDirty();
   };
 
-    $('#cp').onclick = () => {
+  $('#cp').onclick = () => {
     if (!state.items.length) return msg('Carica prima i dati.');
-    const header = 'id,filename,category,site,geo_status,lon,lat,x3d,y3d,z3d';
-    const body = state.items.map(i => [
+    const t = 'id,filename,category,site,geo_status,lon,lat,x3d,y3d,z3d
+' + state.items.map(i => [
       i.r.id, i.r.filename || '', i.cat, i.siteName, i.geoStatus,
       i.lon.toFixed(4), i.lat.toFixed(4),
       i.x.toFixed(4), i.y.toFixed(4), i.z.toFixed(4)
-    ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
-    const t = header + '\n' + body;
+    ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('
+');
     const o = $('#out');
     o.value = t;
     const ok = () => msg('Coordinate copiate.');

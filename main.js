@@ -386,16 +386,14 @@ cv.addEventListener('wheel', e => {
   markDirty();
 }, { passive: false });
 
-function syncCanvasSize() {
+new ResizeObserver(() => {
   state.dpr = Math.min(window.devicePixelRatio || 1, 2);
-  state.W = wrap.clientWidth || window.innerWidth || 800;
-  state.H = wrap.clientHeight || window.innerHeight || 600;
-  cv.width = Math.max(1, Math.round(state.W * state.dpr));
-  cv.height = Math.max(1, Math.round(state.H * state.dpr));
+  state.W = wrap.clientWidth;
+  state.H = wrap.clientHeight;
+  cv.width = state.W * state.dpr;
+  cv.height = state.H * state.dpr;
   markDirty();
-}
-syncCanvasSize();
-new ResizeObserver(syncCanvasSize).observe(wrap);
+}).observe(wrap);
 
 (function loop(t) {
   const now = t || 0;
@@ -451,9 +449,8 @@ async function autoload() {
       return createImageBitmap(await rs.blob());
     });
   } catch (_) {
-    $('#cat-dropdown').open = true;
     $('#dati-acc').open = true;
-    msg('Apri su GitHub Pages / Live Server oppure carica i file / Dati esempio qui sotto.');
+    msg('Apri su GitHub Pages / Live Server oppure carica i file qui sotto.');
   }
 }
 
