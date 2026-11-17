@@ -37,28 +37,11 @@ export function buildBackground() {
   bg = document.createElement('canvas');
   bg.width = w; bg.height = h;
   const g = bg.getContext('2d');
-
-  // Base radiale calda
-  const r = g.createRadialGradient(w * 0.5, h * 0.48, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.82);
-  r.addColorStop(0, '#441a0c');
-  r.addColorStop(0.45, '#1d0904');
-  r.addColorStop(0.85, '#0b0301');
-  r.addColorStop(1, '#050100');
+  const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.78);
+  r.addColorStop(0, '#3b170b');
+  r.addColorStop(0.52, '#190804');
+  r.addColorStop(1, '#080201');
   g.fillStyle = r;
-  g.fillRect(0, 0, w, h);
-
-  // Luce secondaria ambrata in alto a destra (area Archaeopteryx)
-  const g1 = g.createRadialGradient(w * 0.72, h * 0.22, 0, w * 0.72, h * 0.22, Math.max(w, h) * 0.45);
-  g1.addColorStop(0, 'rgba(255, 165, 85, 0.14)');
-  g1.addColorStop(1, 'rgba(255, 165, 85, 0)');
-  g.fillStyle = g1;
-  g.fillRect(0, 0, w, h);
-
-  // Luce secondaria verde-muschio morbida in basso a destra (area Kauai)
-  const g2 = g.createRadialGradient(w * 0.78, h * 0.78, 0, w * 0.78, h * 0.78, Math.max(w, h) * 0.38);
-  g2.addColorStop(0, 'rgba(115, 200, 90, 0.08)');
-  g2.addColorStop(1, 'rgba(115, 200, 90, 0)');
-  g.fillStyle = g2;
   g.fillRect(0, 0, w, h);
 
   if (!spotSprite) {
@@ -66,9 +49,8 @@ export function buildBackground() {
     spotSprite.width = spotSprite.height = 256;
     const sg = spotSprite.getContext('2d');
     const gr = sg.createRadialGradient(128, 128, 0, 128, 128, 128);
-    gr.addColorStop(0, 'rgba(255, 204, 150, 0.14)');
-    gr.addColorStop(0.45, 'rgba(255, 175, 110, 0.05)');
-    gr.addColorStop(1, 'rgba(255, 175, 110, 0)');
+    gr.addColorStop(0, 'rgba(255, 196, 140, 0.11)');
+    gr.addColorStop(1, 'rgba(255, 196, 140, 0)');
     sg.fillStyle = gr;
     sg.fillRect(0, 0, 256, 256);
   }
@@ -80,10 +62,8 @@ const dust = Array.from({ length: 65 }, () => ({
 }));
 
 function drawDust(cx, t) {
-  const { W, H, cam3D, spin } = state;
-  const streak = clamp(spin.yaw * 18, -32, 32);
-
-  cx.fillStyle = 'rgba(255, 218, 178, 0.25)';
+  const { W, H, cam3D } = state;
+  cx.fillStyle = 'rgba(255, 214, 170, 0.22)';
   cx.beginPath();
   for (const d of dust) {
     if (!RM) { d.y -= d.v; if (d.y < 0) d.y = 1; }
@@ -94,21 +74,6 @@ function drawDust(cx, t) {
     cx.arc(x, y, rad, 0, Math.PI * 2);
   }
   cx.fill();
-
-  // Scia leggera sulle particelle durante una rotazione rapida
-  if (!RM && Math.abs(streak) > 2) {
-    cx.strokeStyle = 'rgba(255, 218, 178, 0.14)';
-    cx.lineWidth = 1.1;
-    cx.beginPath();
-    for (const d of dust) {
-      if (d.z < 0.45) continue;
-      const x = (((d.x * W - cam3D.yaw * W * 0.16 * (0.3 + d.z) + cam3D.panX * 0.2 * d.z) % W) + W) % W;
-      const y = (((d.y * H - cam3D.pitch * H * 0.1 * d.z) % H) + H) % H;
-      cx.moveTo(x, y);
-      cx.lineTo(x + streak * d.z, y);
-    }
-    cx.stroke();
-  }
 }
 
 const _p = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
@@ -146,6 +111,8 @@ export function draw3DBackground(cx, t, focus) {
   drawArtLayer(cx, t, 1 - 0.65 * focus);
 }
 
+/* Le illustrazioni sono decine di path: si ridisegnano a ~22 fps su un layer a parte
+   e si compongono con una sola drawImage (il parallasse è applicato in composizione). */
 let art = null, artKey = '', artT = -1;
 function drawArtLayer(cx, t, alpha) {
   const { W, H, dpr, cam3D } = state;
@@ -195,7 +162,7 @@ function drawBackgroundArt(cx, t) {
   const { W, H } = state;
   const s = Math.min(W, H) / 560;
   const rm = RM ? 0 : 1;
-  const px = 0, py = 0;
+  const px = 0, py = 0;                 // il parallasse si applica quando il layer viene composto
   const F = 'Fraunces,Georgia,serif';
 
   const cap = (a, b, x, y, rgb) => {
@@ -219,6 +186,7 @@ function drawBackgroundArt(cx, t) {
   cx.rotate(-0.08 + Math.sin(t * 0.0004) * 0.018 * rm);
   cx.scale(s * 0.95, s * 0.95);
 
+  // Busto e collo sinuoso
   cx.strokeStyle = 'rgba(255,152,56,.68)';
   cx.fillStyle = 'rgba(255,180,68,.09)';
   cx.lineWidth = 1.65;
@@ -230,6 +198,7 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
+  // Collo, cranio e becco dentato
   cx.beginPath();
   cx.moveTo(-34, -8);
   cx.quadraticCurveTo(-54, -22, -62, -34);
@@ -246,6 +215,7 @@ function drawBackgroundArt(cx, t) {
   cx.arc(-71, -38, 1.8, 0, Math.PI * 2);
   cx.fill();
 
+  // Coda lunga vertebrata con penne a ventaglio
   cx.strokeStyle = 'rgba(255,182,64,.62)';
   cx.lineWidth = 1.4;
   cx.beginPath();
@@ -267,6 +237,7 @@ function drawBackgroundArt(cx, t) {
   }
   cx.stroke();
 
+  // Ala aperta con remiganti e 3 artigli alari distintivi
   const fl = Math.sin(t * 0.0014) * 0.09 * rm;
   cx.strokeStyle = 'rgba(255,214,96,.72)';
   cx.lineWidth = 1.5;
@@ -279,6 +250,7 @@ function drawBackgroundArt(cx, t) {
     cx.moveTo(-6, -12);
     cx.quadraticCurveTo((-6 + ex) / 2 + 6, (-12 + ey) / 2 - 9, ex, ey);
   }
+  // Artigli sul bordo dell'ala
   cx.moveTo(-42, -46);
   cx.quadraticCurveTo(-50, -54, -55, -52);
   cx.moveTo(-36, -52);
@@ -287,6 +259,7 @@ function drawBackgroundArt(cx, t) {
   cx.quadraticCurveTo(-35, -66, -41, -65);
   cx.stroke();
 
+  // Zampa posteriore artigliata
   cx.strokeStyle = 'rgba(255,152,56,.66)';
   cx.lineWidth = 1.6;
   cx.beginPath();
@@ -302,13 +275,14 @@ function drawBackgroundArt(cx, t) {
   cx.restore();
   cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 106 * s, 'rgba(255,176,68,');
 
-  // 2. PETTIROSSO — Erithacus rubecula
+  // 2. PETTIROSSO — Erithacus rubecula (postura naturale su rametto)
   cx.save();
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.22 - px * 0.9, H * 0.77 + py + Math.sin(t * 0.0006 + 1.2) * 5 * rm);
   cx.scale(s * 0.96, s * 0.96);
 
+  // Rametto sottile d'appoggio
   cx.strokeStyle = 'rgba(210,165,125,.34)';
   cx.lineWidth = 1.4;
   cx.beginPath();
@@ -318,6 +292,7 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(36, 41);
   cx.stroke();
 
+  // Coda
   cx.strokeStyle = 'rgba(250,206,162,.62)';
   cx.fillStyle = 'rgba(250,206,162,.07)';
   cx.lineWidth = 1.6;
@@ -330,6 +305,7 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
+  // Corpo paffuto e testa continua
   cx.beginPath();
   cx.moveTo(10, -34);
   cx.bezierCurveTo(28, -34, 34, -18, 32, -4);
@@ -339,6 +315,7 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
+  // Macchia pettorale arancio-rossa (Erithacus)
   cx.fillStyle = 'rgba(255,104,54,.30)';
   cx.strokeStyle = 'rgba(255,122,72,.78)';
   cx.beginPath();
@@ -348,6 +325,7 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
+  // Ala ripiegata con penne sottili
   cx.strokeStyle = 'rgba(250,206,162,.58)';
   cx.beginPath();
   cx.moveTo(-4, -10);
@@ -356,6 +334,7 @@ function drawBackgroundArt(cx, t) {
   cx.quadraticCurveTo(-26, 5, -37, 15);
   cx.stroke();
 
+  // Occhio vivace con punto luce e becco sottile
   cx.fillStyle = 'rgba(255,236,210,.9)';
   cx.beginPath();
   cx.arc(21, -22, 2.5, 0, Math.PI * 2);
@@ -367,6 +346,7 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(31, -17);
   cx.stroke();
 
+  // Zampe sottili sfalsate poggiate sul rametto
   cx.lineWidth = 1.4;
   cx.beginPath();
   cx.moveTo(-4, 22);
@@ -381,13 +361,14 @@ function drawBackgroundArt(cx, t) {
   cx.restore();
   cap('Erithacus rubecula', 'il Pettirosso: erede vivente dei teropodi aviani', W * 0.22 - px * 0.9, H * 0.77 + py + 76 * s, 'rgba(255,152,102,');
 
-  // 3. GRILLO DI KAUAI — Teleogryllus oceanicus
+  // 3. GRILLO DI KAUAI — Teleogryllus oceanicus (femore saltatorio scolpito e onde mute)
   cx.save();
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.78 + px * 1.2, H * 0.74 + py + Math.cos(t * 0.0006) * 5 * rm);
   cx.scale(s * 0.96, s * 0.96);
 
+  // Addome segmentato e torace
   cx.strokeStyle = 'rgba(116,208,88,.68)';
   cx.fillStyle = 'rgba(116,208,88,.11)';
   cx.lineWidth = 1.65;
@@ -396,6 +377,7 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
+  // Pronoto e capo
   cx.beginPath();
   cx.ellipse(34, -2, 12, 11, 0, 0, Math.PI * 2);
   cx.fill();
@@ -409,6 +391,7 @@ function drawBackgroundArt(cx, t) {
   cx.arc(53, -5, 2, 0, Math.PI * 2);
   cx.fill();
 
+  // Ala piatta mutante (mutazione flatwing)
   cx.fillStyle = 'rgba(130,224,102,.14)';
   cx.strokeStyle = 'rgba(130,224,102,.72)';
   cx.beginPath();
@@ -418,6 +401,7 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
+  // Antenne lunghe e sinuose
   cx.strokeStyle = 'rgba(116,208,88,.55)';
   cx.lineWidth = 1.3;
   cx.beginPath();
@@ -431,6 +415,7 @@ function drawBackgroundArt(cx, t) {
   });
   cx.stroke();
 
+  // Zampa posteriore saltatoria (femore muscoloso + tibia seghettata)
   cx.fillStyle = 'rgba(116,208,88,.16)';
   cx.strokeStyle = 'rgba(116,208,88,.76)';
   cx.lineWidth = 1.6;
@@ -444,18 +429,21 @@ function drawBackgroundArt(cx, t) {
   cx.moveTo(-40, -15);
   cx.lineTo(-64, 26);
   cx.lineTo(-76, 33);
+  // Zampe anteriori e mediane
   cx.moveTo(32, 8);
   cx.lineTo(41, 30);
   cx.lineTo(34, 40);
   cx.moveTo(14, 10);
   cx.lineTo(20, 32);
   cx.lineTo(12, 42);
+  // Cerci posteriori
   cx.moveTo(-40, 2);
   cx.lineTo(-60, -4);
   cx.moveTo(-40, 5);
   cx.lineTo(-62, 9);
   cx.stroke();
 
+  // Onde acustiche che svaniscono (silenzio evolutivo)
   cx.setLineDash([2, 7]);
   for (let i = 0; i < 3; i++) {
     const q = (t * 0.0005 + i / 3) % 1;

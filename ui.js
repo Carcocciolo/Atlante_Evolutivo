@@ -66,10 +66,9 @@ export function initItemsSkeleton(rows) {
     const x = Math.cos(theta) * Math.sin(phi) * 0.78;
     const y = Math.cos(phi) * 0.78;
     const z = Math.sin(theta) * Math.sin(phi) * 0.78;
-    const initRot = ((i * 37 % 13) - 6) * 0.014;
     return {
       r, cat, th: null, cards: null, src: null, ready: false, vis: true,
-      baseRot: initRot, rot: initRot, vrot: 0,
+      rot: ((i * 37 % 11) - 5) * 0.011,
       x, y, z, tx: x, ty: y, tz: z,
       lon: geo.lon, lat: geo.lat, hubId: geo.hubId, siteName: geo.siteName, geoStatus: geo.geoStatus,
       hubRank: 0, hubSize: 1, nn: [],
@@ -177,6 +176,7 @@ export function boom(it, color) {
   markDirty();
 }
 
+/* ---------- accessibilità: i pannelli chiusi non devono essere raggiungibili da tastiera ---------- */
 const mobileMQ = matchMedia('(max-width: 760px)');
 let lastFocus = null;
 function syncInert() {
@@ -186,6 +186,7 @@ function syncInert() {
 }
 mobileMQ.addEventListener('change', syncInert);
 
+/* ---------- link condivisibili: #id=IMG_0012&view=geo ---------- */
 function writeHash() {
   const p = new URLSearchParams();
   const it = state.items[state.sel];
@@ -249,6 +250,7 @@ function stepSelection(dir) {
   show(list[(at + dir + list.length) % list.length] ?? list[0]);
 }
 
+/* ---------- vista 3D / mappa ---------- */
 export function setViewMode(mode) {
   if (state.viewMode === mode) return;
   state.viewMode = mode;
@@ -265,6 +267,7 @@ export function setViewMode(mode) {
   markDirty();
 }
 
+/* ---------- esportazione ---------- */
 function exportCSV() {
   if (!state.items.length) return msg('Carica prima le tavole.');
   const head = ['id', 'filename', 'category', 'site', 'geo_status', 'lon', 'lat', 'x3d', 'y3d', 'z3d'];
@@ -272,9 +275,7 @@ function exportCSV() {
     i.r.id, i.r.filename || '', i.cat, i.siteName, i.geoStatus,
     i.lon.toFixed(4), i.lat.toFixed(4), i.tx.toFixed(4), i.ty.toFixed(4), i.tz.toFixed(4)
   ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
-  const blob = new Blob(['﻿' + head.join(',') + '
-' + rows.join('
-')], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob(['\uFEFF' + head.join(',') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'atlante_coordinate.csv';
@@ -283,6 +284,7 @@ function exportCSV() {
   msg('Coordinate esportate.');
 }
 
+/* ---------- collegamento dei controlli ---------- */
 export function bindUI() {
   $('#close-det').onclick = closeSelection;
   $('#vw-3d').onclick = () => setViewMode('3d');

@@ -121,7 +121,11 @@ export async function loadLand() {
   }
 }
 
-/* ---------- mappa rasterizzata ---------- */
+/* ---------- mappa rasterizzata ----------
+   Il layer è più grande dello schermo (margine 20%) e rappresenta la mappa per una camera
+   "congelata". Mentre pan e zoom sono in corso si sposta/scala con una semplice drawImage
+   (la proiezione è lineare in k e nella traslazione, quindi il risultato è esatto);
+   quando la camera si ferma viene ridisegnato nitido. Niente path d3 a ogni frame. */
 const MARGIN = 0.2;
 let layer = null, layerCam = null, layerKey = '', landDirty = false, lastRaster = 0;
 const prevCam = { x: NaN, y: NaN, k: NaN };
