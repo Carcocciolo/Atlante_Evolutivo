@@ -10,23 +10,7 @@ import { playClick, playSelect, playSwitch, syncMusic, unlockAudio } from './aud
 const $ = (s, root = document) => root.querySelector(s);
 const body = document.body;
 
-const PREFS_KEY = 'atlante:prefs:v14';
-const THEME_DEFAULT = 'auto';
-const PALETTE_DEFAULT = 'amber';
-
-function applyAppearance(theme, palette, persist = true) {
-  const validThemes = ['auto', 'light', 'dark'];
-  const validPalettes = ['amber', 'ocean', 'forest', 'violet', 'rose'];
-  state.theme = validThemes.includes(theme) ? theme : THEME_DEFAULT;
-  state.palette = validPalettes.includes(palette) ? palette : PALETTE_DEFAULT;
-  body.dataset.theme = state.theme;
-  body.dataset.palette = state.palette;
-  const themeEl = $('#opt-theme');
-  const paletteEl = $('#opt-palette');
-  if (themeEl) themeEl.value = state.theme;
-  if (paletteEl) paletteEl.value = state.palette;
-  if (persist) savePrefs();
-}
+const PREFS_KEY = 'atlante:prefs:v13';
 
 function loadPrefs() {
   try {
@@ -36,7 +20,6 @@ function loadPrefs() {
     if (typeof p.soundEnabled === 'boolean') state.soundEnabled = p.soundEnabled;
     if (typeof p.musicEnabled === 'boolean') state.musicEnabled = p.musicEnabled;
     if (typeof p.ecoMode === 'boolean') state.ecoMode = p.ecoMode;
-    applyAppearance(p.theme, p.palette, false);
   } catch (_) {}
 }
 
@@ -45,9 +28,7 @@ function savePrefs() {
     localStorage.setItem(PREFS_KEY, JSON.stringify({
       soundEnabled: state.soundEnabled,
       musicEnabled: state.musicEnabled,
-      ecoMode: state.ecoMode,
-      theme: state.theme || THEME_DEFAULT,
-      palette: state.palette || PALETTE_DEFAULT
+      ecoMode: state.ecoMode
     }));
   } catch (_) {}
 }
@@ -76,8 +57,6 @@ export function syncSettingsUI() {
   if (sEl) sEl.checked = state.soundEnabled;
   if (mEl) mEl.checked = state.musicEnabled;
   if (eEl) eEl.checked = state.ecoMode;
-  if ($('#opt-theme')) $('#opt-theme').value = state.theme || THEME_DEFAULT;
-  if ($('#opt-palette')) $('#opt-palette').value = state.palette || PALETTE_DEFAULT;
 }
 
 /* ---------- caricamento / pannello dati / contatti / impostazioni ---------- */
@@ -424,18 +403,6 @@ export function bindUI() {
   $('#opt-eco').onchange = e => {
     playClick(420);
     applyEcoMode(e.target.checked, true);
-  };
-
-  $('#opt-theme').onchange = e => {
-    applyAppearance(e.target.value, state.palette || PALETTE_DEFAULT);
-    playClick(500);
-    msg(e.target.value === 'auto' ? 'Tema sincronizzato con il dispositivo' : `Tema ${e.target.value === 'light' ? 'chiaro' : 'scuro'} attivato`, 1700);
-  };
-  $('#opt-palette').onchange = e => {
-    applyAppearance(state.theme || THEME_DEFAULT, e.target.value);
-    playClick(560);
-    const names = { amber:'Ambra', ocean:'Oceano', forest:'Bosco', violet:'Iris', rose:'Rosa antico' };
-    msg(`Palette ${names[e.target.value]} applicata`, 1600);
   };
 
   const lb = $('#lightbox');
