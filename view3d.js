@@ -1,8 +1,8 @@
 /* ============================================================
-   view3d.js — proiezione prospettica, sfondo immersivo
-   ottimizzato (cache gradienti, dust batching, etichette)
+   view3d.js — proiezione prospettica, sfera armillare,
+   nebulose di categoria e illustrazioni interattive
    ============================================================ */
-import { state, RM, clamp } from './data.js';
+import { state, RM, clamp, rgba } from './data.js';
 
 const FOV = 2.6;
 
@@ -26,9 +26,26 @@ export function project3D(x, y, z, out, c = state.cam3D) {
 
 export const thumbSize3D = zoom => clamp(38 * Math.sqrt(zoom), 24, 104);
 
-/* ---------- sfondo e luce cursore pre-renderizzati ---------- */
+/* ---------- sfondo, luce cursore e sprite nebulosa ---------- */
 let bg = null;
 let spotSprite = null;
+const nebulaCache = new Map();
+
+function nebulaSprite(color) {
+  let c = nebulaCache.get(color);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const r = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  r.addColorStop(0, rgba(color, 0.22));
+  r.addColorStop(0.42, rgba(color, 0.08));
+  r.addColorStop(1, rgba(color, 0));
+  g.fillStyle = r;
+  g.fillRect(0, 0, 256, 256);
+  nebulaCache.set(color, c);
+  return c;
+}
 
 export function buildBackground() {
   const { W, H } = state;
@@ -78,20 +95,60 @@ function drawDust(cx, t) {
 
 const _p = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
 
-function drawRings(cx) {
+/** Sfera armillare 3D: anelli orbitali inclinati nello spazio. */
+function drawArmillary(cx) {
   cx.save();
   cx.lineWidth = 1;
-  cx.setLineDash([4, 10]);
-  [[0.95, 0.12], [0.55, 0.07]].forEach(([R, a]) => {
-    cx.strokeStyle = `rgba(250, 205, 165, ${a})`;
+  const rings = [
+    { R: 0.98, tiltX: 0.0, tiltZ: 0.0, a: 0.13, dash: [4, 10] },
+    { R: 0.94, tiltX: 0.68, tiltZ: 0.25, a: 0.08, dash: [2, 12] },
+    { R: 0.94, tiltX: -0.62, tiltZ: -0.35, a: 0.07, dash: [2, 14] },
+    { R: 0.54, tiltX: 0.12, tiltZ: -0.1, a: 0.07, dash: [3, 9] }
+  ];
+  for (const ring of rings) {
+    cx.setLineDash(ring.dash);
+    cx.strokeStyle = `rgba(250, 205, 165, ${ring.a})`;
     cx.beginPath();
-    for (let i = 0; i <= 60; i++) {
-      const ang = (i / 60) * Math.PI * 2;
-      project3D(Math.cos(ang) * R, 0, Math.sin(ang) * R, _p);
+    const cx0 = Math.cos(ring.tiltX), sx0 = Math.sin(ring.tiltX);
+    const cz0 = Math.cos(ring.tiltZ), sz0 = Math.sin(ring.tiltZ);
+    for (let i = 0; i <= 64; i++) {
+      const ang = (i / 64) * Math.PI * 2;
+      const x0 = Math.cos(ang) * ring.R;
+      const z0 = Math.sin(ang) * ring.R;
+      const y1 = -z0 * sx0;
+      const z1 = z0 * cx0;
+      const x2 = x0 * cz0 - y1 * sz0;
+      const y2 = x0 * sz0 + y1 * cz0;
+      project3D(x2, y2, z1, _p);
       if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
     }
     cx.stroke();
-  });
+  }
+  cx.restore();
+}
+
+/** Nebulose colorate soffuse dietro i baricentri dei cluster 3D. */
+export function drawClusterNebulae(cx, focus) {
+  const { items, col, W, H, cam3D } = state;
+  if (!items.length) return;
+  const acc = {};
+  for (const it of items) {
+    if (!it.vis) continue;
+    const a = acc[it.cat] || (acc[it.cat] = { x: 0, y: 0, z: 0, n: 0 });
+    a.x += it.x; a.y += it.y; a.z += it.z; a.n++;
+  }
+  cx.save();
+  cx.globalCompositeOperation = 'lighter';
+  const baseR = Math.min(W, H) * 0.34 * cam3D.zoom;
+  for (const cat in acc) {
+    const a = acc[cat];
+    if (a.n < 2 || !col[cat]) continue;
+    project3D(a.x / a.n, a.y / a.n, a.z / a.n, _p);
+    const r = baseR * _p.scale;
+    const boost = state.hovCat === cat ? 1.55 : 1.0;
+    cx.globalAlpha = clamp(_p.scale * 0.85, 0.3, 1) * (1 - 0.55 * focus) * boost;
+    cx.drawImage(nebulaSprite(col[cat]), _p.sx - r, _p.sy - r, r * 2, r * 2);
+  }
   cx.restore();
 }
 
@@ -106,7 +163,8 @@ export function draw3DBackground(cx, t, focus) {
   }
 
   drawDust(cx, t);
-  drawRings(cx);
+  drawArmillary(cx);
+  drawClusterNebulae(cx, focus);
 
   cx.save();
   cx.globalAlpha = 1 - 0.65 * focus;
@@ -134,6 +192,13 @@ export function drawClusterLabels(cx, labels, alpha) {
   cx.restore();
 }
 
+/* ---------- helper evidenziazione categoria per le illustrazioni ---------- */
+function artHighlight(catName) {
+  const active = state.hovCat || (state.sel >= 0 && state.items[state.sel]?.cat) || '';
+  if (!active) return 1.0;
+  return active === catName ? 1.55 : 0.42;
+}
+
 /* ---------- illustrazioni di sfondo (Archaeopteryx, pettirosso, grillo) ---------- */
 function drawBackgroundArt(cx, t) {
   const { W, H, cam3D } = state;
@@ -143,28 +208,29 @@ function drawBackgroundArt(cx, t) {
   const py = cam3D.panY * 0.05;
   const F = 'Fraunces,Georgia,serif';
 
-  const cap = (a, b, x, y, rgb) => {
+  const cap = (a, b, x, y, rgb, mult = 1) => {
     const sg = rgb || 'rgba(250,214,176,';
     const m = Math.min(310, W * 0.8);
     x = Math.min(W - m / 2 - 8, Math.max(m / 2 + 8, x));
     cx.textAlign = 'center';
-    cx.fillStyle = sg + '.68)';
+    cx.fillStyle = sg + clamp(0.68 * mult, 0.2, 1).toFixed(2) + ')';
     cx.font = 'italic 600 ' + Math.max(14, 18 * s) + 'px ' + F;
     cx.fillText(a, x, y, m);
-    cx.fillStyle = sg + '.44)';
+    cx.fillStyle = sg + clamp(0.44 * mult, 0.14, 0.95).toFixed(2) + ')';
     cx.font = 'italic 400 ' + Math.max(11.5, 13.5 * s) + 'px ' + F;
     cx.fillText(b, x, y + Math.max(16, 19 * s), m);
   };
 
-  // 1. ARCHAEOPTERYX — profilo fossile con artigli alari e coda piumata
+  // 1. ARCHAEOPTERYX
+  const hArch = artHighlight('Archaeopteryx');
   cx.save();
+  cx.globalAlpha *= clamp(hArch, 0.35, 1.3);
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.56 + px, H * 0.21 + py + Math.sin(t * 0.0005) * 7 * rm);
   cx.rotate(-0.08 + Math.sin(t * 0.0004) * 0.018 * rm);
   cx.scale(s * 0.95, s * 0.95);
 
-  // Busto e collo sinuoso
   cx.strokeStyle = 'rgba(255,152,56,.68)';
   cx.fillStyle = 'rgba(255,180,68,.09)';
   cx.lineWidth = 1.65;
@@ -176,7 +242,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Collo, cranio e becco dentato
   cx.beginPath();
   cx.moveTo(-34, -8);
   cx.quadraticCurveTo(-54, -22, -62, -34);
@@ -193,7 +258,6 @@ function drawBackgroundArt(cx, t) {
   cx.arc(-71, -38, 1.8, 0, Math.PI * 2);
   cx.fill();
 
-  // Coda lunga vertebrata con penne a ventaglio
   cx.strokeStyle = 'rgba(255,182,64,.62)';
   cx.lineWidth = 1.4;
   cx.beginPath();
@@ -215,7 +279,6 @@ function drawBackgroundArt(cx, t) {
   }
   cx.stroke();
 
-  // Ala aperta con remiganti e 3 artigli alari distintivi
   const fl = Math.sin(t * 0.0014) * 0.09 * rm;
   cx.strokeStyle = 'rgba(255,214,96,.72)';
   cx.lineWidth = 1.5;
@@ -228,7 +291,6 @@ function drawBackgroundArt(cx, t) {
     cx.moveTo(-6, -12);
     cx.quadraticCurveTo((-6 + ex) / 2 + 6, (-12 + ey) / 2 - 9, ex, ey);
   }
-  // Artigli sul bordo dell'ala
   cx.moveTo(-42, -46);
   cx.quadraticCurveTo(-50, -54, -55, -52);
   cx.moveTo(-36, -52);
@@ -237,7 +299,6 @@ function drawBackgroundArt(cx, t) {
   cx.quadraticCurveTo(-35, -66, -41, -65);
   cx.stroke();
 
-  // Zampa posteriore artigliata
   cx.strokeStyle = 'rgba(255,152,56,.66)';
   cx.lineWidth = 1.6;
   cx.beginPath();
@@ -251,16 +312,17 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(-17, 63);
   cx.stroke();
   cx.restore();
-  cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 106 * s, 'rgba(255,176,68,');
+  cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 106 * s, 'rgba(255,176,68,', hArch);
 
-  // 2. PETTIROSSO — Erithacus rubecula (postura naturale su rametto)
+  // 2. PETTIROSSO — Erithacus rubecula
+  const hRob = artHighlight('Pettirossi');
   cx.save();
+  cx.globalAlpha *= clamp(hRob, 0.35, 1.3);
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.22 - px * 0.9, H * 0.77 + py + Math.sin(t * 0.0006 + 1.2) * 5 * rm);
   cx.scale(s * 0.96, s * 0.96);
 
-  // Rametto sottile d'appoggio
   cx.strokeStyle = 'rgba(210,165,125,.34)';
   cx.lineWidth = 1.4;
   cx.beginPath();
@@ -270,7 +332,6 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(36, 41);
   cx.stroke();
 
-  // Coda
   cx.strokeStyle = 'rgba(250,206,162,.62)';
   cx.fillStyle = 'rgba(250,206,162,.07)';
   cx.lineWidth = 1.6;
@@ -283,7 +344,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Corpo paffuto e testa continua
   cx.beginPath();
   cx.moveTo(10, -34);
   cx.bezierCurveTo(28, -34, 34, -18, 32, -4);
@@ -293,7 +353,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Macchia pettorale arancio-rossa (Erithacus)
   cx.fillStyle = 'rgba(255,104,54,.30)';
   cx.strokeStyle = 'rgba(255,122,72,.78)';
   cx.beginPath();
@@ -303,7 +362,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Ala ripiegata con penne sottili
   cx.strokeStyle = 'rgba(250,206,162,.58)';
   cx.beginPath();
   cx.moveTo(-4, -10);
@@ -312,7 +370,6 @@ function drawBackgroundArt(cx, t) {
   cx.quadraticCurveTo(-26, 5, -37, 15);
   cx.stroke();
 
-  // Occhio vivace con punto luce e becco sottile
   cx.fillStyle = 'rgba(255,236,210,.9)';
   cx.beginPath();
   cx.arc(21, -22, 2.5, 0, Math.PI * 2);
@@ -324,7 +381,6 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(31, -17);
   cx.stroke();
 
-  // Zampe sottili sfalsate poggiate sul rametto
   cx.lineWidth = 1.4;
   cx.beginPath();
   cx.moveTo(-4, 22);
@@ -337,16 +393,17 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(11, 47);
   cx.stroke();
   cx.restore();
-  cap('Erithacus rubecula', 'il Pettirosso: erede vivente dei teropodi aviani', W * 0.22 - px * 0.9, H * 0.77 + py + 76 * s, 'rgba(255,152,102,');
+  cap('Erithacus rubecula', 'il Pettirosso: erede vivente dei teropodi aviani', W * 0.22 - px * 0.9, H * 0.77 + py + 76 * s, 'rgba(255,152,102,', hRob);
 
-  // 3. GRILLO DI KAUAI — Teleogryllus oceanicus (femore saltatorio scolpito e onde mute)
+  // 3. GRILLO DI KAUAI — Teleogryllus oceanicus
+  const hGril = artHighlight('Grilli');
   cx.save();
+  cx.globalAlpha *= clamp(hGril, 0.35, 1.3);
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.78 + px * 1.2, H * 0.74 + py + Math.cos(t * 0.0006) * 5 * rm);
   cx.scale(s * 0.96, s * 0.96);
 
-  // Addome segmentato e torace
   cx.strokeStyle = 'rgba(116,208,88,.68)';
   cx.fillStyle = 'rgba(116,208,88,.11)';
   cx.lineWidth = 1.65;
@@ -355,7 +412,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Pronoto e capo
   cx.beginPath();
   cx.ellipse(34, -2, 12, 11, 0, 0, Math.PI * 2);
   cx.fill();
@@ -369,7 +425,6 @@ function drawBackgroundArt(cx, t) {
   cx.arc(53, -5, 2, 0, Math.PI * 2);
   cx.fill();
 
-  // Ala piatta mutante (mutazione flatwing)
   cx.fillStyle = 'rgba(130,224,102,.14)';
   cx.strokeStyle = 'rgba(130,224,102,.72)';
   cx.beginPath();
@@ -379,7 +434,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Antenne lunghe e sinuose
   cx.strokeStyle = 'rgba(116,208,88,.55)';
   cx.lineWidth = 1.3;
   cx.beginPath();
@@ -393,7 +447,6 @@ function drawBackgroundArt(cx, t) {
   });
   cx.stroke();
 
-  // Zampa posteriore saltatoria (femore muscoloso + tibia seghettata)
   cx.fillStyle = 'rgba(116,208,88,.16)';
   cx.strokeStyle = 'rgba(116,208,88,.76)';
   cx.lineWidth = 1.6;
@@ -407,21 +460,18 @@ function drawBackgroundArt(cx, t) {
   cx.moveTo(-40, -15);
   cx.lineTo(-64, 26);
   cx.lineTo(-76, 33);
-  // Zampe anteriori e mediane
   cx.moveTo(32, 8);
   cx.lineTo(41, 30);
   cx.lineTo(34, 40);
   cx.moveTo(14, 10);
   cx.lineTo(20, 32);
   cx.lineTo(12, 42);
-  // Cerci posteriori
   cx.moveTo(-40, 2);
   cx.lineTo(-60, -4);
   cx.moveTo(-40, 5);
   cx.lineTo(-62, 9);
   cx.stroke();
 
-  // Onde acustiche che svaniscono (silenzio evolutivo)
   cx.setLineDash([2, 7]);
   for (let i = 0; i < 3; i++) {
     const q = (t * 0.0005 + i / 3) % 1;
@@ -432,5 +482,5 @@ function drawBackgroundArt(cx, t) {
   }
   cx.setLineDash([]);
   cx.restore();
-  cap('Kauai: i grilli che hanno perso il canto', 'l’ala piatta li rende muti e li salva dalla mosca parassita', W * 0.78 + px * 1.2 - 20 * s, H * 0.74 + py + 72 * s, 'rgba(132,214,100,');
+  cap('Kauai: i grilli che hanno perso il canto', 'l’ala piatta li rende muti e li salva dalla mosca parassita', W * 0.78 + px * 1.2 - 20 * s, H * 0.74 + py + 72 * s, 'rgba(132,214,100,', hGril);
 }

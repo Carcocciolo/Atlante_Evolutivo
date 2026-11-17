@@ -35,6 +35,7 @@ export const state = {
   q: '',
   sel: -1,
   hov: -1,
+  hovCat: '',             // categoria evidenziata al passaggio sulle chip
   mode: 'thumb',          // 'thumb' | 'dot'
   viewMode: '3d',         // '3d' | 'geo'
   W: 0, H: 0, dpr: 1,
@@ -104,8 +105,9 @@ export function getNotes(r) {
 
 /* ---------- CSV ---------- */
 export function parseCSV(t) {
-  t = t.replace(/^\uFEFF/, '');
-  const first = t.split(/\r?\n/)[0] || '';
+  t = t.replace(/^﻿/, '');
+  const first = t.split(/?
+/)[0] || '';
   const d = (first.match(/;/g) || []).length > (first.match(/,/g) || []).length ? ';' : ',';
   const rows = [];
   let row = [], field = '', quoted = false;
@@ -117,8 +119,10 @@ export function parseCSV(t) {
       } else field += c;
     } else if (c === '"') quoted = true;
     else if (c === d) { row.push(field); field = ''; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && t[i + 1] === '\n') i++;
+    else if (c === '
+' || c === '') {
+      if (c === '' && t[i + 1] === '
+') i++;
       row.push(field); field = ''; rows.push(row); row = [];
     } else field += c;
   }
@@ -153,6 +157,9 @@ export function makeCardCanvas(th, color, idx) {
   g.drawImage(th, pad, pad);
   g.strokeStyle = 'rgba(28, 12, 6, 0.22)';
   g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
+  // Sottile riflesso superiore da carta fotografica illuminata
+  g.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  g.fillRect(1, 1, c.width - 2, 1.5);
   g.fillStyle = color || '#ee9a5b';
   g.fillRect(pad, pad + S + Math.round(pad * 0.6), S * 0.45, Math.max(3, Math.round(pad * 0.55)));
   if (idx != null) {
@@ -168,7 +175,6 @@ export async function setItemImage(it, bm, idx) {
   it.th = makeThumb(bm);
   const cardCanvas = makeCardCanvas(it.th, state.col[it.cat], idx);
   if (typeof bm.close === 'function') bm.close();
-  // Trasferisce la card direttamente in memoria GPU (ImageBitmap) per drawImage a 0-copy
   it.card = typeof createImageBitmap === 'function' ? await createImageBitmap(cardCanvas) : cardCanvas;
   it.ready = true;
   it.b = performance.now();
