@@ -1,6 +1,6 @@
 /* ============================================================
    geo.js — hub geografici, proiezione Natural Earth (d3-geo),
-   mappa pre-rasterizzata a cache, archi evolutivi e cluster
+   mappa pre-rasterizzata a cache e disposizione cluster
    ============================================================ */
 import { state, CONFIG, clamp, markDirty, msg } from './data.js';
 
@@ -109,52 +109,52 @@ export function geoToScreen(lon, lat, c = state.camGeo, out = {}) {
 /* ---------- terre emerse ---------- */
 let land = null;
 let graticule = null;
-let mapLayer = null;
-let mapLayerKey = '';
 
 export async function loadLand() {
   try {
     const topo = await (await fetch(CONFIG.landUrl)).json();
     land = window.topojson.feature(topo, topo.objects.land);
-    mapLayerKey = '';
+    landDirty = true;
     markDirty();
   } catch (_) {
     msg('Non riesco a caricare i contorni dei continenti: la mappa mostra solo i luoghi.');
   }
 }
 
-/* ---------- cache raster della mappa (evita migliaia di path GeoJSON a ogni frame) ---------- */
-function getMapLayer() {
-  const { W, H, dpr, camGeo } = state;
-  const key = `${W}|${H}|${dpr}|${camGeo.x.toFixed(1)}|${camGeo.y.toFixed(1)}|${camGeo.k.toFixed(4)}|${land ? 1 : 0}`;
-  if (mapLayer && key === mapLayerKey) return mapLayer;
+/* ---------- mappa rasterizzata ----------
+   Il layer è più grande dello schermo (margine 20%) e rappresenta la mappa per una camera
+   "congelata". Mentre pan e zoom sono in corso si sposta/scala con una semplice drawImage
+   (la proiezione è lineare in k e nella traslazione, quindi il risultato è esatto);
+   quando la camera si ferma viene ridisegnato nitido. Niente path d3 a ogni frame. */
+const MARGIN = 0.2;
+let layer = null, layerCam = null, layerKey = '', landDirty = false, lastRaster = 0;
+const prevCam = { x: NaN, y: NaN, k: NaN };
+let camMovedAt = 0;
+let geoBg = null, geoBgKey = '';
 
-  mapLayerKey = key;
-  if (!mapLayer) mapLayer = document.createElement('canvas');
-  mapLayer.width = Math.max(1, Math.round(W * dpr));
-  mapLayer.height = Math.max(1, Math.round(H * dpr));
-  const g = mapLayer.getContext('2d');
-  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+function rasterize(cam, now) {
+  const { W, H, dpr } = state;
+  const ls = Math.min(dpr, 1.5);
+  const mx = W * MARGIN, my = H * MARGIN;
+  const cw = Math.round((W + 2 * mx) * ls), ch = Math.round((H + 2 * my) * ls);
+  if (!layer) layer = document.createElement('canvas');
+  if (layer.width !== cw || layer.height !== ch) { layer.width = cw; layer.height = ch; }
+  const g = layer.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, cw, ch);
+  g.setTransform(ls, 0, 0, ls, mx * ls, my * ls);
 
-  const bg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.82);
-  bg.addColorStop(0, '#261108');
-  bg.addColorStop(0.6, '#130704');
-  bg.addColorStop(1, '#070201');
-  g.fillStyle = bg;
-  g.fillRect(0, 0, W, H);
-
-  const p = projection(camGeo);
+  const p = projection(cam);
   if (p) {
     const d3 = window.d3;
     const path = d3.geoPath(p, g);
-
     g.beginPath(); path({ type: 'Sphere' });
-    g.fillStyle = 'rgba(255, 190, 140, 0.045)'; g.fill();
-    g.strokeStyle = 'rgba(255, 214, 170, 0.25)'; g.lineWidth = 1.1; g.stroke();
+    g.fillStyle = 'rgba(255, 190, 140, 0.04)'; g.fill();
+    g.strokeStyle = 'rgba(255, 214, 170, 0.22)'; g.lineWidth = 1; g.stroke();
 
     if (!graticule) graticule = d3.geoGraticule10();
     g.beginPath(); path(graticule);
-    g.strokeStyle = 'rgba(255, 224, 188, 0.075)'; g.stroke();
+    g.strokeStyle = 'rgba(255, 224, 188, 0.08)'; g.stroke();
 
     if (land) {
       g.beginPath(); path(land);
@@ -162,18 +162,70 @@ function getMapLayer() {
       g.strokeStyle = 'rgba(255, 216, 174, 0.52)'; g.lineWidth = 0.9; g.stroke();
     }
   }
-  return mapLayer;
+  layerCam = { x: cam.x, y: cam.y, k: cam.k };
+  layerKey = `${W}|${H}|${ls}`;
+  lastRaster = now;
 }
 
-export function drawGeoBase(cx) {
+function drawGeoBg(cx) {
   const { W, H } = state;
-  cx.drawImage(getMapLayer(), 0, 0, W, H);
+  const key = `${W}|${H}`;
+  if (geoBgKey !== key) {
+    geoBgKey = key;
+    const w = Math.max(1, Math.ceil(W / 2)), h = Math.max(1, Math.ceil(H / 2));
+    geoBg = document.createElement('canvas');
+    geoBg.width = w; geoBg.height = h;
+    const g = geoBg.getContext('2d');
+    const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.8);
+    r.addColorStop(0, '#2c1409');
+    r.addColorStop(0.6, '#150804');
+    r.addColorStop(1, '#080201');
+    g.fillStyle = r;
+    g.fillRect(0, 0, w, h);
+  }
+  cx.drawImage(geoBg, 0, 0, W, H);
+}
+
+/** Disegna la mappa. Restituisce true se un ridisegno nitido è ancora in attesa (serve un altro frame). */
+export function drawGeoBase(cx, now = performance.now()) {
+  const { W, H, dpr, camGeo: c } = state;
+  drawGeoBg(cx);
+
+  const moved = c.x !== prevCam.x || c.y !== prevCam.y || c.k !== prevCam.k;
+  if (moved) { camMovedAt = now; prevCam.x = c.x; prevCam.y = c.y; prevCam.k = c.k; }
+
+  const ls = Math.min(dpr, 1.5);
+  if (!layerCam || landDirty || layerKey !== `${W}|${H}|${ls}`) {
+    rasterize(c, now);
+    landDirty = false;
+  }
+
+  const geometry = () => {
+    const r = c.k / layerCam.k;
+    return {
+      r,
+      x0: (W / 2 + c.x) + (-W * MARGIN - (W / 2 + layerCam.x)) * r,
+      y0: (H / 2 + c.y) + (-H * MARGIN - (H / 2 + layerCam.y)) * r
+    };
+  };
+  let q = geometry();
+  const w = W * (1 + 2 * MARGIN), h = H * (1 + 2 * MARGIN);
+  const exposed = q.x0 > 0 || q.y0 > 0 || q.x0 + w * q.r < W || q.y0 + h * q.r < H;
+  const badScale = q.r < 0.6 || q.r > 1.7;
+  const differs = c.x !== layerCam.x || c.y !== layerCam.y || c.k !== layerCam.k;
+  const settled = differs && !moved && now - camMovedAt > 120;
+
+  if (settled || ((exposed || badScale) && now - lastRaster > 90)) {
+    rasterize(c, now);
+    q = geometry();
+  }
+  cx.drawImage(layer, q.x0, q.y0, w * q.r, h * q.r);
+  return c.x !== layerCam.x || c.y !== layerCam.y || c.k !== layerCam.k;
 }
 
 /* ---------- declutter con cache ---------- */
 const hubLayout = new Map();
 let hubCacheKey = '';
-const activeHubs = new Set();
 
 export function layoutHubs(size, cam = state.camGeo, out = hubLayout) {
   const isGlobal = out === hubLayout;
@@ -226,84 +278,62 @@ export function layoutHubs(size, cam = state.camGeo, out = hubLayout) {
   return out;
 }
 
-export function drawGeoHalos(cx, t = 0) {
-  activeHubs.clear();
-  for (const it of state.items) {
-    if (it.vis) activeHubs.add(it.hubId);
+/* conteggi per hub (tavole visibili): calcolati una volta per frame e riusati dalle etichette */
+const hubVis = new Map();
+let haloSprite = null;
+
+export function drawGeoHalos(cx) {
+  hubVis.clear();
+  for (const it of state.items) if (it.vis) hubVis.set(it.hubId, (hubVis.get(it.hubId) || 0) + 1);
+
+  if (!haloSprite) {
+    haloSprite = document.createElement('canvas');
+    haloSprite.width = haloSprite.height = 128;
+    const g = haloSprite.getContext('2d');
+    const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    r.addColorStop(0, 'rgba(255, 170, 90, 0.26)');
+    r.addColorStop(1, 'rgba(255, 170, 90, 0)');
+    g.fillStyle = r;
+    g.fillRect(0, 0, 128, 128);
   }
 
-  const activeList = [];
   for (const h of hubLayout.values()) {
-    if (activeHubs.has(h.id)) activeList.push(h);
-  }
-
-  // Archi parabolici che connettono i siti attivi sulla mappa
-  if (activeList.length > 1) {
-    cx.save();
-    cx.lineWidth = 1.1;
-    cx.setLineDash([4, 7]);
-    cx.lineDashOffset = -t * 0.025;
-    cx.strokeStyle = 'rgba(245, 166, 91, 0.24)';
-    cx.beginPath();
-    for (let i = 0; i < activeList.length - 1; i++) {
-      const a = activeList[i], b = activeList[i + 1];
-      const mx = (a.tx + b.tx) * 0.5;
-      const my = (a.ty + b.ty) * 0.5 - Math.hypot(b.tx - a.tx, b.ty - a.ty) * 0.16;
-      cx.moveTo(a.tx, a.ty);
-      cx.quadraticCurveTo(mx, my, b.tx, b.ty);
-    }
-    cx.stroke();
-    cx.restore();
-  }
-
-  const pulse = 0.5 + 0.5 * Math.sin(t * 0.0035);
-  for (const h of activeList) {
-    const g = cx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.R);
-    g.addColorStop(0, 'rgba(255, 170, 90, 0.26)');
-    g.addColorStop(1, 'rgba(255, 170, 90, 0)');
-    cx.fillStyle = g;
-    cx.beginPath(); cx.arc(h.x, h.y, h.R, 0, Math.PI * 2); cx.fill();
+    if (!hubVis.has(h.id)) continue;
+    cx.drawImage(haloSprite, h.x - h.R, h.y - h.R, h.R * 2, h.R * 2);
 
     if (Math.hypot(h.x - h.tx, h.y - h.ty) > 6) {
-      cx.strokeStyle = 'rgba(255, 200, 140, 0.48)';
+      cx.strokeStyle = 'rgba(255, 200, 140, 0.45)';
       cx.lineWidth = 1;
       cx.setLineDash([3, 4]);
       cx.beginPath(); cx.moveTo(h.tx, h.ty); cx.lineTo(h.x, h.y); cx.stroke();
       cx.setLineDash([]);
     }
 
-    // Beacon pulsante sul punto geografico reale
-    cx.strokeStyle = `rgba(255, 195, 130, ${0.42 * (1 - pulse)})`;
-    cx.lineWidth = 1.2;
-    cx.beginPath(); cx.arc(h.tx, h.ty, 5 + pulse * 10, 0, Math.PI * 2); cx.stroke();
-
-    cx.fillStyle = 'rgba(255, 190, 125, 0.26)';
-    cx.beginPath(); cx.arc(h.tx, h.ty, 8, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = 'rgba(255, 190, 125, 0.24)';
+    cx.beginPath(); cx.arc(h.tx, h.ty, 9, 0, Math.PI * 2); cx.fill();
     cx.fillStyle = '#ffbe7d';
     cx.beginPath(); cx.arc(h.tx, h.ty, 3.4, 0, Math.PI * 2); cx.fill();
   }
 }
 
 export function drawGeoLabels(cx) {
-  const counts = new Map();
-  for (const it of state.items) if (it.vis) counts.set(it.hubId, (counts.get(it.hubId) || 0) + 1);
   cx.save();
   cx.textAlign = 'center';
   cx.lineJoin = 'round';
-  cx.lineWidth = 3.8;
-  cx.strokeStyle = 'rgba(18, 6, 3, 0.90)';
-  for (const [id, n] of counts) {
+  cx.lineWidth = 3.5;
+  cx.strokeStyle = 'rgba(20, 8, 4, 0.85)';
+  for (const [id, n] of hubVis) {
     const h = hubLayout.get(id);
     if (!h) continue;
-    const y = h.y + h.R * 0.85 + 16;
-    cx.font = 'italic 600 13.5px Fraunces, Georgia, serif';
+    const y = h.y + h.R * 0.85 + 15;
+    cx.font = 'italic 600 13px Fraunces, Georgia, serif';
     cx.strokeText(h.hub.label, h.x, y);
-    cx.fillStyle = 'rgba(255, 240, 222, 0.98)';
+    cx.fillStyle = 'rgba(255, 238, 218, 0.96)';
     cx.fillText(h.hub.label, h.x, y);
     cx.font = '500 11px Figtree, sans-serif';
     const sub = `${n} ${n === 1 ? 'tavola' : 'tavole'}`;
     cx.strokeText(sub, h.x, y + 15);
-    cx.fillStyle = 'rgba(246, 190, 140, 0.92)';
+    cx.fillStyle = 'rgba(246, 190, 140, 0.9)';
     cx.fillText(sub, h.x, y + 15);
   }
   cx.restore();

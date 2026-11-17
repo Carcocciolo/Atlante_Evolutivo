@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0a0302">
-  <title>Atlante Evolutivo — Archivio Visivo Interattivo</title>
+  <meta name="theme-color" content="#140805">
+  <title>Atlante Evolutivo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,400;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/d3-array@3.2.4/dist/d3-array.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-geo@3.1.1/dist/d3-geo.min.js" defer></script>
@@ -27,85 +27,47 @@
       <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5m0 0L8 9m4-4 4 4M5 20h14"/></symbol>
       <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
-      <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 1.9 5.8L20 12l-6.1 3.2L12 21l-1.9-5.8L4 12l6.1-3.2z"/></symbol>
-      <symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
-      <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
-      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2.2-2.4 3.7M12 17.5h.01"/></symbol>
-      <symbol id="i-hud" viewBox="0 0 24 24"><path d="M4 7h4M4 12h2M4 17h4M16 7h4M18 12h2M16 17h4"/></symbol>
     </defs>
   </svg>
 
   <main id="wrap">
     <canvas id="cv" role="img" aria-label="Atlante interattivo delle tavole: trascina per ruotare, scorri per ingrandire, clicca una tavola per aprirla"></canvas>
   </main>
-
-  <div class="grain" aria-hidden="true"></div>
   <div class="vignette" aria-hidden="true"></div>
   <div id="tip" role="tooltip"></div>
   <div id="toast" role="status" aria-live="polite"></div>
 
-  <!-- Intestazione editoriale + telemetria live -->
   <header class="brand">
-    <div class="eyebrow">
-      <span class="pulse-dot"></span>
-      <span>ARCHIVIO MORFOMETRICO · T-SNE 3D</span>
-    </div>
     <h1>Atlante Evolutivo</h1>
-    <p>Archaeopteryx, pettirossi e grilli — convergenze e divergenze</p>
+    <p>Archaeopteryx, pettirossi e grilli</p>
   </header>
 
-  <!-- HUD telemetrico minimale in basso a destra (desktop) -->
-  <aside class="telemetry" id="telemetry" aria-hidden="true">
-    <div class="tel-row"><span>SETTORE</span><b id="tel-mode">SPAZIO LATENTE</b></div>
-    <div class="tel-row"><span>ASSETTO</span><b id="tel-ang">+20° · +10°</b></div>
-    <div class="tel-row"><span>SCALA</span><b id="tel-zoom">1.00×</b></div>
-    <div class="tel-row"><span>TAVOLE</span><b id="tel-vis">0 / 0</b></div>
-  </aside>
+  <p class="hint" id="hint">Trascina per esplorare, scorri per avvicinarti, clicca una tavola per aprirla</p>
 
-  <!-- Pannello ricerca e filtri -->
   <section class="panel filters" aria-label="Cerca e filtra">
     <label class="search">
       <svg class="ic"><use href="#i-search"/></svg>
-      <input type="search" id="q" placeholder="Cerca ID, specie, luogo…" autocomplete="off" aria-label="Cerca tavole">
-      <kbd class="kbd" title="Premi / per cercare">/</kbd>
+      <input type="search" id="q" placeholder="Cerca per ID, luogo o soggetto" autocomplete="off" aria-label="Cerca tavole">
       <span class="count" id="vis-count" title="Tavole visibili">0</span>
     </label>
     <div class="chips" id="chips" role="group" aria-label="Categorie"></div>
   </section>
 
-  <!-- Scheda ispezione tavola -->
-  <aside id="detail-drawer" aria-hidden="true" aria-labelledby="det-title">
-    <div class="drawer-top-actions">
-      <div class="nav-pair" role="group" aria-label="Naviga tra le tavole">
-        <button type="button" id="prev-det" class="icon-btn" aria-label="Tavola precedente" title="Precedente (←)">
-          <svg class="ic"><use href="#i-prev"/></svg>
-        </button>
-        <span class="nav-idx" id="det-idx">01 / 01</span>
-        <button type="button" id="next-det" class="icon-btn" aria-label="Tavola successiva" title="Successiva (→)">
-          <svg class="ic"><use href="#i-next"/></svg>
-        </button>
-      </div>
-      <button type="button" id="close-det" class="icon-btn" aria-label="Chiudi scheda" title="Chiudi (Esc)">
-        <svg class="ic"><use href="#i-close"/></svg>
-      </button>
-    </div>
-
-    <figure class="media">
-      <img id="big" alt="">
-      <div class="media-scan" aria-hidden="true"></div>
-    </figure>
-
+  <aside id="detail-drawer" aria-hidden="true" aria-labelledby="det-title" inert>
+    <button type="button" id="close-det" class="icon-btn" aria-label="Chiudi scheda" title="Chiudi (Esc)">
+      <svg class="ic"><use href="#i-close"/></svg>
+    </button>
+    <figure class="media"><img id="big" alt="" title="Clicca per vedere l’immagine a tutto schermo"></figure>
     <div class="drawer-scroll">
       <h2 id="det-title"></h2>
       <div class="tags" id="det-tags"></div>
       <div class="notes" id="det-notes" hidden></div>
       <dl id="dl"></dl>
-      <h3>Affinità visive <small>prossimità cromatica e strutturale</small></h3>
+      <h3>Tavole affini</h3>
       <div id="nb"></div>
     </div>
   </aside>
 
-  <!-- Dock dei controlli flottante -->
   <nav class="dock" aria-label="Controlli della vista">
     <div class="seg" id="seg" data-view="3d" role="group" aria-label="Tipo di vista">
       <button type="button" id="vw-3d" aria-pressed="true" title="Spazio 3D (G)"><svg class="ic"><use href="#i-cube"/></svg><span>Spazio</span></button>
@@ -113,8 +75,7 @@
     </div>
     <span class="sep"></span>
     <button type="button" class="tool" id="rot-auto" aria-pressed="true" aria-label="Rotazione automatica" title="Rotazione automatica (Spazio)"><svg class="ic"><use href="#i-rotate"/></svg></button>
-    <button type="button" class="tool" id="md" aria-pressed="true" aria-label="Mostra miniature" title="Miniature / stelle luminose (M)"><svg class="ic"><use href="#i-image"/></svg></button>
-    <button type="button" class="tool" id="rnd" aria-label="Esplora tavola casuale" title="Tavola casuale (R)"><svg class="ic"><use href="#i-spark"/></svg></button>
+    <button type="button" class="tool" id="md" aria-pressed="true" aria-label="Mostra miniature" title="Miniature / punti luminosi"><svg class="ic"><use href="#i-image"/></svg></button>
     <span class="sep"></span>
     <button type="button" class="tool" id="zo" aria-label="Riduci" title="Riduci (−)"><svg class="ic"><use href="#i-minus"/></svg></button>
     <button type="button" class="tool" id="zi" aria-label="Ingrandisci" title="Ingrandisci (+)"><svg class="ic"><use href="#i-plus"/></svg></button>
@@ -122,55 +83,31 @@
     <span class="sep"></span>
     <button type="button" class="tool" id="cp" aria-label="Esporta coordinate" title="Esporta coordinate (CSV)"><svg class="ic"><use href="#i-download"/></svg></button>
     <button type="button" class="tool" id="open-data" aria-label="Carica dati" title="Carica dati"><svg class="ic"><use href="#i-upload"/></svg></button>
-    <button type="button" class="tool" id="open-help" aria-label="Scorciatoie" title="Guida rapida (?)"><svg class="ic"><use href="#i-help"/></svg></button>
   </nav>
 
-  <!-- Indicatore caricamento -->
+  <div id="lightbox" class="overlay lightbox" hidden>
+    <img alt="" draggable="false">
+  </div>
+
   <div id="loader" class="loader" role="status">
-    <div class="loader-head">
-      <span id="ld-text">Inizializzo l'atlante…</span>
-      <span id="ld-pct">0%</span>
-    </div>
+    <span id="ld-text"></span>
     <div class="bar"><i id="ld-bar"></i></div>
   </div>
 
-  <!-- Modale caricamento dati -->
   <div id="welcome" class="overlay" hidden>
     <div class="card" role="dialog" aria-modal="true" aria-labelledby="wl-title">
       <button type="button" id="close-welcome" class="icon-btn" aria-label="Chiudi" title="Chiudi (Esc)"><svg class="ic"><use href="#i-close"/></svg></button>
-      <div class="eyebrow"><span class="pulse-dot"></span><span>IMPORTAZIONE ARCHIVIO</span></div>
       <h2 id="wl-title">Carica le tavole</h2>
-      <p>Se apri il progetto da un server locale (Live Server, Python, GitHub Pages) il database si avvia da solo. Altrimenti seleziona i file qui sotto.</p>
+      <p>Se apri il progetto da un server (GitHub Pages, Live Server) il database si carica da solo. Altrimenti scegli qui i file.</p>
       <label for="fc">Database CSV <small>02_database/database_immagini.csv</small></label>
       <input type="file" id="fc" accept=".csv,text/csv">
-      <label for="fi">Immagini <small>intera cartella 01_immagini (webp, jpg, png)</small></label>
+      <label for="fi">Immagini <small>l’intera cartella 01_immagini (jpg, webp, png)</small></label>
       <input type="file" id="fi" accept="image/*" multiple>
       <div class="row">
-        <button type="button" class="primary" id="go">Genera Atlante</button>
-        <button type="button" id="ex">Modalità Demo (36 tavole)</button>
+        <button type="button" class="primary" id="go">Crea l’atlante</button>
+        <button type="button" id="ex">Prova con dati di esempio</button>
       </div>
       <p id="wn" role="alert"></p>
-    </div>
-  </div>
-
-  <!-- Modale scorciatoie rapide -->
-  <div id="help-modal" class="overlay" hidden>
-    <div class="card" role="dialog" aria-modal="true" aria-labelledby="hl-title">
-      <button type="button" id="close-help" class="icon-btn" aria-label="Chiudi" title="Chiudi (Esc)"><svg class="ic"><use href="#i-close"/></svg></button>
-      <div class="eyebrow"><span class="pulse-dot"></span><span>COMANDI RAPIDI</span></div>
-      <h2 id="hl-title">Navigazione Atlante</h2>
-      <div class="shortcuts-grid">
-        <div><kbd>Trascina</kbd><span>Orbita 3D / Sposta mappa</span></div>
-        <div><kbd>Shift + Trascina</kbd><span>Panoramica libera</span></div>
-        <div><kbd>Rotella / Pinch</kbd><span>Zoom sul cursore</span></div>
-        <div><kbd>G</kbd><span>Alterna Spazio 3D / Mappa</span></div>
-        <div><kbd>Spazio</kbd><span>Pausa / Avvia rotazione</span></div>
-        <div><kbd>M</kbd><span>Tavole / Nebulosa stellare</span></div>
-        <div><kbd>R</kbd><span>Vola a una tavola casuale</span></div>
-        <div><kbd>←</kbd> <kbd>→</kbd><span>Tavola precedente / successiva</span></div>
-        <div><kbd>/</kbd><span>Cerca nel database</span></div>
-        <div><kbd>0</kbd><span>Centra inquadratura</span></div>
-      </div>
     </div>
   </div>
 

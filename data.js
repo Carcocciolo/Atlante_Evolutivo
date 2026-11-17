@@ -148,44 +148,44 @@ export function makeCardCanvas(th, color, idx) {
   c.width = S + pad * 2;
   c.height = S + pad + bottom;
   const g = c.getContext('2d');
-
-  // Sfondo carta museale calda con leggero gradiente
-  const paper = g.createLinearGradient(0, 0, 0, c.height);
-  paper.addColorStop(0, '#f8f3e8');
-  paper.addColorStop(1, '#ede4d2');
-  g.fillStyle = paper;
+  g.fillStyle = '#f4efe3';
   g.fillRect(0, 0, c.width, c.height);
-
-  // Foto
   g.drawImage(th, pad, pad);
-
-  // Sottile cornice interna attorno alla foto
-  g.strokeStyle = 'rgba(28, 12, 6, 0.16)';
-  g.lineWidth = 1;
-  g.strokeRect(pad + 0.5, pad + 0.5, S - 1, S - 1);
-
-  // Bordo esterno scheda
-  g.strokeStyle = 'rgba(28, 12, 6, 0.25)';
+  g.strokeStyle = 'rgba(28, 12, 6, 0.22)';
   g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
-
-  // Barra cromatica di categoria
   g.fillStyle = color || '#ee9a5b';
-  g.fillRect(pad, pad + S + Math.round(pad * 0.65), S * 0.42, Math.max(3, Math.round(pad * 0.52)));
-
+  g.fillRect(pad, pad + S + Math.round(pad * 0.6), S * 0.45, Math.max(3, Math.round(pad * 0.55)));
   if (idx != null) {
-    g.fillStyle = 'rgba(40, 18, 8, 0.58)';
+    g.fillStyle = 'rgba(40, 18, 8, 0.55)';
     g.font = `600 ${Math.round(S * 0.075)}px Figtree, sans-serif`;
     g.textAlign = 'right';
-    g.fillText(`#${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.55));
+    g.fillText(`#${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.5));
   }
   return c;
 }
 
+function halve(src) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(src.width / 2));
+  c.height = Math.max(1, Math.round(src.height / 2));
+  const g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+const toGPU = c => (typeof createImageBitmap === 'function' ? createImageBitmap(c) : c);
+
+/**
+ * Ogni card viene salvata in tre risoluzioni (1/4, 1/2, 1/1) già in memoria GPU:
+ * in fase di disegno si sceglie quella più vicina alla dimensione sullo schermo,
+ * così le card lontane non sfarfallano e costano meno da disegnare.
+ */
 export async function setItemImage(it, bm, idx) {
   it.th = makeThumb(bm);
-  const cardCanvas = makeCardCanvas(it.th, state.col[it.cat], idx);
+  const full = makeCardCanvas(it.th, state.col[it.cat], idx);
   if (typeof bm.close === 'function') bm.close();
-  it.card = typeof createImageBitmap === 'function' ? await createImageBitmap(cardCanvas) : cardCanvas;
+  const half = halve(full);
+  it.cards = await Promise.all([halve(half), half, full].map(toGPU));   // dal più piccolo al più grande
   it.ready = true;
   it.b = performance.now();
   markDirty();

@@ -1,6 +1,10 @@
 /* ============================================================
-   main.js — ciclo di rendering ultra-fluido a 60/120fps,
-   sinapsi luminose, scie cinetiche, telemetria HUD e input
+   main.js — ciclo di rendering, input e avvio
+
+   Prestazioni:
+   - si disegna solo quando serve (state.dirty) e a risoluzione adattiva (DPR);
+   - nessuna allocazione per frame, nessun save()/restore(), ordinamento solo se qualcosa si muove;
+   - card in tre livelli di dettaglio (mip) scelti in base alla dimensione a schermo.
    ============================================================ */
 import { state, RM, CARD, ease, clamp, rgba, esc, markDirty } from './data.js';
 import {
@@ -16,13 +20,14 @@ const cv = $('#cv');
 const cx = cv.getContext('2d', { alpha: false });
 const wrap = $('#wrap');
 const tipEl = $('#tip');
-const telAng = $('#tel-ang');
-const telZoom = $('#tel-zoom');
 
 const order = [];
 const off = {};
 const glowCache = new Map();
+const flags = { busy: false, moved: false };
+let lastView = '', lastN = -1;
 
+/** Sprite luminoso per categoria (si disegna in modalità additiva). */
 function glow(color) {
   let c = glowCache.get(color);
   if (c) return c;
@@ -30,13 +35,19 @@ function glow(color) {
   c.width = c.height = 96;
   const g = c.getContext('2d');
   const r = g.createRadialGradient(48, 48, 0, 48, 48, 48);
-  r.addColorStop(0, rgba(color, 0.90));
-  r.addColorStop(0.24, rgba(color, 0.42));
+  r.addColorStop(0, rgba(color, 0.85));
+  r.addColorStop(0.22, rgba(color, 0.4));
   r.addColorStop(1, rgba(color, 0));
   g.fillStyle = r;
   g.fillRect(0, 0, 96, 96);
   glowCache.set(color, c);
   return c;
+}
+
+/** Livello mip più piccolo che copre ancora la larghezza richiesta (in pixel del dispositivo). */
+function pickLevel(cards, devW) {
+  for (let i = 0; i < cards.length; i++) if (cards[i].width >= devW * 0.8) return cards[i];
+  return cards[cards.length - 1];
 }
 
 /* ---------- picking ---------- */
@@ -57,11 +68,7 @@ function pick(px, py) {
 function setTip(h) {
   if (h < 0) return tipEl.classList.remove('is-on');
   const it = state.items[h];
-  const col = state.col[it.cat] || '#f5a65b';
-  tipEl.innerHTML =
-    `<div class="tip-cat" style="--c:${col}"><i></i>${esc(it.cat)}</div>` +
-    `<b>${esc(it.r.subject || it.r.id)}</b>` +
-    `<span>${esc(it.r.id)} · ${esc(it.siteName)}</span>`;
+  tipEl.innerHTML = `<b>${esc(it.r.subject || it.r.id)}</b><span>${esc(it.r.id)} · ${esc(it.siteName)}</span>`;
   tipEl.classList.add('is-on');
   placeTip(state.mx, state.my);
 }
@@ -71,81 +78,40 @@ function placeTip(px, py) {
   tipEl.style.transform = `translate3d(${clamp(px + 16, 8, state.W - w - 8)}px, ${clamp(py + 16, 8, state.H - h - 8)}px, 0)`;
 }
 
-/* ---------- rendering ---------- */
-let lastHudT = 0;
+/* ============================================================
+   rendering, in passi separati
+   ============================================================ */
 
-function render(t, dt) {
-  const S = state, { W, H, dpr, items, viewMode, col, mode } = S;
-  const is3D = viewMode === '3d';
+/** Anima e proietta ogni tavola. Scrive in state.proj; segnala se qualcosa è ancora in movimento. */
+function updateItems(t, dt, is3D, baseSize, hubs) {
+  const S = state, items = S.items, n = items.length;
   const rm = RM ? 0 : 1;
-  let busy = false;
+  const mv = 1 - Math.exp(-dt * (RM ? 60 : 4.5));
+  const vk = 1 - Math.exp(-dt * (RM ? 60 : 9));
+  const float = (S.autoRotate && !RM && S.sel < 0) ? 1 : 0;
 
-  const focusGoal = S.sel >= 0 ? 1 : 0;
-  S.focus += (focusGoal - S.focus) * (1 - Math.exp(-dt * (RM ? 40 : 6.5)));
-  if (Math.abs(focusGoal - S.focus) > 0.004) busy = true;
-  if (stepCamera(dt)) busy = true;
-
-  // Aggiorna telemetria HUD (throttled a ~12fps per zero overhead DOM)
-  if (t - lastHudT > 80 && telAng && telZoom) {
-    lastHudT = t;
-    if (is3D) {
-      const degY = Math.round(((S.cam3D.yaw * 180 / Math.PI) % 360 + 360) % 360);
-      const degP = Math.round(S.cam3D.pitch * 180 / Math.PI);
-      telAng.textContent = `${degY}° · ${degP >= 0 ? '+' : ''}${degP}°`;
-      telZoom.textContent = `${S.cam3D.zoom.toFixed(2)}×`;
-    } else {
-      telAng.textContent = `${Math.round(S.camGeo.x)}px · ${Math.round(S.camGeo.y)}px`;
-      telZoom.textContent = `${S.camGeo.k.toFixed(2)}×`;
-    }
-  }
-
-  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  cx.imageSmoothingEnabled = true;
-  cx.imageSmoothingQuality = 'low';
-
-  const n = items.length;
-  const baseSize = is3D ? thumbSize3D(S.cam3D.zoom) : geoThumbSize(S.camGeo.k);
-  let hubs = null;
-
-  if (is3D) {
-    draw3DBackground(cx, t, S.focus);
-    if (S.autoRotate && !RM && S.sel < 0) busy = true;
-  } else {
-    drawGeoBase(cx);
-    if (n) { hubs = layoutHubs(baseSize); drawGeoHalos(cx, t); busy = true; }
-  }
-
-  if (S.focus > 0.01) {
-    cx.fillStyle = `rgba(10, 3, 1, ${0.38 * S.focus})`;
-    cx.fillRect(0, 0, W, H);
-  }
-
-  /* --- aggiornamento e proiezione --- */
   while (S.proj.length < n) S.proj.push({ sx: 0, sy: 0, scale: 1, zOrder: 0, size: 0 });
   S.proj.length = n;
-  const mv = 1 - Math.exp(-dt * (RM ? 60 : 4.8));
-  const vk = 1 - Math.exp(-dt * (RM ? 60 : 9.5));
 
   for (let i = 0; i < n; i++) {
     const it = items[i], o = S.proj[i];
 
-    let d = it.tx - it.x; it.x += d * mv; if (Math.abs(d) > 5e-4) busy = true;
-    d = it.ty - it.y; it.y += d * mv; if (Math.abs(d) > 5e-4) busy = true;
-    d = it.tz - it.z; it.z += d * mv; if (Math.abs(d) > 5e-4) busy = true;
+    let d = it.tx - it.x; it.x += d * mv; if (Math.abs(d) > 5e-4) flags.moved = true;
+    d = it.ty - it.y; it.y += d * mv; if (Math.abs(d) > 5e-4) flags.moved = true;
+    d = it.tz - it.z; it.z += d * mv; if (Math.abs(d) > 5e-4) flags.moved = true;
 
     const vt = it.vis ? 1 : 0;
-    it.vf += (vt - it.vf) * vk; if (Math.abs(vt - it.vf) > 0.01) busy = true;
+    it.vf += (vt - it.vf) * vk; if (Math.abs(vt - it.vf) > 0.01) flags.busy = true;
     const ht = (i === S.hov || i === S.sel) ? 1 : 0;
-    it.hs += (ht - it.hs) * vk; if (Math.abs(ht - it.hs) > 0.01) busy = true;
+    it.hs += (ht - it.hs) * vk; if (Math.abs(ht - it.hs) > 0.01) flags.busy = true;
     const ap = (t - it.b) / 700;
     it.a = ap >= 1 ? 1 : ap <= 0 ? 0 : ease(ap);
-    if (ap < 1) busy = true;
+    if (ap < 1) flags.busy = true;
 
     if (is3D) {
-      const floatPhase = (S.autoRotate && !RM && S.sel < 0) ? 1 : 0;
       project3D(
-        it.x + Math.cos(t * 0.0011 + i * 1.7) * 0.0042 * rm * floatPhase,
-        it.y + Math.sin(t * 0.0015 + i) * 0.0052 * rm * floatPhase,
+        it.x + Math.cos(t * 0.0011 + i * 1.7) * 0.004 * rm * float,
+        it.y + Math.sin(t * 0.0015 + i) * 0.005 * rm * float,
         it.z, o
       );
     } else {
@@ -155,18 +121,55 @@ function render(t, dt) {
       o.scale = 1;
       o.zOrder = it.hubRank;
     }
-    o.size = baseSize * o.scale * (i === S.sel ? 1.72 : 1) * (1 + 0.32 * it.hs) * (0.55 + 0.45 * it.a) * (0.45 + 0.55 * it.vf);
+    o.size = baseSize * o.scale * (i === S.sel ? 1.7 : 1) * (1 + 0.3 * it.hs) * (0.55 + 0.45 * it.a) * (0.45 + 0.55 * it.vf);
     it.sx = o.sx; it.sy = o.sy; it.sc = o.scale;
   }
+  if (flags.moved) flags.busy = true;
+}
 
+function sortOrder(n) {
   order.length = n;
   for (let i = 0; i < n; i++) order[i] = i;
-  order.sort((a, b) => S.proj[b].zOrder - S.proj[a].zOrder);
+  const P = state.proj;
+  order.sort((a, b) => P[b].zOrder - P[a].zOrder);
+}
 
-  /* --- legami tra tavole simili (solo in vista 3D) --- */
-  if (n && is3D) {
+/* statistiche per categoria: servono ad alone e nome del gruppo in 3D */
+const catStats = new Map();
+function computeClusterStats() {
+  for (const s of catStats.values()) s.n = 0;
+  for (const it of state.items) {
+    if (!it.vis) continue;
+    let s = catStats.get(it.cat);
+    if (!s) catStats.set(it.cat, s = { n: 0, x: 0, top: 0, z: 0, sx: 0, sy: 0, sxx: 0, syy: 0 });
+    if (s.n === 0) { s.x = s.z = s.sx = s.sy = s.sxx = s.syy = 0; s.top = 9; }
+    s.n++; s.x += it.x; s.z += it.z;
+    s.sx += it.sx; s.sy += it.sy; s.sxx += it.sx * it.sx; s.syy += it.sy * it.sy;
+    if (it.y < s.top) s.top = it.y;
+  }
+}
+
+/** Alone morbido sotto ogni nuvola di tavole: i gruppi si leggono a colpo d'occhio. */
+function drawAuras(baseSize) {
+  const S = state;
+  cx.globalCompositeOperation = 'lighter';
+  cx.globalAlpha = 0.15 * (1 - 0.6 * S.focus);
+  for (const [cat, s] of catStats) {
+    if (s.n < 2) continue;
+    const mx = s.sx / s.n, my = s.sy / s.n;
+    const v = Math.max(0, s.sxx / s.n - mx * mx + s.syy / s.n - my * my);
+    const R = Math.sqrt(v) * 2.3 + baseSize * 1.3;
+    cx.drawImage(glow(S.col[cat]), mx - R, my - R, R * 2, R * 2);
+  }
+  cx.globalCompositeOperation = 'source-over';
+  cx.globalAlpha = 1;
+}
+
+function drawLinks(t) {
+  const S = state, items = S.items, n = items.length, col = S.col;
+  if (n && S.viewMode === '3d') {
     cx.lineWidth = 1;
-    cx.globalAlpha = 0.16 * (1 - 0.65 * S.focus);
+    cx.globalAlpha = 0.17 * (1 - 0.6 * S.focus);
     for (const cat of Object.keys(col)) {
       cx.beginPath();
       for (let i = 0; i < n; i++) {
@@ -182,162 +185,180 @@ function render(t, dt) {
       cx.stroke();
     }
   }
-
-  /* --- sinapsi attive su hover/selezione con impulso viaggiante --- */
   if (n && (S.hov >= 0 || S.sel >= 0)) {
-    cx.lineWidth = 1.65;
+    cx.lineWidth = 1.6;
     cx.setLineDash([6, 8]);
-    cx.lineDashOffset = -t * 0.045;
-    cx.strokeStyle = '#ffe5c4';
+    cx.lineDashOffset = -t * 0.04;
+    cx.strokeStyle = '#ffe2bd';
     for (const k of [S.hov, S.sel]) {
       if (k < 0 || !items[k]) continue;
-      cx.globalAlpha = k === S.sel ? 0.88 : 0.58;
+      cx.globalAlpha = k === S.sel ? 0.85 : 0.55;
       cx.beginPath();
       for (const j of items[k].nn) {
         if (!items[j] || !items[j].vis) continue;
         cx.moveTo(items[k].sx, items[k].sy); cx.lineTo(items[j].sx, items[j].sy);
       }
       cx.stroke();
-
-      // Impulso luminoso che viaggia lungo i legami affini
-      if (!RM) {
-        const phase = (t * 0.0012) % 1;
-        cx.fillStyle = '#fff3df';
-        cx.beginPath();
-        for (const j of items[k].nn) {
-          if (!items[j] || !items[j].vis) continue;
-          const px = items[k].sx + (items[j].sx - items[k].sx) * phase;
-          const py = items[k].sy + (items[j].sy - items[k].sy) * phase;
-          cx.moveTo(px + 2.4, py);
-          cx.arc(px, py, 2.4, 0, 6.2832);
-        }
-        cx.fill();
-      }
     }
     cx.setLineDash([]);
     cx.globalAlpha = 1;
-    if (!RM) busy = true;
+    if (!RM) flags.busy = true;
+  }
+}
+
+function drawNode(i, big, is3D, baseSize) {
+  const S = state, it = S.items[i], o = S.proj[i], dpr = S.dpr, { W, H } = S;
+  const margin = baseSize * 2.2;
+  if (!big && (o.sx < -margin || o.sx > W + margin || o.sy < -margin || o.sy > H + margin)) return;
+
+  const c = S.col[it.cat];
+  const dim = (S.sel >= 0 && !big) ? 1 - 0.66 * S.focus : 1;
+  const depth = (is3D ? clamp(o.scale * 0.92, 0.35, 1) : 1) * dim;
+
+  if (it.vf < 0.98) {                                  // filtrata: resta un puntino spento
+    cx.globalAlpha = 0.22 * depth * (1 - it.vf);
+    cx.fillStyle = c;
+    cx.beginPath(); cx.arc(o.sx, o.sy, 3 * o.scale, 0, 6.2832); cx.fill();
+  }
+  if (it.vf < 0.02) return;
+
+  const live = it.ready && S.mode === 'thumb';
+  if (big || (i === S.hov && live)) {                  // alone sotto la tavola attiva
+    const R = (live ? o.size : 22) * 1.5;
+    cx.globalCompositeOperation = 'lighter';
+    cx.globalAlpha = (big ? 0.55 : 0.4) * depth;
+    cx.drawImage(glow(c), o.sx - R, o.sy - R, R * 2, R * 2);
+    cx.globalCompositeOperation = 'source-over';
   }
 
-  /* --- tavole: fast-path senza save()/restore()/rotate() --- */
-  const margin = baseSize * 2.2;
-  const drawNode = (i, big) => {
-    const it = items[i], o = S.proj[i];
-    if (!big && (o.sx < -margin || o.sx > W + margin || o.sy < -margin || o.sy > H + margin)) return;
+  if (!live) {                                         // punto luminoso
+    const r = (big ? 11 : 6.5) * o.scale * (1 + 0.4 * it.hs) * it.vf;
+    cx.globalCompositeOperation = 'lighter';
+    cx.globalAlpha = 0.7 * depth;
+    cx.drawImage(glow(c), o.sx - r * 3, o.sy - r * 3, r * 6, r * 6);
+    cx.globalCompositeOperation = 'source-over';
+    cx.globalAlpha = depth;
+    cx.fillStyle = c;
+    cx.beginPath(); cx.arc(o.sx, o.sy, r, 0, 6.2832); cx.fill();
+    if (big) { cx.lineWidth = 2.5; cx.strokeStyle = '#f4efe3'; cx.stroke(); }
+    cx.globalAlpha = 1;
+    return;
+  }
 
-    const c = col[it.cat];
-    const dim = (S.sel >= 0 && !big) ? 1 - 0.68 * S.focus : 1;
-    const depth = (is3D ? clamp(o.scale * 0.92, 0.35, 1) : 1) * dim;
+  const s = o.size, pad = s * CARD.pad;
+  const w = s * (1 + 2 * CARD.pad), h = s * (1 + CARD.pad + CARD.bottom);
+  const img = pickLevel(it.cards, w * dpr);
+  const rot = big ? 0 : it.rot;
+  const cs = Math.cos(rot) * dpr, sn = Math.sin(rot) * dpr;
 
-    if (it.vf < 0.98) {
-      cx.globalAlpha = 0.22 * depth * (1 - it.vf);
-      cx.fillStyle = c;
-      cx.beginPath(); cx.arc(o.sx, o.sy, 3 * o.scale, 0, 6.2832); cx.fill();
-    }
-    if (it.vf < 0.02) return;
+  cx.globalAlpha = Math.min(1, it.a * 1.4) * depth * it.vf;
+  cx.setTransform(cs, sn, -sn, cs, o.sx * dpr, o.sy * dpr);      // rotazione senza save()/restore()
+  cx.fillStyle = 'rgba(8, 3, 1, 0.36)';
+  cx.fillRect(-s / 2 - pad + s * 0.03, -s / 2 - pad + s * 0.05, w, h);
+  cx.drawImage(img, -s / 2 - pad, -s / 2 - pad, w, h);
+  if (big || S.hov === i) {
+    cx.lineWidth = big ? 3 : 2;
+    cx.strokeStyle = big ? '#ee9a5b' : c;
+    cx.strokeRect(-s / 2 - pad, -s / 2 - pad, w, h);
+  }
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
 
-    const live = it.ready && mode === 'thumb';
-    if (big || (i === S.hov && live)) {
-      const R = (live ? o.size : 22) * 1.55;
-      cx.globalCompositeOperation = 'lighter';
-      cx.globalAlpha = (big ? 0.58 : 0.42) * depth;
-      cx.drawImage(glow(c), o.sx - R, o.sy - R, R * 2, R * 2);
-      cx.globalCompositeOperation = 'source-over';
-    }
+function drawOverlays(t, is3D, baseSize) {
+  const S = state, n = S.items.length;
 
-    if (!live) {
-      const r = (big ? 11 : 6.5) * o.scale * (1 + 0.4 * it.hs) * it.vf;
-      cx.globalCompositeOperation = 'lighter';
-      cx.globalAlpha = 0.72 * depth;
-      cx.drawImage(glow(c), o.sx - r * 3, o.sy - r * 3, r * 6, r * 6);
-      cx.globalCompositeOperation = 'source-over';
-      cx.globalAlpha = depth;
-      cx.fillStyle = c;
-      cx.beginPath(); cx.arc(o.sx, o.sy, r, 0, 6.2832); cx.fill();
-      if (big) { cx.lineWidth = 2.5; cx.strokeStyle = '#f4efe3'; cx.stroke(); }
-      cx.globalAlpha = 1;
-      return;
-    }
-
-    const s = o.size, pad = s * CARD.pad;
-    const w = s * (1 + 2 * CARD.pad), h = s * (1 + CARD.pad + CARD.bottom);
-    const x0 = Math.round(o.sx - s / 2 - pad);
-    const y0 = Math.round(o.sy - s / 2 - pad);
-
-    cx.globalAlpha = Math.min(1, it.a * 1.4) * depth * it.vf;
-    cx.fillStyle = 'rgba(6, 2, 1, 0.42)';
-    cx.fillRect(x0 + s * 0.035, y0 + s * 0.055, w, h);
-    cx.drawImage(it.card, x0, y0, w, h);
-
-    if (big || S.hov === i) {
-      cx.lineWidth = big ? 3 : 2;
-      cx.strokeStyle = big ? '#f5a65b' : c;
-      cx.strokeRect(x0, y0, w, h);
-    }
-  };
-
-  for (const i of order) if (i !== S.sel && i !== S.hov) drawNode(i, false);
-  if (S.hov >= 0 && S.hov !== S.sel && items[S.hov]) drawNode(S.hov, false);
-  if (S.sel >= 0 && items[S.sel]) drawNode(S.sel, true);
-  cx.globalAlpha = 1;
-
-  /* --- etichette dei gruppi --- */
   if (is3D) {
-    const acc = {};
-    for (const it of items) {
-      if (!it.vis) continue;
-      const a = acc[it.cat] || (acc[it.cat] = { x: 0, top: 9, z: 0, n: 0 });
-      a.x += it.x; a.z += it.z; a.n++;
-      if (it.y < a.top) a.top = it.y;
-    }
     const labels = [];
-    for (const cat in acc) {
-      const a = acc[cat];
-      if (a.n >= 2) labels.push({ text: cat, color: col[cat], x: a.x / a.n, y: a.top - 0.16, z: a.z / a.n });
+    for (const [cat, s] of catStats) {
+      if (s.n >= 2) labels.push({ text: cat, color: S.col[cat], x: s.x / s.n, y: s.top - 0.16, z: s.z / s.n });
     }
-    drawClusterLabels(cx, labels, 0.78 * (1 - 0.72 * S.focus));
+    drawClusterLabels(cx, labels, 0.75 * (1 - 0.7 * S.focus));
   } else if (n) drawGeoLabels(cx);
 
-  /* --- onda d'urto alla selezione --- */
-  if (S.fx.length) {
+  if (S.fx.length) {                                    // onda d'urto alla selezione
     S.fx = S.fx.filter(f => t - f.t0 < 1100);
     for (const f of S.fx) {
       const p = (t - f.t0) / 1100, it = f.it;
       cx.globalAlpha = 1 - p;
       cx.strokeStyle = cx.fillStyle = f.c;
-      cx.lineWidth = 2.2;
-      cx.beginPath(); cx.arc(it.sx, it.sy, 10 + p * 140 * it.sc, 0, 6.2832); cx.stroke();
-      cx.lineWidth = 1;
-      cx.beginPath(); cx.arc(it.sx, it.sy, 6 + p * 85 * it.sc, 0, 6.2832); cx.stroke();
+      cx.lineWidth = 2;
+      cx.beginPath(); cx.arc(it.sx, it.sy, 10 + p * 130 * it.sc, 0, 6.2832); cx.stroke();
       for (const sp of f.sp) {
         const d = sp.v * p * (2 - p) * it.sc;
         cx.beginPath();
         cx.arc(it.sx + Math.cos(sp.a) * d, it.sy + Math.sin(sp.a) * d, 2.5 * (1 - p) + 0.5, 0, 6.2832);
         cx.fill();
       }
-      busy = true;
+      flags.busy = true;
     }
     cx.globalAlpha = 1;
   }
 
-  /* --- dissolvenza al cambio vista --- */
-  const sp = (t - S.switchT) / 520;
+  const sp = (t - S.switchT) / 520;                     // dissolvenza al cambio vista
   if (sp < 1) {
-    cx.fillStyle = `rgba(16, 6, 3, ${0.92 * (1 - sp) ** 2})`;
-    cx.fillRect(0, 0, W, H);
-    busy = true;
+    cx.fillStyle = `rgba(20, 8, 4, ${0.92 * (1 - sp) ** 2})`;
+    cx.fillRect(0, 0, S.W, S.H);
+    flags.busy = true;
   }
-
-  /* --- hover aggiornato anche quando è la camera a muoversi --- */
-  if (S.mx > -100 && !S.drag && n) {
-    const h = pick(S.mx, S.my);
-    if (h !== S.hov) { S.hov = h; setTip(h); cv.style.cursor = h >= 0 ? 'pointer' : 'grab'; busy = true; }
-  }
-
-  S.dirty = busy;
 }
 
-/* ---------- input ---------- */
+function render(t, dt) {
+  const S = state, { W, H, dpr, items, viewMode } = S;
+  const is3D = viewMode === '3d';
+  const n = items.length;
+  flags.busy = flags.moved = false;
+
+  const focusGoal = S.sel >= 0 ? 1 : 0;
+  S.focus += (focusGoal - S.focus) * (1 - Math.exp(-dt * (RM ? 40 : 6)));
+  if (Math.abs(focusGoal - S.focus) > 0.004) flags.busy = true;
+  const camMoving = stepCamera(dt);
+  if (camMoving) flags.busy = true;
+
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx.imageSmoothingEnabled = true;
+  cx.imageSmoothingQuality = 'low';
+
+  const baseSize = is3D ? thumbSize3D(S.cam3D.zoom) : geoThumbSize(S.camGeo.k);
+  let hubs = null;
+
+  if (is3D) {
+    draw3DBackground(cx, t, S.focus);
+    if (S.autoRotate && !RM && S.sel < 0) flags.busy = true;
+  } else {
+    if (drawGeoBase(cx, t)) flags.busy = true;          // true = ridisegno nitido in attesa
+    if (n) { hubs = layoutHubs(baseSize); drawGeoHalos(cx); }
+  }
+
+  if (S.focus > 0.01) {
+    cx.fillStyle = `rgba(12, 4, 2, ${0.34 * S.focus})`;
+    cx.fillRect(0, 0, W, H);
+  }
+
+  updateItems(t, dt, is3D, baseSize, hubs);
+
+  if (flags.moved || camMoving || n !== lastN || viewMode !== lastView) sortOrder(n);
+  lastN = n; lastView = viewMode;
+
+  if (is3D) { computeClusterStats(); drawAuras(baseSize); }
+  drawLinks(t);
+
+  for (const i of order) if (i !== S.sel && i !== S.hov) drawNode(i, false, is3D, baseSize);
+  if (S.hov >= 0 && S.hov !== S.sel && items[S.hov]) drawNode(S.hov, false, is3D, baseSize);
+  if (S.sel >= 0 && items[S.sel]) drawNode(S.sel, true, is3D, baseSize);
+  cx.globalAlpha = 1;
+
+  drawOverlays(t, is3D, baseSize);
+
+  if (S.mx > -100 && !S.drag && n) {                    // hover aggiornato anche se si muove la camera
+    const h = pick(S.mx, S.my);
+    if (h !== S.hov) { S.hov = h; setTip(h); cv.style.cursor = h >= 0 ? 'pointer' : 'grab'; flags.busy = true; }
+  }
+  S.dirty = flags.busy;
+}
+
+/* ============================================================
+   input
+   ============================================================ */
 const pointers = new Map();
 let pinch = null;
 const pinchDist = () => {
@@ -458,9 +479,24 @@ cv.addEventListener('wheel', e => {
   zoomBy(Math.exp(clamp(-dy, -120, 120) * 0.0016), e.clientX - r.left, e.clientY - r.top);
 }, { passive: false });
 
-/* ---------- dimensioni e ciclo ---------- */
+/* suggerimento iniziale: sparisce al primo gesto o dopo 12 secondi */
+const hint = $('#hint');
+const hideHint = () => hint && hint.classList.add('is-gone');
+cv.addEventListener('pointerdown', hideHint, { once: true });
+cv.addEventListener('wheel', hideHint, { once: true, passive: true });
+setTimeout(hideHint, 12000);
+
+/* ============================================================
+   dimensioni, risoluzione adattiva e ciclo
+   ============================================================ */
+const dprLevels = () => {
+  const m = Math.min(window.devicePixelRatio || 1, 2);
+  return [...new Set([m, Math.min(m, 1.5), 1])];
+};
+let dprLevel = 0;
+state.dpr = dprLevels()[0];
+
 function syncSize() {
-  state.dpr = 1;
   state.W = wrap.clientWidth || innerWidth;
   state.H = wrap.clientHeight || innerHeight;
   cv.width = Math.round(state.W * state.dpr);
@@ -472,11 +508,40 @@ function syncSize() {
 syncSize();
 new ResizeObserver(syncSize).observe(wrap);
 
-let last = 0;
+/**
+ * Risoluzione adattiva: ogni 40 frame consecutivi si guarda il tempo medio.
+ * Se è alto si scende di livello (2 → 1.5 → 1); se per ~3 secondi è vicino al refresh
+ * dello schermo si prova a risalire, ma mai più di due volte dallo stesso livello,
+ * per non oscillare. Durante il caricamento non si misura (il t-SNE falserebbe i numeri).
+ */
+const perf = { sum: 0, n: 0, fast: 0, best: 1e9, bad: [0, 0, 0] };
+function tuneDpr(ms) {
+  if (state.busy) { perf.sum = perf.n = perf.fast = 0; return; }
+  if (ms > 500) return;                       // scheda in background o stallo isolato: non è un campione valido
+  perf.sum += Math.min(ms, 120); perf.n++;
+  if (perf.n < 40) return;
+  const avg = perf.sum / perf.n;
+  perf.sum = perf.n = 0;
+  perf.best = Math.min(perf.best, avg);
+  const levels = dprLevels();
+  if (avg > 23 && dprLevel < levels.length - 1) {
+    perf.bad[dprLevel]++;
+    dprLevel++; perf.fast = 0;
+    state.dpr = levels[dprLevel]; syncSize();
+  } else if (avg < perf.best * 1.15 && dprLevel > 0 && perf.bad[dprLevel - 1] < 2) {
+    if (++perf.fast >= 4) { perf.fast = 0; dprLevel--; state.dpr = levels[dprLevel]; syncSize(); }
+  } else perf.fast = 0;
+}
+
+let last = 0, wasRendered = false;
 requestAnimationFrame(function loop(t) {
-  const dt = Math.min(0.05, (t - last) / 1000) || 0.016;
+  const raw = t - last;
   last = t;
-  if (state.dirty) render(t, dt);
+  if (state.dirty) {
+    render(t, Math.min(0.05, raw / 1000) || 0.016);
+    if (wasRendered) tuneDpr(raw);
+    wasRendered = true;
+  } else wasRendered = false;
   requestAnimationFrame(loop);
 });
 

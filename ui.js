@@ -1,12 +1,12 @@
 /* ============================================================
    ui.js — pannelli, scheda della tavola, filtri, dock dei
-   controlli, telemetria live e scorciatoie da tastiera
+   controlli e scorciatoie da tastiera
    ============================================================ */
 import { state, esc, msg, markDirty, refreshVis, getNotes, CAT_COLORS, PAL } from './data.js';
 import { assignGeoHub, assignHubRanks } from './geo.js';
 import { focusOn, releaseFocus, zoomBy, resetView } from './camera.js';
 
-const $ = s => document.querySelector(s);
+const $ = (s, root = document) => root.querySelector(s);
 const body = document.body;
 
 /* ---------- caricamento / pannello dati ---------- */
@@ -15,8 +15,7 @@ export function setLoader(done, total, label = 'Carico le tavole') {
   if (done == null) { el.classList.remove('is-on'); return; }
   el.classList.add('is-on');
   const pct = total ? done / total * 100 : 0;
-  $('#ld-text').textContent = total === 100 ? `${label}…` : `${label} (${done}/${total})`;
-  $('#ld-pct').textContent = `${Math.round(pct)}%`;
+  $('#ld-text').textContent = total === 100 ? `${label}… ${Math.round(pct)}%` : `${label}… ${done} di ${total}`;
   $('#ld-bar').style.width = pct + '%';
 }
 
@@ -25,16 +24,9 @@ export function openWelcome(on) {
   if (on) $('#fi').focus({ preventScroll: true });
 }
 
-export function openHelp(on) {
-  $('#help-modal').hidden = !on;
-}
-
-/* ---------- filtri e telemetria ---------- */
+/* ---------- filtri ---------- */
 export function updateCount() {
-  const vis = state.items.reduce((n, it) => n + (it.vis ? 1 : 0), 0);
-  $('#vis-count').textContent = vis;
-  const tv = $('#tel-vis');
-  if (tv) tv.textContent = `${vis} / ${state.items.length}`;
+  $('#vis-count').textContent = state.items.reduce((n, it) => n + (it.vis ? 1 : 0), 0);
 }
 
 export function buildChips() {
@@ -75,7 +67,8 @@ export function initItemsSkeleton(rows) {
     const y = Math.cos(phi) * 0.78;
     const z = Math.sin(theta) * Math.sin(phi) * 0.78;
     return {
-      r, cat, th: null, card: null, src: null, ready: false, vis: true,
+      r, cat, th: null, cards: null, src: null, ready: false, vis: true,
+      rot: ((i * 37 % 11) - 5) * 0.011,
       x, y, z, tx: x, ty: y, tz: z,
       lon: geo.lon, lat: geo.lat, hubId: geo.hubId, siteName: geo.siteName, geoStatus: geo.geoStatus,
       hubRank: 0, hubSize: 1, nn: [],
@@ -101,16 +94,13 @@ function thumbURL(it) {
   return it.thumbURL || (it.thumbURL = it.th.toDataURL('image/jpeg', 0.85));
 }
 
-function visibleIndices() {
-  return state.items.map((it, i) => (it.ready && it.vis ? i : -1)).filter(i => i >= 0);
-}
-
-function fillDrawer(it, i) {
+function fillDrawer(it) {
   const img = $('#big');
   const token = ++loadToken;
   img.src = thumbURL(it);
   img.classList.toggle('is-soft', !!it.src);
   img.alt = it.r.subject || it.r.id;
+  img.classList.toggle('can-zoom', !!it.src);
   if (it.src) {
     const full = new Image();
     full.onload = full.onerror = () => {
@@ -120,10 +110,6 @@ function fillDrawer(it, i) {
     };
     full.src = it.src;
   }
-
-  const vis = visibleIndices();
-  const pos = Math.max(0, vis.indexOf(i)) + 1;
-  $('#det-idx').textContent = `${String(pos).padStart(2, '0')} / ${String(Math.max(1, vis.length)).padStart(2, '0')}`;
 
   $('#det-title').textContent = it.r.subject || it.r.id;
   const c = state.col[it.cat];
@@ -176,23 +162,64 @@ export function setAutoRotate(on, userAction = false) {
   markDirty();
 }
 
+export function toggleAutoRotate() {
+  const next = !state.autoRotate;
+  setAutoRotate(next, true);
+  msg(next ? 'Rotazione automatica attivata' : 'Rotazione automatica disattivata', 1600);
+}
+
 export function boom(it, color) {
   state.fx.push({
     it, c: color, t0: performance.now(),
-    sp: Array.from({ length: 18 }, (_, k) => ({ a: k / 18 * 6.283 + Math.random() * 0.25, v: 60 + Math.random() * 85 }))
+    sp: Array.from({ length: 16 }, (_, k) => ({ a: k / 16 * 6.283 + Math.random() * 0.3, v: 55 + Math.random() * 80 }))
   });
   markDirty();
+}
+
+/* ---------- accessibilità: i pannelli chiusi non devono essere raggiungibili da tastiera ---------- */
+const mobileMQ = matchMedia('(max-width: 760px)');
+let lastFocus = null;
+function syncInert() {
+  const open = body.classList.contains('has-sel');
+  $('#detail-drawer').inert = !open;
+  $('.dock').inert = mobileMQ.matches && open;
+}
+mobileMQ.addEventListener('change', syncInert);
+
+/* ---------- link condivisibili: #id=IMG_0012&view=geo ---------- */
+function writeHash() {
+  const p = new URLSearchParams();
+  const it = state.items[state.sel];
+  if (it) p.set('id', it.r.id);
+  if (state.viewMode === 'geo') p.set('view', 'geo');
+  const h = p.toString();
+  try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (_) { /* file:// */ }
+}
+
+export function applyHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.get('view') === 'geo') setViewMode('geo');
+  const id = p.get('id');
+  if (id) {
+    const i = state.items.findIndex(it => it.r.id === id);
+    if (i >= 0) show(i);
+  }
 }
 
 export function show(i) {
   const it = state.items[i];
   if (!it || !it.ready) return;
+  const first = !body.classList.contains('has-sel');
+  if (first) lastFocus = document.activeElement;
   state.sel = i;
-  fillDrawer(it, i);
+  fillDrawer(it);
   const d = $('#detail-drawer');
   d.classList.add('is-open');
   d.setAttribute('aria-hidden', 'false');
   body.classList.add('has-sel');
+  syncInert();
+  if (first) $('#close-det').focus({ preventScroll: true });
+  writeHash();
   if (state.viewMode === '3d') setAutoRotate(false, false);
   focusOn(it);
   boom(it, state.col[it.cat]);
@@ -205,25 +232,22 @@ export function closeSelection() {
   d.classList.remove('is-open');
   d.setAttribute('aria-hidden', 'true');
   body.classList.remove('has-sel');
+  syncInert();
+  if (lastFocus && lastFocus !== document.body && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+  lastFocus = null;
   if (state.viewMode === '3d' && state.autoRotatePref) {
     setAutoRotate(true, false);
   }
   releaseFocus();
+  writeHash();
   markDirty();
 }
 
-export function stepSelection(dir) {
-  const list = visibleIndices();
+function stepSelection(dir) {
+  const list = state.items.map((it, i) => (it.ready && it.vis ? i : -1)).filter(i => i >= 0);
   if (!list.length) return;
   const at = list.indexOf(state.sel);
   show(list[(at + dir + list.length) % list.length] ?? list[0]);
-}
-
-export function randomSelection() {
-  const list = visibleIndices().filter(i => i !== state.sel);
-  if (!list.length) return;
-  const pick = list[Math.floor(Math.random() * list.length)];
-  show(pick);
 }
 
 /* ---------- vista 3D / mappa ---------- */
@@ -238,9 +262,8 @@ export function setViewMode(mode) {
   $('#vw-3d').setAttribute('aria-pressed', mode === '3d');
   $('#vw-geo').setAttribute('aria-pressed', mode === 'geo');
   $('#rot-auto').hidden = mode !== '3d';
-  const tm = $('#tel-mode');
-  if (tm) tm.textContent = mode === '3d' ? 'SPAZIO LATENTE' : 'ATLANTE GEO';
   if (state.sel >= 0) focusOn(state.items[state.sel]);
+  writeHash();
   markDirty();
 }
 
@@ -264,30 +287,29 @@ function exportCSV() {
 /* ---------- collegamento dei controlli ---------- */
 export function bindUI() {
   $('#close-det').onclick = closeSelection;
-  $('#prev-det').onclick = () => stepSelection(-1);
-  $('#next-det').onclick = () => stepSelection(1);
   $('#vw-3d').onclick = () => setViewMode('3d');
   $('#vw-geo').onclick = () => setViewMode('geo');
   $('#zi').onclick = () => zoomBy(1.3);
   $('#zo').onclick = () => zoomBy(1 / 1.3);
   $('#zr').onclick = () => { closeSelection(); resetView(); };
-  $('#rnd').onclick = randomSelection;
-  $('#rot-auto').onclick = () => {
-    const next = !state.autoRotate;
-    setAutoRotate(next, true);
-    msg(next ? 'Rotazione automatica attivata' : 'Rotazione automatica disattivata', 1600);
-  };
+  $('#rot-auto').onclick = toggleAutoRotate;
   $('#rot-auto').setAttribute('aria-pressed', state.autoRotate);
   $('#cp').onclick = exportCSV;
   $('#open-data').onclick = () => openWelcome($('#welcome').hidden);
   $('#close-welcome').onclick = () => openWelcome(false);
-  $('#open-help').onclick = () => openHelp($('#help-modal').hidden);
-  $('#close-help').onclick = () => openHelp(false);
+
+  const lb = $('#lightbox');
+  $('#big').onclick = () => {
+    const it = state.items[state.sel];
+    if (!it || !it.src) return;
+    $('img', lb).src = it.src;
+    lb.hidden = false;
+  };
+  lb.onclick = () => { lb.hidden = true; };
 
   $('#md').onclick = e => {
     state.mode = state.mode === 'thumb' ? 'dot' : 'thumb';
     e.currentTarget.setAttribute('aria-pressed', state.mode === 'thumb');
-    msg(state.mode === 'thumb' ? 'Vista miniature fotografiche' : 'Vista nebulosa stellare', 1500);
     markDirty();
   };
 
@@ -305,7 +327,7 @@ export function bindUI() {
     }
     switch (e.key) {
       case 'Escape':
-        if (!$('#help-modal').hidden) openHelp(false);
+        if (!$('#lightbox').hidden) $('#lightbox').hidden = true;
         else if (!$('#welcome').hidden) openWelcome(false);
         else closeSelection();
         break;
@@ -315,16 +337,8 @@ export function bindUI() {
       case '-': case '_': zoomBy(1 / 1.2); break;
       case '0': closeSelection(); resetView(); break;
       case 'g': case 'G': setViewMode(state.viewMode === '3d' ? 'geo' : '3d'); break;
-      case 'm': case 'M': $('#md').click(); break;
-      case 'r': case 'R': randomSelection(); break;
-      case '?': openHelp($('#help-modal').hidden); break;
       case ' ':
-        if (state.viewMode === '3d') {
-          e.preventDefault();
-          const next = !state.autoRotate;
-          setAutoRotate(next, true);
-          msg(next ? 'Rotazione automatica attivata' : 'Rotazione automatica disattivata', 1600);
-        }
+        if (state.viewMode === '3d') { e.preventDefault(); toggleAutoRotate(); }
         break;
       case '/': e.preventDefault(); $('#q').focus(); break;
       default: return;

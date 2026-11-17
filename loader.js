@@ -5,11 +5,40 @@
 import { CONFIG, state, msg, parseCSV, setItemImage, feat, prep, tsne3D, refreshVis, markDirty } from './data.js';
 import { assignHubRanks } from './geo.js';
 import {
-  initItemsSkeleton, buildChips, updateCount, setLoader, openWelcome, closeSelection
+  initItemsSkeleton, buildChips, updateCount, setLoader, openWelcome, closeSelection, applyHash
 } from './ui.js';
 
 const $ = s => document.querySelector(s);
 const K = 5;
+
+/* ---------- cache del layout: t-SNE è deterministico, quindi si calcola una volta sola ----------
+   Si invalida da sola se cambiano ID o nomi file; con ?relayout nell'URL si forza il ricalcolo. */
+const LS_KEY = 'atlante:layout:v2';
+
+function layoutSig(items) {
+  const s = items.map(i => i.r.id + '|' + (i.r.filename || '')).join(';') + '|' + CONFIG.thumb;
+  let h = 5381;
+  for (let k = 0; k < s.length; k++) h = ((h << 5) + h + s.charCodeAt(k)) | 0;
+  return `${items.length}:${h >>> 0}`;
+}
+
+function readLayout(sig) {
+  try {
+    if (/[?&]relayout/.test(location.search)) return null;
+    const o = JSON.parse(localStorage.getItem(LS_KEY));
+    return o && o.sig === sig ? o : null;
+  } catch (_) { return null; }
+}
+
+function writeLayout(sig, items) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      sig,
+      p: items.map(i => [+i.tx.toFixed(4), +i.ty.toFixed(4), +i.tz.toFixed(4)]),
+      nn: items.map(i => i.nn)
+    }));
+  } catch (_) { /* storage pieno o disattivato: pazienza */ }
+}
 
 function computeNeighbors() {
   const { items, Dm } = state, n = items.length;
@@ -43,11 +72,25 @@ async function finalizeLayout() {
     Object.assign(state.items[0], { tx: 0, ty: 0, tz: 0 });
     return;
   }
+  const sig = layoutSig(state.items);
+  const cached = readLayout(sig);
+  if (cached) {
+    state.items.forEach((it, i) => {
+      [it.tx, it.ty, it.tz] = cached.p[i];
+      it.nn = cached.nn[i];
+    });
+    markDirty();
+    return;
+  }
   const F = prep(state.items.map(i => feat(i.th)));
   await tsne3D(F, p => setLoader(p * 100, 100, 'Dispongo le tavole'));
   computeNeighbors();
+  writeLayout(sig, state.items);
   markDirty();
 }
+
+/** Nome file della riga; se manca la colonna `filename` si prova con `<id>.jpg`. */
+const fileNameOf = row => (row.filename || '').trim() || (row.id ? row.id.trim() + '.jpg' : '');
 
 /**
  * Decodifica un Blob direttamente alla dimensione della miniatura tramite createImageBitmap.
@@ -65,71 +108,78 @@ async function decodeThumbBitmap(blob) {
 async function loadRows(rows, resolver) {
   if (state.busy) return;
   state.busy = true;
-  closeSelection();
-  initItemsSkeleton(rows);
-  openWelcome(false);
+  try {
+    closeSelection();
+    initItemsSkeleton(rows);
+    openWelcome(false);
 
-  const total = rows.length;
-  const queue = rows.map((_, i) => i);
-  let done = 0, miss = 0;
-  setLoader(0, total);
+    const total = rows.length;
+    const queue = rows.map((_, i) => i);
+    let done = 0, miss = 0;
+    setLoader(0, total);
 
-  const worker = async () => {
-    while (queue.length) {
-      const i = queue.shift();
-      try {
-        const res = await resolver(rows[i], i);
-        if (!res) throw new Error('missing');
-        await setItemImage(state.items[i], res.bitmap, i);
-        state.items[i].src = res.src || null;
-      } catch (_) { miss++; }
-      setLoader(++done, total);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(CONFIG.concurrency, total) }, worker));
-  await finalizeLayout();
-  setLoader(null);
-  const ok = state.items.length;
-  msg(miss ? `${ok} tavole pronte, ${miss} senza immagine corrispondente.` : `${ok} tavole pronte.`);
-  state.busy = false;
+    const worker = async () => {
+      while (queue.length) {
+        const i = queue.shift();
+        try {
+          const res = await resolver(rows[i], i);
+          if (!res) throw new Error('missing');
+          await setItemImage(state.items[i], res.bitmap, i);
+          state.items[i].src = res.src || null;
+        } catch (_) { miss++; }
+        setLoader(++done, total);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONFIG.concurrency, total) }, worker));
+    await finalizeLayout();
+    const ok = state.items.length;
+    msg(miss ? `${ok} tavole pronte, ${miss} senza immagine corrispondente.` : `${ok} tavole pronte.`);
+    applyHash();
+  } catch (err) {
+    console.error(err);
+    state.items = state.items.filter(it => it.ready);
+    markDirty();
+    msg('Qualcosa è andato storto durante il caricamento: ricarica la pagina o riprova con altri file.', 6000);
+  } finally {
+    setLoader(null);
+    state.busy = false;
+  }
 }
 
 /* ---------- caricamento automatico dal progetto (tenta prima .webp, poi l'originale) ---------- */
 export async function autoload() {
+  let rows;
   try {
     const res = await fetch(CONFIG.csv);
     if (!res.ok) throw new Error('csv');
-    const rows = parseCSV(await res.text());
+    rows = parseCSV(await res.text());
     if (!rows.length) throw new Error('vuoto');
-    await loadRows(rows, async row => {
-      const f = (row.filename || '').trim();
-      if (!f) return null;
-      const encoded = f.split('/').map(encodeURIComponent).join('/');
-      const origSrc = CONFIG.images + encoded;
-      const webpSrc = origSrc.replace(/\.(jpe?g|png)$/i, '.webp');
-
-      let rs = null;
-      let usedSrc = origSrc;
-      if (webpSrc !== origSrc) {
-        const tryWebp = await fetch(webpSrc).catch(() => null);
-        if (tryWebp && tryWebp.ok) {
-          rs = tryWebp;
-          usedSrc = webpSrc;
-        }
-      }
-      if (!rs) {
-        rs = await fetch(origSrc);
-        if (!rs.ok) return null;
-      }
-      const blob = await rs.blob();
-      return { bitmap: await decodeThumbBitmap(blob), src: usedSrc };
-    });
   } catch (_) {
-    state.busy = false;
     setLoader(null);
     openWelcome(true);
     msg('Database non trovato: apri il progetto da un server oppure scegli i file.', 5000);
+    return;
   }
+
+  await loadRows(rows, async row => {
+    const f = fileNameOf(row);
+    if (!f) return null;
+    const encoded = f.split('/').map(encodeURIComponent).join('/');
+    const origSrc = CONFIG.images + encoded;
+    const webpSrc = origSrc.replace(/\.(jpe?g|png)$/i, '.webp');
+
+    let rs = null;
+    let usedSrc = origSrc;
+    if (webpSrc !== origSrc) {
+      const tryWebp = await fetch(webpSrc).catch(() => null);
+      if (tryWebp && tryWebp.ok) { rs = tryWebp; usedSrc = webpSrc; }
+    }
+    if (!rs) {
+      rs = await fetch(origSrc);
+      if (!rs.ok) return null;
+    }
+    return { bitmap: await decodeThumbBitmap(await rs.blob()), src: usedSrc };
+  });
 }
 
 /* ---------- dati di esempio ---------- */
@@ -190,7 +240,7 @@ async function loadFromFiles() {
     : imgs.map(f => ({ id: f.name.replace(/\.[^.]+$/, ''), filename: f.name }));
 
   await loadRows(rows, async row => {
-    const raw = (row.filename || '').toLowerCase();
+    const raw = fileNameOf(row).toLowerCase();
     const webpName = raw.replace(/\.(jpe?g|png)$/, '.webp');
     const base = raw.replace(/\.[^.]+$/, '');
     const f = exactMap.get(webpName) || exactMap.get(raw) || baseMap.get(base);

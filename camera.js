@@ -1,6 +1,7 @@
 /* ============================================================
-   camera.js — camere fluide con smorzamento esponenziale,
-   inerzia, zoom sul cursore e inquadratura automatica
+   camera.js — le camere inseguono un obiettivo ("goal") con
+   smorzamento esponenziale: trascinamento, inerzia, zoom e volo
+   verso la tavola selezionata sono tutti la stessa meccanica.
    ============================================================ */
 import { state, RM, HOME_3D, HOME_GEO, clamp } from './data.js';
 import { project3D } from './view3d.js';
@@ -15,7 +16,7 @@ const KEYS_3D = ['yaw', 'pitch', 'zoom', 'panX', 'panY'];
 /** Avanza le camere di `dt` secondi. Restituisce true finché c'è movimento. */
 export function stepCamera(dt) {
   const s = state;
-  const k = 1 - Math.exp(-dt * (RM ? 60 : s.drag ? 26 : 6.8));
+  const k = 1 - Math.exp(-dt * (RM ? 60 : s.drag ? 24 : 6.5));
   let moving = false;
 
   if (s.viewMode === '3d') {
@@ -28,21 +29,21 @@ export function stepCamera(dt) {
       if (Math.abs(s.spin.yaw) + Math.abs(s.spin.pitch) > 0.01) {
         g.yaw += s.spin.yaw * dt;
         g.pitch = clamp(g.pitch + s.spin.pitch * dt, -1.35, 1.35);
-        const decay = Math.exp(-dt * 3.4);
+        const decay = Math.exp(-dt * 3.2);
         s.spin.yaw *= decay; s.spin.pitch *= decay;
       } else s.spin.yaw = s.spin.pitch = 0;
     }
     for (const key of KEYS_3D) {
       const d = g[key] - c[key];
       c[key] += d * k;
-      if (Math.abs(d) > (key.startsWith('pan') ? 0.25 : 0.0006)) moving = true;
+      if (Math.abs(d) > (key.startsWith('pan') ? 0.3 : 0.0008)) moving = true;
     }
   } else {
     const c = s.camGeo, g = s.goalGeo;
     for (const key of ['x', 'y', 'k']) {
       const d = g[key] - c[key];
       c[key] += d * k;
-      if (Math.abs(d) > (key === 'k' ? 0.0006 : 0.25)) moving = true;
+      if (Math.abs(d) > (key === 'k' ? 0.0008 : 0.3)) moving = true;
     }
   }
   return moving;
@@ -82,11 +83,11 @@ export function releaseFocus() {
   state.dirty = true;
 }
 
-/** Centro dell'area libera accanto alla scheda (a destra su desktop, in alto su mobile). */
+/** Centro dell'area libera accanto alla scheda (a sinistra su desktop, in basso su mobile). */
 function freeCenter() {
   const { W, H } = state;
-  if (W > 760) { const left = 408; return { x: left + (W - left) / 2, y: H / 2 }; }
-  return { x: W / 2, y: H * 0.24 };
+  if (W > 760) { const left = 398; return { x: left + (W - left) / 2, y: H / 2 }; }
+  return { x: W / 2, y: H * 0.26 };
 }
 
 const _probe = {}, _off = {};
@@ -99,7 +100,7 @@ export function focusOn(it) {
     const h = Math.hypot(it.x, it.z);
     const yaw = cur.yaw + wrapAngle(Math.atan2(-it.x, -it.z) - cur.yaw);
     const pitch = clamp(-Math.atan2(it.y, h), -1.1, 1.1);
-    const zoom = 1.72;
+    const zoom = 1.7;
     project3D(it.x, it.y, it.z, _probe, { yaw, pitch, zoom, panX: 0, panY: 0 });
     Object.assign(g, { yaw, pitch, zoom, panX: want.x - _probe.sx, panY: want.y - _probe.sy });
   } else {
