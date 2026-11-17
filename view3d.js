@@ -1,7 +1,6 @@
 /* ============================================================
    view3d.js — proiezione prospettica, sfondo immersivo
-   (gradiente, polvere con parallasse, anelli, illustrazioni)
-   ed etichette dei gruppi
+   ottimizzato (cache gradienti, dust batching, etichette)
    ============================================================ */
 import { state, RM, clamp } from './data.js';
 
@@ -27,38 +26,54 @@ export function project3D(x, y, z, out, c = state.cam3D) {
 
 export const thumbSize3D = zoom => clamp(38 * Math.sqrt(zoom), 24, 104);
 
-/* ---------- sfondo ---------- */
+/* ---------- sfondo e luce cursore pre-renderizzati ---------- */
 let bg = null;
+let spotSprite = null;
+
 export function buildBackground() {
   const { W, H } = state;
-  const w = Math.ceil(W * 0.6), h = Math.ceil(H * 0.6);   // 1.2× lo schermo, mezza risoluzione
+  const w = Math.max(1, Math.ceil(W * 0.5));
+  const h = Math.max(1, Math.ceil(H * 0.5));
   bg = document.createElement('canvas');
   bg.width = w; bg.height = h;
   const g = bg.getContext('2d');
   const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.78);
-  r.addColorStop(0, '#7a3216');
-  r.addColorStop(0.5, '#3b170b');
-  r.addColorStop(1, '#150704');
+  r.addColorStop(0, '#3b170b');
+  r.addColorStop(0.52, '#190804');
+  r.addColorStop(1, '#080201');
   g.fillStyle = r;
   g.fillRect(0, 0, w, h);
+
+  if (!spotSprite) {
+    spotSprite = document.createElement('canvas');
+    spotSprite.width = spotSprite.height = 256;
+    const sg = spotSprite.getContext('2d');
+    const gr = sg.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gr.addColorStop(0, 'rgba(255, 196, 140, 0.11)');
+    gr.addColorStop(1, 'rgba(255, 196, 140, 0)');
+    sg.fillStyle = gr;
+    sg.fillRect(0, 0, 256, 256);
+  }
 }
 
-const dust = Array.from({ length: 90 }, () => ({
+const dust = Array.from({ length: 65 }, () => ({
   x: Math.random(), y: Math.random(), z: Math.random(),
-  s: Math.random() * 1.6 + 0.4, p: Math.random() * 6.3, v: Math.random() * 0.00035 + 0.0001
+  s: Math.random() * 1.5 + 0.5, p: Math.random() * 6.3, v: Math.random() * 0.0003 + 0.0001
 }));
 
 function drawDust(cx, t) {
   const { W, H, cam3D } = state;
+  cx.fillStyle = 'rgba(255, 214, 170, 0.22)';
+  cx.beginPath();
   for (const d of dust) {
     if (!RM) { d.y -= d.v; if (d.y < 0) d.y = 1; }
     const x = (((d.x * W - cam3D.yaw * W * 0.16 * (0.3 + d.z) + cam3D.panX * 0.2 * d.z) % W) + W) % W;
     const y = (((d.y * H - cam3D.pitch * H * 0.1 * d.z) % H) + H) % H;
-    cx.fillStyle = `rgba(255, 214, 170, ${(0.12 + 0.3 * d.z) * (0.65 + 0.35 * Math.sin(t * 0.002 + d.p))})`;
-    cx.beginPath();
-    cx.arc(x, y, d.s * (0.6 + d.z * 0.7), 0, Math.PI * 2);
-    cx.fill();
+    const rad = d.s * (0.6 + d.z * 0.7) * (0.8 + 0.2 * Math.sin(t * 0.002 + d.p));
+    cx.moveTo(x + rad, y);
+    cx.arc(x, y, rad, 0, Math.PI * 2);
   }
+  cx.fill();
 }
 
 const _p = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
@@ -67,11 +82,11 @@ function drawRings(cx) {
   cx.save();
   cx.lineWidth = 1;
   cx.setLineDash([4, 10]);
-  [[0.95, 0.14], [0.55, 0.08]].forEach(([R, a]) => {
+  [[0.95, 0.12], [0.55, 0.07]].forEach(([R, a]) => {
     cx.strokeStyle = `rgba(250, 205, 165, ${a})`;
     cx.beginPath();
-    for (let i = 0; i <= 72; i++) {
-      const ang = (i / 72) * Math.PI * 2;
+    for (let i = 0; i <= 60; i++) {
+      const ang = (i / 60) * Math.PI * 2;
       project3D(Math.cos(ang) * R, 0, Math.sin(ang) * R, _p);
       if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
     }
@@ -84,21 +99,17 @@ export function draw3DBackground(cx, t, focus) {
   const { W, H, cam3D, mx, my } = state;
   const px = clamp(cam3D.panX * 0.05, -W * 0.09, W * 0.09);
   const py = clamp(cam3D.panY * 0.05, -H * 0.09, H * 0.09);
-  cx.drawImage(bg, -W * 0.1 + px, -H * 0.1 + py, W * 1.2, H * 1.2);
+  if (bg) cx.drawImage(bg, -W * 0.1 + px, -H * 0.1 + py, W * 1.2, H * 1.2);
 
-  if (mx > 0) {
-    const sg = cx.createRadialGradient(mx, my, 0, mx, my, 260);
-    sg.addColorStop(0, 'rgba(255, 205, 150, 0.14)');
-    sg.addColorStop(1, 'rgba(255, 205, 150, 0)');
-    cx.fillStyle = sg;
-    cx.fillRect(0, 0, W, H);
+  if (mx > 0 && spotSprite) {
+    cx.drawImage(spotSprite, mx - 260, my - 260, 520, 520);
   }
 
   drawDust(cx, t);
   drawRings(cx);
 
   cx.save();
-  cx.globalAlpha = 1 - 0.6 * focus;
+  cx.globalAlpha = 1 - 0.65 * focus;
   drawBackgroundArt(cx, t);
   cx.restore();
 }
@@ -109,13 +120,13 @@ export function drawClusterLabels(cx, labels, alpha) {
   cx.textAlign = 'center';
   cx.textBaseline = 'middle';
   cx.lineJoin = 'round';
-  cx.lineWidth = 3;
+  cx.lineWidth = 3.5;
   for (const L of labels) {
     project3D(L.x, L.y, L.z, _p);
-    const a = clamp((_p.scale - 0.55) / 0.8, 0.18, 1) * alpha;
+    const a = clamp((_p.scale - 0.55) / 0.8, 0.22, 1) * alpha;
     cx.font = `italic 600 ${Math.max(13, 17 * _p.scale)}px Fraunces, Georgia, serif`;
     cx.globalAlpha = a;
-    cx.strokeStyle = 'rgba(20, 8, 4, 0.75)';
+    cx.strokeStyle = 'rgba(10, 3, 1, 0.88)';
     cx.strokeText(L.text, _p.sx, _p.sy);
     cx.fillStyle = L.color;
     cx.fillText(L.text, _p.sx, _p.sy);
@@ -137,175 +148,289 @@ function drawBackgroundArt(cx, t) {
     const m = Math.min(310, W * 0.8);
     x = Math.min(W - m / 2 - 8, Math.max(m / 2 + 8, x));
     cx.textAlign = 'center';
-    cx.fillStyle = sg + '.58)';
+    cx.fillStyle = sg + '.68)';
     cx.font = 'italic 600 ' + Math.max(14, 18 * s) + 'px ' + F;
     cx.fillText(a, x, y, m);
-    cx.fillStyle = sg + '.38)';
+    cx.fillStyle = sg + '.44)';
     cx.font = 'italic 400 ' + Math.max(11.5, 13.5 * s) + 'px ' + F;
     cx.fillText(b, x, y + Math.max(16, 19 * s), m);
   };
 
-  // 1. ARCHAEOPTERYX
+  // 1. ARCHAEOPTERYX — profilo fossile con artigli alari e coda piumata
   cx.save();
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
-  cx.translate(W * 0.56 + px, H * 0.21 + py + Math.sin(t * 0.0005) * 8 * rm);
-  cx.rotate(-0.1 + Math.sin(t * 0.0004) * 0.02 * rm);
+  cx.translate(W * 0.56 + px, H * 0.21 + py + Math.sin(t * 0.0005) * 7 * rm);
+  cx.rotate(-0.08 + Math.sin(t * 0.0004) * 0.018 * rm);
   cx.scale(s * 0.95, s * 0.95);
-  cx.strokeStyle = 'rgba(255,138,36,.68)';
-  cx.fillStyle = 'rgba(255,196,48,.12)';
-  cx.lineWidth = 1.8;
+
+  // Busto e collo sinuoso
+  cx.strokeStyle = 'rgba(255,152,56,.68)';
+  cx.fillStyle = 'rgba(255,180,68,.09)';
+  cx.lineWidth = 1.65;
   cx.beginPath();
-  cx.ellipse(0, 0, 46, 19, -0.25, 0, 7);
+  cx.moveTo(-36, -12);
+  cx.bezierCurveTo(-12, -24, 24, -18, 42, 4);
+  cx.bezierCurveTo(22, 20, -14, 22, -36, 8);
+  cx.closePath();
   cx.fill();
   cx.stroke();
+
+  // Collo, cranio e becco dentato
   cx.beginPath();
-  cx.moveTo(-38, -12);
-  cx.quadraticCurveTo(-56, -28, -64, -34);
-  cx.moveTo(-60, -38);
-  cx.arc(-70, -38, 10, 0, 7);
-  cx.moveTo(-79, -38);
-  cx.lineTo(-96, -33);
-  cx.lineTo(-80, -31);
+  cx.moveTo(-34, -8);
+  cx.quadraticCurveTo(-54, -22, -62, -34);
+  cx.moveTo(-30, 2);
+  cx.quadraticCurveTo(-48, -12, -58, -26);
+  cx.moveTo(-58, -36);
+  cx.arc(-68, -36, 10, 0, Math.PI * 2);
+  cx.moveTo(-78, -37);
+  cx.lineTo(-98, -31);
+  cx.lineTo(-78, -29);
   cx.stroke();
-  cx.fillRect(-74, -42, 2.5, 2.5);
-  cx.strokeStyle = 'rgba(255,176,40,.65)';
+  cx.fillStyle = 'rgba(255,210,120,.85)';
   cx.beginPath();
-  for (let i = 0; i < 16; i++) {
-    const x = 44 + i * 11, y = 8 + i * 1.1 + Math.sin(t * 0.0012 + i * 0.4) * 2.5 * rm;
-    cx.moveTo(x, y);
-    cx.lineTo(x + 16, y + 14);
-    cx.moveTo(x, y);
-    cx.lineTo(x + 16, y - 4);
+  cx.arc(-71, -38, 1.8, 0, Math.PI * 2);
+  cx.fill();
+
+  // Coda lunga vertebrata con penne a ventaglio
+  cx.strokeStyle = 'rgba(255,182,64,.62)';
+  cx.lineWidth = 1.4;
+  cx.beginPath();
+  cx.moveTo(42, 4);
+  cx.quadraticCurveTo(130, 14, 224, 24);
+  cx.stroke();
+  cx.strokeStyle = 'rgba(255,182,64,.42)';
+  cx.lineWidth = 1.2;
+  cx.beginPath();
+  for (let i = 1; i <= 15; i++) {
+    const u = i / 15;
+    const bx = 42 + u * 182;
+    const by = 4 + u * 20 + Math.sin(t * 0.0012 + i * 0.35) * 2 * rm;
+    const fan = 10 + Math.sin(u * Math.PI) * 14;
+    cx.moveTo(bx, by);
+    cx.quadraticCurveTo(bx + 10, by - fan * 0.6, bx + 20, by - fan);
+    cx.moveTo(bx, by);
+    cx.quadraticCurveTo(bx + 10, by + fan * 0.6, bx + 20, by + fan);
   }
-  cx.moveTo(42, 6);
-  cx.bezierCurveTo(110, 10, 170, 22, 230, 22);
-  cx.moveTo(42, 12);
-  cx.bezierCurveTo(110, 26, 170, 38, 230, 32);
   cx.stroke();
-  const fl = Math.sin(t * 0.0014) * 0.12 * rm;
-  cx.strokeStyle = 'rgba(255,214,70,.75)';
+
+  // Ala aperta con remiganti e 3 artigli alari distintivi
+  const fl = Math.sin(t * 0.0014) * 0.09 * rm;
+  cx.strokeStyle = 'rgba(255,214,96,.72)';
+  cx.lineWidth = 1.5;
   cx.beginPath();
-  for (let k = 0; k < 10; k++) {
-    const a = -2.6 + k * 0.2 + fl, L = 60 + k * 7, ex = -4 + Math.cos(a) * L, ey = -14 + Math.sin(a) * L;
-    cx.moveTo(-4, -14);
-    cx.quadraticCurveTo((-4 + ex) / 2 + 8, (-14 + ey) / 2 - 10, ex, ey);
+  for (let k = 0; k < 11; k++) {
+    const a = -2.65 + k * 0.19 + fl;
+    const L = 56 + k * 6.5;
+    const ex = -6 + Math.cos(a) * L;
+    const ey = -12 + Math.sin(a) * L;
+    cx.moveTo(-6, -12);
+    cx.quadraticCurveTo((-6 + ex) / 2 + 6, (-12 + ey) / 2 - 9, ex, ey);
   }
+  // Artigli sul bordo dell'ala
+  cx.moveTo(-42, -46);
+  cx.quadraticCurveTo(-50, -54, -55, -52);
+  cx.moveTo(-36, -52);
+  cx.quadraticCurveTo(-43, -61, -49, -59);
+  cx.moveTo(-29, -57);
+  cx.quadraticCurveTo(-35, -66, -41, -65);
   cx.stroke();
-  cx.strokeStyle = 'rgba(255,138,36,.68)';
+
+  // Zampa posteriore artigliata
+  cx.strokeStyle = 'rgba(255,152,56,.66)';
+  cx.lineWidth = 1.6;
   cx.beginPath();
-  cx.moveTo(-2, 16);
-  cx.lineTo(-10, 40);
-  cx.lineTo(-24, 56);
-  cx.lineTo(-34, 60);
-  cx.moveTo(-24, 56);
-  cx.lineTo(-30, 64);
-  cx.moveTo(-24, 56);
-  cx.lineTo(-18, 64);
+  cx.moveTo(2, 16);
+  cx.lineTo(-8, 38);
+  cx.lineTo(-22, 54);
+  cx.lineTo(-33, 58);
+  cx.moveTo(-22, 54);
+  cx.lineTo(-29, 63);
+  cx.moveTo(-22, 54);
+  cx.lineTo(-17, 63);
   cx.stroke();
   cx.restore();
-  cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 108 * s, 'rgba(255,172,52,');
+  cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 106 * s, 'rgba(255,176,68,');
 
-  // 2. PETTIROSSO — Erithacus rubecula
+  // 2. PETTIROSSO — Erithacus rubecula (postura naturale su rametto)
   cx.save();
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
-  cx.translate(W * 0.22 - px * 0.9, H * 0.77 + py + Math.sin(t * 0.0006 + 1.2) * 6 * rm);
-  cx.scale(s * 0.95, s * 0.95);
+  cx.translate(W * 0.22 - px * 0.9, H * 0.77 + py + Math.sin(t * 0.0006 + 1.2) * 5 * rm);
+  cx.scale(s * 0.96, s * 0.96);
+
+  // Rametto sottile d'appoggio
+  cx.strokeStyle = 'rgba(210,165,125,.34)';
+  cx.lineWidth = 1.4;
+  cx.beginPath();
+  cx.moveTo(-46, 52);
+  cx.quadraticCurveTo(2, 46, 48, 50);
+  cx.moveTo(24, 48);
+  cx.lineTo(36, 41);
+  cx.stroke();
+
+  // Coda
   cx.strokeStyle = 'rgba(250,206,162,.62)';
-  cx.fillStyle = 'rgba(250,206,162,.08)';
-  cx.lineWidth = 1.7;
+  cx.fillStyle = 'rgba(250,206,162,.07)';
+  cx.lineWidth = 1.6;
   cx.beginPath();
-  cx.ellipse(0, 0, 36, 26, -0.35, 0, 7);
+  cx.moveTo(-24, 8);
+  cx.lineTo(-64, 29);
+  cx.lineTo(-59, 36);
+  cx.lineTo(-18, 17);
+  cx.closePath();
   cx.fill();
   cx.stroke();
-  cx.fillStyle = 'rgba(255,108,58,.28)';
-  cx.strokeStyle = 'rgba(255,118,68,.75)';
+
+  // Corpo paffuto e testa continua
   cx.beginPath();
-  cx.arc(16, -8, 17, -1.6, 1.4);
+  cx.moveTo(10, -34);
+  cx.bezierCurveTo(28, -34, 34, -18, 32, -4);
+  cx.bezierCurveTo(32, 16, 14, 26, -8, 22);
+  cx.bezierCurveTo(-28, 18, -34, -2, -22, -16);
+  cx.bezierCurveTo(-12, -26, -2, -34, 10, -34);
   cx.fill();
   cx.stroke();
-  cx.strokeStyle = 'rgba(250,206,162,.68)';
+
+  // Macchia pettorale arancio-rossa (Erithacus)
+  cx.fillStyle = 'rgba(255,104,54,.30)';
+  cx.strokeStyle = 'rgba(255,122,72,.78)';
   cx.beginPath();
-  cx.arc(22, -22, 15, 0, 7);
-  cx.stroke();
-  cx.fillStyle = 'rgba(255,228,196,.85)';
-  cx.beginPath();
-  cx.arc(26, -24, 2.3, 0, 7);
+  cx.moveTo(22, -26);
+  cx.bezierCurveTo(34, -18, 34, 4, 18, 15);
+  cx.bezierCurveTo(6, 12, 6, -12, 22, -26);
   cx.fill();
-  cx.beginPath();
-  cx.moveTo(36, -23);
-  cx.lineTo(49, -20);
-  cx.lineTo(36, -18);
   cx.stroke();
+
+  // Ala ripiegata con penne sottili
+  cx.strokeStyle = 'rgba(250,206,162,.58)';
   cx.beginPath();
-  cx.moveTo(-8, -10);
-  cx.quadraticCurveTo(-28, 2, -46, 18);
-  cx.moveTo(-30, 14);
-  cx.lineTo(-68, 34);
-  cx.lineTo(-64, 41);
-  cx.lineTo(-26, 20);
-  cx.moveTo(-2, 23);
-  cx.lineTo(-6, 48);
+  cx.moveTo(-4, -10);
+  cx.quadraticCurveTo(-24, 0, -40, 14);
+  cx.moveTo(-10, -3);
+  cx.quadraticCurveTo(-26, 5, -37, 15);
+  cx.stroke();
+
+  // Occhio vivace con punto luce e becco sottile
+  cx.fillStyle = 'rgba(255,236,210,.9)';
+  cx.beginPath();
+  cx.arc(21, -22, 2.5, 0, Math.PI * 2);
+  cx.fill();
+  cx.strokeStyle = 'rgba(250,206,162,.75)';
+  cx.beginPath();
+  cx.moveTo(31, -22);
+  cx.lineTo(45, -19);
+  cx.lineTo(31, -17);
+  cx.stroke();
+
+  // Zampe sottili sfalsate poggiate sul rametto
+  cx.lineWidth = 1.4;
+  cx.beginPath();
+  cx.moveTo(-4, 22);
+  cx.lineTo(-9, 47);
   cx.moveTo(-14, 48);
-  cx.lineTo(4, 48);
-  cx.moveTo(8, 21);
-  cx.lineTo(6, 46);
-  cx.moveTo(-2, 46);
-  cx.lineTo(14, 46);
+  cx.lineTo(-3, 47);
+  cx.moveTo(7, 21);
+  cx.lineTo(5, 47);
+  cx.moveTo(0, 47);
+  cx.lineTo(11, 47);
   cx.stroke();
   cx.restore();
   cap('Erithacus rubecula', 'il Pettirosso: erede vivente dei teropodi aviani', W * 0.22 - px * 0.9, H * 0.77 + py + 76 * s, 'rgba(255,152,102,');
 
-  // 3. GRILLO DI KAUAI
+  // 3. GRILLO DI KAUAI — Teleogryllus oceanicus (femore saltatorio scolpito e onde mute)
   cx.save();
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.78 + px * 1.2, H * 0.74 + py + Math.cos(t * 0.0006) * 5 * rm);
-  cx.scale(s * 0.95, s * 0.95);
-  cx.strokeStyle = 'rgba(112,200,86,.68)';
-  cx.fillStyle = 'rgba(112,200,86,.12)';
-  cx.lineWidth = 1.8;
+  cx.scale(s * 0.96, s * 0.96);
+
+  // Addome segmentato e torace
+  cx.strokeStyle = 'rgba(116,208,88,.68)';
+  cx.fillStyle = 'rgba(116,208,88,.11)';
+  cx.lineWidth = 1.65;
   cx.beginPath();
-  cx.ellipse(0, 0, 42, 13, 0, 0, 7);
+  cx.ellipse(-4, 2, 38, 12, -0.04, 0, Math.PI * 2);
+  cx.fill();
+  cx.stroke();
+
+  // Pronoto e capo
+  cx.beginPath();
+  cx.ellipse(34, -2, 12, 11, 0, 0, Math.PI * 2);
   cx.fill();
   cx.stroke();
   cx.beginPath();
-  cx.arc(52, -3, 11, 0, 7);
+  cx.arc(50, -3, 9.5, 0, Math.PI * 2);
+  cx.fill();
   cx.stroke();
+  cx.fillStyle = 'rgba(185,245,155,.85)';
+  cx.beginPath();
+  cx.arc(53, -5, 2, 0, Math.PI * 2);
+  cx.fill();
+
+  // Ala piatta mutante (mutazione flatwing)
+  cx.fillStyle = 'rgba(130,224,102,.14)';
+  cx.strokeStyle = 'rgba(130,224,102,.72)';
+  cx.beginPath();
+  cx.moveTo(-28, -8);
+  cx.quadraticCurveTo(2, -23, 30, -8);
+  cx.quadraticCurveTo(2, -12, -28, -8);
+  cx.fill();
+  cx.stroke();
+
+  // Antenne lunghe e sinuose
+  cx.strokeStyle = 'rgba(116,208,88,.55)';
+  cx.lineWidth = 1.3;
   cx.beginPath();
   [-1, 1].forEach(d => {
-    cx.moveTo(60, -10);
-    cx.bezierCurveTo(90, -40 + Math.sin(t * 0.003 + d) * 6 * rm, 120, -30 + d * 10, 150, -60 + d * 14 + Math.sin(t * 0.0025) * 8 * rm);
+    cx.moveTo(57, -9);
+    cx.bezierCurveTo(
+      88, -38 + Math.sin(t * 0.003 + d) * 5 * rm,
+      118, -32 + d * 10,
+      148, -58 + d * 14 + Math.sin(t * 0.0025) * 7 * rm
+    );
   });
-  cx.moveTo(-30, -10);
-  cx.quadraticCurveTo(0, -30, 34, -8);
-  cx.quadraticCurveTo(0, -12, -30, -10);
-  cx.moveTo(-10, 8);
-  cx.lineTo(-40, -14);
-  cx.lineTo(-66, 26);
-  cx.lineTo(-76, 34);
-  cx.moveTo(28, 10);
-  cx.lineTo(38, 32);
-  cx.lineTo(30, 42);
-  cx.moveTo(10, 11);
-  cx.lineTo(16, 34);
-  cx.lineTo(8, 44);
-  cx.moveTo(-42, 0);
-  cx.lineTo(-62, -6);
-  cx.moveTo(-42, 3);
-  cx.lineTo(-64, 6);
   cx.stroke();
+
+  // Zampa posteriore saltatoria (femore muscoloso + tibia seghettata)
+  cx.fillStyle = 'rgba(116,208,88,.16)';
+  cx.strokeStyle = 'rgba(116,208,88,.76)';
+  cx.lineWidth = 1.6;
+  cx.beginPath();
+  cx.moveTo(-4, 6);
+  cx.quadraticCurveTo(-24, -22, -40, -15);
+  cx.quadraticCurveTo(-28, 2, -4, 6);
+  cx.fill();
+  cx.stroke();
+  cx.beginPath();
+  cx.moveTo(-40, -15);
+  cx.lineTo(-64, 26);
+  cx.lineTo(-76, 33);
+  // Zampe anteriori e mediane
+  cx.moveTo(32, 8);
+  cx.lineTo(41, 30);
+  cx.lineTo(34, 40);
+  cx.moveTo(14, 10);
+  cx.lineTo(20, 32);
+  cx.lineTo(12, 42);
+  // Cerci posteriori
+  cx.moveTo(-40, 2);
+  cx.lineTo(-60, -4);
+  cx.moveTo(-40, 5);
+  cx.lineTo(-62, 9);
+  cx.stroke();
+
+  // Onde acustiche che svaniscono (silenzio evolutivo)
   cx.setLineDash([2, 7]);
   for (let i = 0; i < 3; i++) {
     const q = (t * 0.0005 + i / 3) % 1;
-    cx.strokeStyle = 'rgba(140,222,104,' + (Math.pow(1 - q, 3) * 0.7) + ')';
+    cx.strokeStyle = 'rgba(140,222,104,' + (Math.pow(1 - q, 3) * 0.65) + ')';
     cx.beginPath();
-    cx.arc(0, -20, 14 + q * 80, -1.4, -0.2);
+    cx.arc(2, -18, 14 + q * 78, -1.4, -0.2);
     cx.stroke();
   }
   cx.setLineDash([]);
   cx.restore();
   cap('Kauai: i grilli che hanno perso il canto', 'l’ala piatta li rende muti e li salva dalla mosca parassita', W * 0.78 + px * 1.2 - 20 * s, H * 0.74 + py + 72 * s, 'rgba(132,214,100,');
 }
-
