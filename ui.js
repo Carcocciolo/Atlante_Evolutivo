@@ -792,6 +792,7 @@ function setEcoMode(on) {
 /* ---------- collegamenti eventi ---------- */
 export function bindUI() {
   initThemeSystem();
+  syncThemeUI();
   if (RM) document.body.classList.add('is-eco');
 
   const q = $('#q');
