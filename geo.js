@@ -137,9 +137,9 @@ function getMapLayer() {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const bg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.8);
-  bg.addColorStop(0, '#4a2412');
-  bg.addColorStop(0.6, '#2a1209');
-  bg.addColorStop(1, '#140805');
+  bg.addColorStop(0, '#2a1811');
+  bg.addColorStop(0.6, '#160c08');
+  bg.addColorStop(1, '#0b0706');
   g.fillStyle = bg;
   g.fillRect(0, 0, W, H);
 

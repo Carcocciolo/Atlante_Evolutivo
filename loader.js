@@ -49,10 +49,6 @@ async function finalizeLayout() {
   markDirty();
 }
 
-/**
- * Decodifica un Blob direttamente alla dimensione della miniatura tramite createImageBitmap.
- * Evita di allocare bitmap giganteschi da 4000x3000px in RAM/VRAM quando servono 144px!
- */
 async function decodeThumbBitmap(blob) {
   const S = CONFIG.thumb * 2;
   try {
@@ -166,7 +162,7 @@ async function loadExample() {
   await loadRows(rows, async (_, i) => ({ bitmap: await samplePlate(i % 3), src: null }));
 }
 
-/* ---------- caricamento da file scelti dall'utente (supporta anche .webp con stesso nome base) ---------- */
+/* ---------- caricamento da file scelti dall'utente ---------- */
 async function loadFromFiles() {
   const imgs = [...$('#fi').files];
   const csv = $('#fc').files[0];
@@ -179,7 +175,6 @@ async function loadFromFiles() {
     const low = f.name.toLowerCase();
     exactMap.set(low, f);
     const base = low.replace(/\.[^.]+$/, '');
-    // Se ci sono sia .jpg che .webp con lo stesso nome, preferisce .webp
     if (!baseMap.has(base) || low.endsWith('.webp')) {
       baseMap.set(base, f);
     }

@@ -1,12 +1,13 @@
 /* ============================================================
-   main.js — ciclo di rendering ultra-fluido, input, hover e avvio
+   main.js — ciclo di rendering sub-pixel (zero tremolio),
+   rotazione 3D libera a 360° su tutti gli assi e avvio
    ============================================================ */
-import { state, RM, CARD, ease, clamp, rgba, esc, markDirty } from './data.js';
+import { state, RM, CARD, ease, clamp, rgba, esc, markDirty, cloneCam3D } from './data.js';
 import {
   geoOffset, geoThumbSize, layoutHubs, drawGeoBase, drawGeoHalos, drawGeoLabels, loadLand
 } from './geo.js';
 import { project3D, thumbSize3D, draw3DBackground, drawClusterLabels, buildBackground } from './view3d.js';
-import { stepCamera, zoomBy, focusOn } from './camera.js';
+import { stepCamera, zoomBy, focusOn, rotateMatrixScreen } from './camera.js';
 import { show, closeSelection, bindUI, setAutoRotate } from './ui.js';
 import { autoload, bindLoaderUI } from './loader.js';
 
@@ -68,7 +69,6 @@ function placeTip(px, py) {
 function render(t, dt) {
   const S = state, { W, H, dpr, items, viewMode, col, mode } = S;
   const is3D = viewMode === '3d';
-  const rm = RM ? 0 : 1;
   let busy = false;
 
   const focusGoal = S.sel >= 0 ? 1 : 0;
@@ -78,7 +78,7 @@ function render(t, dt) {
 
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
   cx.imageSmoothingEnabled = true;
-  cx.imageSmoothingQuality = 'low';
+  cx.imageSmoothingQuality = 'medium';
 
   const n = items.length;
   const baseSize = is3D ? thumbSize3D(S.cam3D.zoom) : geoThumbSize(S.camGeo.k);
@@ -119,12 +119,7 @@ function render(t, dt) {
     if (ap < 1) busy = true;
 
     if (is3D) {
-      const floatPhase = (S.autoRotate && !RM && S.sel < 0) ? 1 : 0;
-      project3D(
-        it.x + Math.cos(t * 0.0011 + i * 1.7) * 0.004 * rm * floatPhase,
-        it.y + Math.sin(t * 0.0015 + i) * 0.005 * rm * floatPhase,
-        it.z, o
-      );
+      project3D(it.x, it.y, it.z, o);
     } else {
       const h = hubs.get(it.hubId);
       geoOffset(it, baseSize, off);
@@ -181,7 +176,7 @@ function render(t, dt) {
     if (!RM) busy = true;
   }
 
-  /* --- tavole: fast-path senza save()/restore()/rotate() --- */
+  /* --- tavole: posizionamento sub-pixel fluido (niente Math.round!) --- */
   const margin = baseSize * 2.2;
   const drawNode = (i, big) => {
     const it = items[i], o = S.proj[i];
@@ -223,8 +218,8 @@ function render(t, dt) {
 
     const s = o.size, pad = s * CARD.pad;
     const w = s * (1 + 2 * CARD.pad), h = s * (1 + CARD.pad + CARD.bottom);
-    const x0 = Math.round(o.sx - s / 2 - pad);
-    const y0 = Math.round(o.sy - s / 2 - pad);
+    const x0 = o.sx - s / 2 - pad;
+    const y0 = o.sy - s / 2 - pad;
 
     cx.globalAlpha = Math.min(1, it.a * 1.4) * depth * it.vf;
     cx.fillStyle = 'rgba(8, 3, 1, 0.36)';
@@ -283,7 +278,7 @@ function render(t, dt) {
   /* --- dissolvenza al cambio vista --- */
   const sp = (t - S.switchT) / 520;
   if (sp < 1) {
-    cx.fillStyle = `rgba(20, 8, 4, ${0.92 * (1 - sp) ** 2})`;
+    cx.fillStyle = `rgba(11, 7, 6, ${0.92 * (1 - sp) ** 2})`;
     cx.fillRect(0, 0, W, H);
     busy = true;
   }
@@ -313,12 +308,12 @@ cv.addEventListener('pointerdown', e => {
     pinch = pinchDist();
     return;
   }
-  Object.assign(state.goal3D, state.cam3D);
+  state.goal3D = cloneCam3D(state.cam3D);
   Object.assign(state.goalGeo, state.camGeo);
-  state.spin.yaw = state.spin.pitch = 0;
+  state.spin.vx = state.spin.vy = 0;
   state.drag = {
     x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, lastT: performance.now(),
-    yaw: state.goal3D.yaw, pitch: state.goal3D.pitch, panX: state.goal3D.panX, panY: state.goal3D.panY,
+    panX: state.goal3D.panX, panY: state.goal3D.panY,
     geoX: state.goalGeo.x, geoY: state.goalGeo.y,
     pan: e.shiftKey || e.button === 1 || e.button === 2,
     moved: false
@@ -349,6 +344,12 @@ cv.addEventListener('pointermove', e => {
       state.hov = -1;
     }
     if (!d.moved) return;
+
+    const stepX = e.clientX - d.lx;
+    const stepY = e.clientY - d.ly;
+    const now = performance.now();
+    const dtm = (now - d.lastT) / 1000;
+
     if (state.viewMode === 'geo') {
       state.goalGeo.x = d.geoX + dx;
       state.goalGeo.y = d.geoY + dy;
@@ -357,16 +358,17 @@ cv.addEventListener('pointermove', e => {
       state.goal3D.panY = d.panY + dy;
     } else {
       setAutoRotate(false, false);
-      state.goal3D.yaw = d.yaw + dx * 0.0065;
-      state.goal3D.pitch = clamp(d.pitch + dy * 0.0065, -1.35, 1.35);
-      const now = performance.now(), dtm = (now - d.lastT) / 1000;
+      const rx = stepX * 0.0068;
+      const ry = stepY * 0.0068;
+      state.goal3D.rot = rotateMatrixScreen(state.goal3D.rot, rx, ry);
       if (dtm > 0.001) {
-        const vy = (e.clientX - d.lx) * 0.0065 / dtm, vp = (e.clientY - d.ly) * 0.0065 / dtm;
-        state.spin.yaw = clamp(state.spin.yaw * 0.6 + vy * 0.4, -8, 8);
-        state.spin.pitch = clamp(state.spin.pitch * 0.6 + vp * 0.4, -8, 8);
-        d.lastT = now; d.lx = e.clientX; d.ly = e.clientY;
+        state.spin.vx = clamp(state.spin.vx * 0.6 + (rx / dtm) * 0.4, -8, 8);
+        state.spin.vy = clamp(state.spin.vy * 0.6 + (ry / dtm) * 0.4, -8, 8);
       }
     }
+    d.lx = e.clientX;
+    d.ly = e.clientY;
+    d.lastT = now;
     markDirty();
     return;
   }
@@ -395,7 +397,7 @@ function endPointer(e) {
       const h = pick(e.clientX - r.left, e.clientY - r.top);
       if (h >= 0) show(h); else closeSelection();
     } else if (performance.now() - d.lastT > 90) {
-      state.spin.yaw = state.spin.pitch = 0;
+      state.spin.vx = state.spin.vy = 0;
     }
     cv.style.cursor = state.hov >= 0 ? 'pointer' : 'grab';
   }
