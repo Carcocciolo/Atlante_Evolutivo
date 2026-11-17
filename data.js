@@ -44,6 +44,7 @@ export const state = {
   goalGeo: { ...HOME_GEO },
   spin: { yaw: 0, pitch: 0 },
   autoRotate: !RM,
+  autoRotatePref: !RM,    // preferenza utente persistente alla chiusura scheda
   drag: null,
   mx: -999, my: -999,
   focus: 0,               // 0..1, animato quando c'è una tavola selezionata
@@ -51,8 +52,6 @@ export const state = {
   fx: [],
   proj: [],
   Dm: null,
-  tour: 0,
-  seen: new Set(),
   busy: false,
   dirty: true
 };
@@ -229,11 +228,6 @@ function mulberry32(seed) {
   };
 }
 
-/**
- * Calcola il layout 3D e scrive le posizioni obiettivo (tx, ty, tz) su ogni tavola.
- * Il seed è fisso: lo stesso dataset produce sempre lo stesso atlante.
- * L'elaborazione è spezzata in fette da ~12 ms per non bloccare l'interfaccia.
- */
 export function tsne3D(F, onProgress) {
   const n = F.length, items = state.items;
   const D = new Float64Array(n * n);
@@ -314,8 +308,6 @@ export function tsne3D(F, onProgress) {
     (function frame() {
       const t0 = performance.now();
       do step(); while (it < T && performance.now() - t0 < 12);
-      // Scala robusta: il 90° percentile (e non il massimo) fissa le dimensioni, così un
-      // singolo outlier non comprime tutto il resto. Gli estremi vengono limitati a ±1,3.
       const reach = Array.from({ length: n }, (_, i) =>
         Math.max(Math.abs(Y[3 * i]), Math.abs(Y[3 * i + 1]), Math.abs(Y[3 * i + 2]))).sort((a, b) => a - b);
       const sc = 0.95 / (reach[Math.floor((n - 1) * 0.9)] || extent);

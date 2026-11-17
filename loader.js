@@ -5,7 +5,7 @@
 import { CONFIG, state, msg, parseCSV, setItemImage, feat, prep, tsne3D, refreshVis, markDirty } from './data.js';
 import { assignHubRanks } from './geo.js';
 import {
-  initItemsSkeleton, buildChips, updateCount, setLoader, openWelcome, closeSelection, stopTour
+  initItemsSkeleton, buildChips, updateCount, setLoader, openWelcome, closeSelection
 } from './ui.js';
 
 const $ = s => document.querySelector(s);
@@ -54,7 +54,6 @@ async function finalizeLayout() {
 async function loadRows(rows, resolver) {
   if (state.busy) return;
   state.busy = true;
-  stopTour();
   closeSelection();
   initItemsSkeleton(rows);
   openWelcome(false);
@@ -119,12 +118,12 @@ function samplePlate(k) {
   g.fillStyle = bg; g.fillRect(0, 0, 128, 128);
   g.strokeStyle = g.fillStyle = `hsl(${hue + 20} 70% 78%)`;
   g.lineWidth = 2;
-  if (k === 0) {            // penne a ventaglio
+  if (k === 0) {
     for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(30, 96); g.lineTo(30 + Math.cos(-1.2 + i * 0.18) * 80, 96 + Math.sin(-1.2 + i * 0.18) * 80); g.stroke(); }
-  } else if (k === 1) {     // corpo e petto rosso
+  } else if (k === 1) {
     g.beginPath(); g.ellipse(64, 70, 34, 26, -0.3, 0, 7); g.fill();
     g.fillStyle = '#ff6b4a'; g.beginPath(); g.arc(76, 62, 16, 0, 7); g.fill();
-  } else {                  // corpo e antenne
+  } else {
     g.beginPath(); g.ellipse(60, 76, 36, 11, 0, 0, 7); g.fill();
     g.beginPath(); g.moveTo(94, 70); g.quadraticCurveTo(110, 40, 124, 30); g.stroke();
   }

@@ -1,7 +1,6 @@
 /* ============================================================
    view3d.js — proiezione prospettica, sfondo immersivo
-   (gradiente, polvere con parallasse, anelli, illustrazioni)
-   ed etichette dei gruppi
+   ottimizzato (cache gradienti, dust batching, etichette)
    ============================================================ */
 import { state, RM, clamp } from './data.js';
 
@@ -27,11 +26,14 @@ export function project3D(x, y, z, out, c = state.cam3D) {
 
 export const thumbSize3D = zoom => clamp(38 * Math.sqrt(zoom), 24, 104);
 
-/* ---------- sfondo ---------- */
+/* ---------- sfondo e luce cursore pre-renderizzati ---------- */
 let bg = null;
+let spotSprite = null;
+
 export function buildBackground() {
   const { W, H } = state;
-  const w = Math.ceil(W * 0.6), h = Math.ceil(H * 0.6);   // 1.2× lo schermo, mezza risoluzione
+  const w = Math.max(1, Math.ceil(W * 0.5));
+  const h = Math.max(1, Math.ceil(H * 0.5));
   bg = document.createElement('canvas');
   bg.width = w; bg.height = h;
   const g = bg.getContext('2d');
@@ -41,24 +43,37 @@ export function buildBackground() {
   r.addColorStop(1, '#150704');
   g.fillStyle = r;
   g.fillRect(0, 0, w, h);
+
+  if (!spotSprite) {
+    spotSprite = document.createElement('canvas');
+    spotSprite.width = spotSprite.height = 256;
+    const sg = spotSprite.getContext('2d');
+    const gr = sg.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gr.addColorStop(0, 'rgba(255, 205, 150, 0.14)');
+    gr.addColorStop(1, 'rgba(255, 205, 150, 0)');
+    sg.fillStyle = gr;
+    sg.fillRect(0, 0, 256, 256);
+  }
 }
 
-const dust = Array.from({ length: 90 }, () => ({
+const dust = Array.from({ length: 65 }, () => ({
   x: Math.random(), y: Math.random(), z: Math.random(),
-  s: Math.random() * 1.6 + 0.4, p: Math.random() * 6.3, v: Math.random() * 0.00035 + 0.0001
+  s: Math.random() * 1.5 + 0.5, p: Math.random() * 6.3, v: Math.random() * 0.0003 + 0.0001
 }));
 
 function drawDust(cx, t) {
   const { W, H, cam3D } = state;
+  cx.fillStyle = 'rgba(255, 214, 170, 0.26)';
+  cx.beginPath();
   for (const d of dust) {
     if (!RM) { d.y -= d.v; if (d.y < 0) d.y = 1; }
     const x = (((d.x * W - cam3D.yaw * W * 0.16 * (0.3 + d.z) + cam3D.panX * 0.2 * d.z) % W) + W) % W;
     const y = (((d.y * H - cam3D.pitch * H * 0.1 * d.z) % H) + H) % H;
-    cx.fillStyle = `rgba(255, 214, 170, ${(0.12 + 0.3 * d.z) * (0.65 + 0.35 * Math.sin(t * 0.002 + d.p))})`;
-    cx.beginPath();
-    cx.arc(x, y, d.s * (0.6 + d.z * 0.7), 0, Math.PI * 2);
-    cx.fill();
+    const rad = d.s * (0.6 + d.z * 0.7) * (0.8 + 0.2 * Math.sin(t * 0.002 + d.p));
+    cx.moveTo(x + rad, y);
+    cx.arc(x, y, rad, 0, Math.PI * 2);
   }
+  cx.fill();
 }
 
 const _p = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
@@ -70,8 +85,8 @@ function drawRings(cx) {
   [[0.95, 0.14], [0.55, 0.08]].forEach(([R, a]) => {
     cx.strokeStyle = `rgba(250, 205, 165, ${a})`;
     cx.beginPath();
-    for (let i = 0; i <= 72; i++) {
-      const ang = (i / 72) * Math.PI * 2;
+    for (let i = 0; i <= 60; i++) {
+      const ang = (i / 60) * Math.PI * 2;
       project3D(Math.cos(ang) * R, 0, Math.sin(ang) * R, _p);
       if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
     }
@@ -84,14 +99,10 @@ export function draw3DBackground(cx, t, focus) {
   const { W, H, cam3D, mx, my } = state;
   const px = clamp(cam3D.panX * 0.05, -W * 0.09, W * 0.09);
   const py = clamp(cam3D.panY * 0.05, -H * 0.09, H * 0.09);
-  cx.drawImage(bg, -W * 0.1 + px, -H * 0.1 + py, W * 1.2, H * 1.2);
+  if (bg) cx.drawImage(bg, -W * 0.1 + px, -H * 0.1 + py, W * 1.2, H * 1.2);
 
-  if (mx > 0) {
-    const sg = cx.createRadialGradient(mx, my, 0, mx, my, 260);
-    sg.addColorStop(0, 'rgba(255, 205, 150, 0.14)');
-    sg.addColorStop(1, 'rgba(255, 205, 150, 0)');
-    cx.fillStyle = sg;
-    cx.fillRect(0, 0, W, H);
+  if (mx > 0 && spotSprite) {
+    cx.drawImage(spotSprite, mx - 260, my - 260, 520, 520);
   }
 
   drawDust(cx, t);
@@ -308,4 +319,3 @@ function drawBackgroundArt(cx, t) {
   cx.restore();
   cap('Kauai: i grilli che hanno perso il canto', 'l’ala piatta li rende muti e li salva dalla mosca parassita', W * 0.78 + px * 1.2 - 20 * s, H * 0.74 + py + 72 * s, 'rgba(132,214,100,');
 }
-

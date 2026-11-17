@@ -1,6 +1,6 @@
 /* ============================================================
    ui.js — pannelli, scheda della tavola, filtri, dock dei
-   controlli, scorciatoie da tastiera e passeggiata guidata
+   controlli e scorciatoie da tastiera
    ============================================================ */
 import { state, esc, msg, markDirty, refreshVis, getNotes, CAT_COLORS, PAL } from './data.js';
 import { assignGeoHub, assignHubRanks } from './geo.js';
@@ -151,9 +151,12 @@ function fillDrawer(it) {
   $('.drawer-scroll').scrollTop = 0;
 }
 
-export function setAutoRotate(on) {
+/** Attiva/disattiva la rotazione automatica; `userAction` aggiorna la preferenza dell'utente. */
+export function setAutoRotate(on, userAction = false) {
   state.autoRotate = on;
-  $('#rot-auto').setAttribute('aria-pressed', on);
+  if (userAction) state.autoRotatePref = on;
+  const btn = $('#rot-auto');
+  if (btn) btn.setAttribute('aria-pressed', on);
   markDirty();
 }
 
@@ -174,7 +177,7 @@ export function show(i) {
   d.classList.add('is-open');
   d.setAttribute('aria-hidden', 'false');
   body.classList.add('has-sel');
-  if (state.viewMode === '3d') setAutoRotate(false);
+  if (state.viewMode === '3d') setAutoRotate(false, false);
   focusOn(it);
   boom(it, state.col[it.cat]);
 }
@@ -186,6 +189,9 @@ export function closeSelection() {
   d.classList.remove('is-open');
   d.setAttribute('aria-hidden', 'true');
   body.classList.remove('has-sel');
+  if (state.viewMode === '3d' && state.autoRotatePref) {
+    setAutoRotate(true, false);
+  }
   releaseFocus();
   markDirty();
 }
@@ -213,47 +219,6 @@ export function setViewMode(mode) {
   markDirty();
 }
 
-/* ---------- passeggiata guidata ---------- */
-export function stopTour() {
-  if (!state.tour) return;
-  clearInterval(state.tour);
-  state.tour = 0;
-  $('#tr').classList.remove('is-on');
-  $('#tr').setAttribute('aria-pressed', 'false');
-}
-
-function hop() {
-  const { items, Dm } = state;
-  const cur = state.sel;
-  if (cur < 0) {
-    const first = items.findIndex(it => it.ready && it.vis);
-    return first >= 0 ? show(first) : stopTour();
-  }
-  state.seen.add(cur);
-  const n = items.length;
-  let next = items[cur].nn.find(j => !state.seen.has(j) && items[j].vis && items[j].ready);
-  if (next == null && Dm) {
-    let best = Infinity;
-    for (let j = 0; j < n; j++) {
-      if (j === cur || state.seen.has(j) || !items[j].vis || !items[j].ready) continue;
-      if (Dm[cur * n + j] < best) { best = Dm[cur * n + j]; next = j; }
-    }
-  }
-  if (next == null) { state.seen.clear(); state.seen.add(cur); next = items[cur].nn[0]; }
-  if (next == null) return stopTour();
-  show(next);
-}
-
-export function toggleTour() {
-  if (state.tour) return stopTour();
-  if (!state.items.length) return msg('Carica prima le tavole.');
-  state.seen = new Set();
-  $('#tr').classList.add('is-on');
-  $('#tr').setAttribute('aria-pressed', 'true');
-  hop();
-  state.tour = setInterval(hop, 3800);
-}
-
 /* ---------- esportazione ---------- */
 function exportCSV() {
   if (!state.items.length) return msg('Carica prima le tavole.');
@@ -279,9 +244,12 @@ export function bindUI() {
   $('#zi').onclick = () => zoomBy(1.3);
   $('#zo').onclick = () => zoomBy(1 / 1.3);
   $('#zr').onclick = () => { closeSelection(); resetView(); };
-  $('#rot-auto').onclick = () => setAutoRotate(!state.autoRotate);
+  $('#rot-auto').onclick = () => {
+    const next = !state.autoRotate;
+    setAutoRotate(next, true);
+    msg(next ? 'Rotazione automatica attivata' : 'Rotazione automatica disattivata', 1600);
+  };
   $('#rot-auto').setAttribute('aria-pressed', state.autoRotate);
-  $('#tr').onclick = toggleTour;
   $('#cp').onclick = exportCSV;
   $('#open-data').onclick = () => openWelcome($('#welcome').hidden);
   $('#close-welcome').onclick = () => openWelcome(false);
@@ -315,7 +283,12 @@ export function bindUI() {
       case '0': closeSelection(); resetView(); break;
       case 'g': case 'G': setViewMode(state.viewMode === '3d' ? 'geo' : '3d'); break;
       case ' ':
-        if (state.viewMode === '3d') { e.preventDefault(); setAutoRotate(!state.autoRotate); }
+        if (state.viewMode === '3d') {
+          e.preventDefault();
+          const next = !state.autoRotate;
+          setAutoRotate(next, true);
+          msg(next ? 'Rotazione automatica attivata' : 'Rotazione automatica disattivata', 1600);
+        }
         break;
       case '/': e.preventDefault(); $('#q').focus(); break;
       default: return;
