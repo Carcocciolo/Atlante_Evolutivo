@@ -293,7 +293,7 @@ export const PALETTES = [
       }
     }
   },
-  {
+ {
     id: 'cyanotype',
     name: 'Cianotipia Abissale',
     subtitle: 'Blu di Prussia · Ciano bioluminescente',
@@ -335,7 +335,7 @@ export const PALETTES = [
         ringMeridian: 'rgba(140, 215, 255, 0.14)',
         art1: 'rgba(246, 196, 106,',
         art2: 'rgba(255, 118, 122,',
-        art3: 'rgba(78, 242, 245,',
+        art3: 'rgba(140, 217, 107,',
         artFillAlpha: 0.09,
         artStrokeAlpha: 0.98,
         labelStroke: 'rgba(4, 10, 18, 0.94)',
@@ -363,7 +363,7 @@ export const PALETTES = [
       cats: {
         'Archaeopteryx': '#f6c46a',
         'Pettirossi': '#ff767a',
-        'Grilli': '#4ef2f5',
+        'Grilli': '#8cd96b',
         'da classificare': '#a79bff'
       }
     },
@@ -404,7 +404,7 @@ export const PALETTES = [
         ringMeridian: 'rgba(16, 98, 138, 0.15)',
         art1: 'rgba(182, 104, 28,',
         art2: 'rgba(196, 66, 62,',
-        art3: 'rgba(12, 124, 158,',
+        art3: 'rgba(72, 134, 52,',
         artFillAlpha: 0.08,
         artStrokeAlpha: 0.92,
         labelStroke: 'rgba(240, 248, 253, 0.94)',
@@ -432,7 +432,7 @@ export const PALETTES = [
       cats: {
         'Archaeopteryx': '#c86d1f',
         'Pettirossi': '#d14334',
-        'Grilli': '#0c7c9e',
+        'Grilli': '#4e9636',
         'da classificare': '#6e58b8'
       }
     }
