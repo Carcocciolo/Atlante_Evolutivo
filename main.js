@@ -1,6 +1,5 @@
 /* ============================================================
-   main.js — ciclo di rendering ottimizzato, input (mouse, touch,
-   pinch, inerzia), hover e avvio
+   main.js — ciclo di rendering ultra-fluido, input, hover e avvio
    ============================================================ */
 import { state, RM, CARD, ease, clamp, rgba, esc, markDirty } from './data.js';
 import {
@@ -13,7 +12,7 @@ import { autoload, bindLoaderUI } from './loader.js';
 
 const $ = s => document.querySelector(s);
 const cv = $('#cv');
-const cx = cv.getContext('2d', { alpha: false, desynchronized: true });
+const cx = cv.getContext('2d', { alpha: false });
 const wrap = $('#wrap');
 const tipEl = $('#tip');
 
@@ -21,7 +20,6 @@ const order = [];
 const off = {};
 const glowCache = new Map();
 
-/** Sprite luminoso per categoria: si disegna in modalità additiva. */
 function glow(color) {
   let c = glowCache.get(color);
   if (c) return c;
@@ -38,7 +36,7 @@ function glow(color) {
   return c;
 }
 
-/* ---------- picking: restituisce la tavola più vicina sotto il puntatore ---------- */
+/* ---------- picking ---------- */
 function pick(px, py) {
   const { items, proj, mode } = state;
   for (let k = order.length - 1; k >= 0; k--) {
@@ -79,7 +77,8 @@ function render(t, dt) {
   if (stepCamera(dt)) busy = true;
 
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  cx.imageSmoothingQuality = 'medium';
+  cx.imageSmoothingEnabled = true;
+  cx.imageSmoothingQuality = 'low';
 
   const n = items.length;
   const baseSize = is3D ? thumbSize3D(S.cam3D.zoom) : geoThumbSize(S.camGeo.k);
@@ -90,7 +89,7 @@ function render(t, dt) {
     if (S.autoRotate && !RM && S.sel < 0) busy = true;
   } else {
     drawGeoBase(cx);
-    if (n) { hubs = layoutHubs(baseSize); drawGeoHalos(cx, t); }
+    if (n) { hubs = layoutHubs(baseSize); drawGeoHalos(cx); }
   }
 
   if (S.focus > 0.01) {
@@ -98,7 +97,7 @@ function render(t, dt) {
     cx.fillRect(0, 0, W, H);
   }
 
-  /* --- aggiornamento e proiezione di ogni tavola --- */
+  /* --- aggiornamento e proiezione --- */
   while (S.proj.length < n) S.proj.push({ sx: 0, sy: 0, scale: 1, zOrder: 0, size: 0 });
   S.proj.length = n;
   const mv = 1 - Math.exp(-dt * (RM ? 60 : 4.5));
@@ -141,7 +140,7 @@ function render(t, dt) {
   for (let i = 0; i < n; i++) order[i] = i;
   order.sort((a, b) => S.proj[b].zOrder - S.proj[a].zOrder);
 
-  /* --- legami tra tavole simili (solo in vista 3D per evitare linee transoceaniche sulla mappa) --- */
+  /* --- legami tra tavole simili (solo in vista 3D) --- */
   if (n && is3D) {
     cx.lineWidth = 1;
     cx.globalAlpha = 0.17 * (1 - 0.6 * S.focus);
@@ -182,7 +181,7 @@ function render(t, dt) {
     if (!RM) busy = true;
   }
 
-  /* --- tavole (con frustum culling per saltare gli elementi fuori schermo) --- */
+  /* --- tavole: fast-path senza save()/restore()/rotate() --- */
   const margin = baseSize * 2.2;
   const drawNode = (i, big) => {
     const it = items[i], o = S.proj[i];
@@ -224,21 +223,19 @@ function render(t, dt) {
 
     const s = o.size, pad = s * CARD.pad;
     const w = s * (1 + 2 * CARD.pad), h = s * (1 + CARD.pad + CARD.bottom);
-    const angle = big ? 0 : ((i * 37 % 11) - 5) * 0.011;
+    const x0 = Math.round(o.sx - s / 2 - pad);
+    const y0 = Math.round(o.sy - s / 2 - pad);
 
-    cx.save();
     cx.globalAlpha = Math.min(1, it.a * 1.4) * depth * it.vf;
-    cx.translate(o.sx, o.sy);
-    if (angle !== 0) cx.rotate(angle);
-    cx.fillStyle = 'rgba(8, 3, 1, 0.35)';
-    cx.fillRect(-s / 2 - pad + s * 0.03, -s / 2 - pad + s * 0.05, w, h);
-    cx.drawImage(it.card, -s / 2 - pad, -s / 2 - pad, w, h);
+    cx.fillStyle = 'rgba(8, 3, 1, 0.36)';
+    cx.fillRect(x0 + s * 0.03, y0 + s * 0.05, w, h);
+    cx.drawImage(it.card, x0, y0, w, h);
+
     if (big || S.hov === i) {
       cx.lineWidth = big ? 3 : 2;
       cx.strokeStyle = big ? '#ee9a5b' : c;
-      cx.strokeRect(-s / 2 - pad, -s / 2 - pad, w, h);
+      cx.strokeRect(x0, y0, w, h);
     }
-    cx.restore();
   };
 
   for (const i of order) if (i !== S.sel && i !== S.hov) drawNode(i, false);
@@ -423,7 +420,7 @@ cv.addEventListener('wheel', e => {
 
 /* ---------- dimensioni e ciclo ---------- */
 function syncSize() {
-  state.dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  state.dpr = 1;
   state.W = wrap.clientWidth || innerWidth;
   state.H = wrap.clientHeight || innerHeight;
   cv.width = Math.round(state.W * state.dpr);

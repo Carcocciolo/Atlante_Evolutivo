@@ -1,13 +1,13 @@
 /* ============================================================
    data.js — configurazione, stato condiviso, parsing, feature
-   visive e layout t-SNE 3D
+   visive e layout t-SNE 3D con texture GPU (ImageBitmap)
    ============================================================ */
 
 export const CONFIG = {
   csv: '02_database/database_immagini.csv',
   images: '01_immagini/',
-  concurrency: 8,
-  thumb: 192,
+  concurrency: 6,
+  thumb: 144,
   landUrl: 'https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json'
 };
 
@@ -44,11 +44,11 @@ export const state = {
   goalGeo: { ...HOME_GEO },
   spin: { yaw: 0, pitch: 0 },
   autoRotate: !RM,
-  autoRotatePref: !RM,    // preferenza utente persistente alla chiusura scheda
+  autoRotatePref: !RM,
   drag: null,
   mx: -999, my: -999,
-  focus: 0,               // 0..1, animato quando c'è una tavola selezionata
-  switchT: -1e9,          // istante dell'ultimo cambio vista (dissolvenza)
+  focus: 0,
+  switchT: -1e9,
   fx: [],
   proj: [],
   Dm: null,
@@ -72,7 +72,6 @@ export const rgba = (hex, a) => {
 export const markDirty = () => { state.dirty = true; };
 
 let toastTimer = 0;
-/** Messaggio breve in alto. ms = 0 lo lascia visibile finché non arriva `msg('')`. */
 export function msg(text, ms = 3200) {
   const el = document.getElementById('toast');
   if (!el) return;
@@ -83,7 +82,6 @@ export function msg(text, ms = 3200) {
   if (ms) toastTimer = setTimeout(() => el.classList.remove('is-on'), ms);
 }
 
-/** Ricalcola la visibilità di ogni tavola (categorie + ricerca). */
 export function refreshVis() {
   const q = state.q;
   for (const it of state.items) {
@@ -92,7 +90,6 @@ export function refreshVis() {
   markDirty();
 }
 
-/** Note mostrate nella scheda, una per riga. */
 export function getNotes(r) {
   const out = [];
   if (r.notes && r.notes !== 'nan') out.push(r.notes);
@@ -133,18 +130,17 @@ export function parseCSV(t) {
     .map(x => Object.fromEntries(head.map((k, i) => [k, (x[i] || '').trim()])));
 }
 
-/* ---------- miniature e cornici ---------- */
+/* ---------- miniature e cornici (convertite in ImageBitmap GPU) ---------- */
 export function makeThumb(bm, S = CONFIG.thumb) {
   const c = document.createElement('canvas');
   c.width = c.height = S;
   const g = c.getContext('2d');
-  g.imageSmoothingQuality = 'high';
   const s = Math.max(S / bm.width, S / bm.height);
   g.drawImage(bm, (S - bm.width * s) / 2, (S - bm.height * s) / 2, bm.width * s, bm.height * s);
   return c;
 }
 
-export function makeCard(th, color, idx) {
+export function makeCardCanvas(th, color, idx) {
   const S = th.width;
   const pad = Math.round(S * CARD.pad);
   const bottom = Math.round(S * CARD.bottom);
@@ -168,12 +164,14 @@ export function makeCard(th, color, idx) {
   return c;
 }
 
-export function setItemImage(it, bm, idx) {
+export async function setItemImage(it, bm, idx) {
   it.th = makeThumb(bm);
-  it.card = makeCard(it.th, state.col[it.cat], idx);
+  const cardCanvas = makeCardCanvas(it.th, state.col[it.cat], idx);
+  if (typeof bm.close === 'function') bm.close();
+  // Trasferisce la card direttamente in memoria GPU (ImageBitmap) per drawImage a 0-copy
+  it.card = typeof createImageBitmap === 'function' ? await createImageBitmap(cardCanvas) : cardCanvas;
   it.ready = true;
   it.b = performance.now();
-  if (typeof bm.close === 'function') bm.close();
   markDirty();
 }
 
@@ -204,7 +202,6 @@ export function feat(th) {
   return [...grid, ...hist, ...eo];
 }
 
-/** Standardizza ogni dimensione e pesa i tre blocchi di feature in modo equo. */
 export function prep(F) {
   const n = F.length, d = F[0].length;
   for (let j = 0; j < d; j++) {

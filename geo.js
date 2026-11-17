@@ -1,24 +1,23 @@
 /* ============================================================
    geo.js — hub geografici, proiezione Natural Earth (d3-geo),
-   mappa del mondo e disposizione a spirale ottimizzata
+   mappa pre-rasterizzata a cache e disposizione cluster
    ============================================================ */
 import { state, CONFIG, clamp, markDirty, msg } from './data.js';
 
 export const GEO_HUBS = [
-  { id: 'kauai',     label: 'Kauai, Hawaii',            lon: -159.52, lat: 22.09 },
-  { id: 'solnhofen', label: 'Solnhofen (Baviera)',      lon: 10.99,   lat: 48.89 },
-  { id: 'berlino',   label: 'Berlino (Naturkunde)',     lon: 13.38,   lat: 52.53 },
-  { id: 'sassonia',  label: 'Bassa Sassonia',           lon: 9.73,    lat: 52.37 },
-  { id: 'simbruini', label: 'Monti Simbruini (Italia)', lon: 13.28,   lat: 41.91 },
-  { id: 'oulu',      label: 'Oulu (Finlandia)',         lon: 25.47,   lat: 65.01 },
-  { id: 'italia',    label: 'Italia (areale pettirosso)', lon: 12.50, lat: 42.50 },
-  { id: 'fujian',    label: 'Fujian (Cina)',            lon: 118.10,  lat: 26.00 },
-  { id: 'broome',    label: 'Broome (Australia)',       lon: 122.23,  lat: -17.96 }
+  { id: 'kauai',     label: 'Kauai, Hawaii',             lon: -159.52, lat: 22.09 },
+  { id: 'solnhofen', label: 'Solnhofen (Baviera)',       lon: 10.99,   lat: 48.89 },
+  { id: 'berlino',   label: 'Berlino (Naturkunde)',      lon: 13.38,   lat: 52.53 },
+  { id: 'sassonia',  label: 'Bassa Sassonia',            lon: 9.73,    lat: 52.37 },
+  { id: 'simbruini', label: 'Monti Simbruini (Italia)',  lon: 13.28,   lat: 41.91 },
+  { id: 'oulu',      label: 'Oulu (Finlandia)',          lon: 25.47,   lat: 65.01 },
+  { id: 'italia',    label: 'Italia (areale pettirosso)', lon: 12.50,   lat: 42.50 },
+  { id: 'fujian',    label: 'Fujian (Cina)',             lon: 118.10,  lat: 26.00 },
+  { id: 'broome',    label: 'Broome (Australia)',        lon: 122.23,  lat: -17.96 }
 ];
 const HUB_BY_ID = new Map(GEO_HUBS.map(h => [h.id, h]));
 const GOLDEN = 2.39996;
 
-/** Associa una riga del CSV a un hub; `geoStatus` dice se la località è esatta o dedotta. */
 export function assignGeoHub(r) {
   const cat = (r.category || '').toLowerCase();
   const blob = `${r.subject || ''} ${r.notes || ''} ${r.source || ''} ${r.category || ''}`.toLowerCase();
@@ -42,7 +41,6 @@ export function assignGeoHub(r) {
   return { hubId, siteName: hub.label, lon: hub.lon, lat: hub.lat, geoStatus };
 }
 
-/** Numera le tavole dentro ogni hub (raggruppate per categoria) per la spirale. */
 export function assignHubRanks(items) {
   const groups = new Map();
   for (const it of items) {
@@ -53,10 +51,9 @@ export function assignHubRanks(items) {
     g.sort((a, b) => (a.cat < b.cat ? -1 : a.cat > b.cat ? 1 : 0));
     g.forEach((it, r) => { it.hubRank = r; it.hubSize = g.length; });
   }
-  hubCacheKey = ''; // invalida la cache layout
+  hubCacheKey = '';
 }
 
-/** Spostamento in pixel (spirale di Fibonacci) rispetto al centro dell'hub. */
 export function geoOffset(it, size, out) {
   const r = Math.sqrt(it.hubRank) * size * 0.72;
   const a = it.hubRank * GOLDEN;
@@ -112,60 +109,65 @@ export function geoToScreen(lon, lat, c = state.camGeo, out = {}) {
 /* ---------- terre emerse ---------- */
 let land = null;
 let graticule = null;
+let mapLayer = null;
+let mapLayerKey = '';
 
 export async function loadLand() {
   try {
     const topo = await (await fetch(CONFIG.landUrl)).json();
     land = window.topojson.feature(topo, topo.objects.land);
+    mapLayerKey = '';
     markDirty();
   } catch (_) {
     msg('Non riesco a caricare i contorni dei continenti: la mappa mostra solo i luoghi.');
   }
 }
 
-/* ---------- sfondo statico pre-renderizzato per gradienti ---------- */
-let geoBg = null;
-let geoBgW = -1, geoBgH = -1;
+/* ---------- cache raster della mappa (evita migliaia di path GeoJSON a ogni frame) ---------- */
+function getMapLayer() {
+  const { W, H, dpr, camGeo } = state;
+  const key = `${W}|${H}|${dpr}|${camGeo.x.toFixed(1)}|${camGeo.y.toFixed(1)}|${camGeo.k.toFixed(4)}|${land ? 1 : 0}`;
+  if (mapLayer && key === mapLayerKey) return mapLayer;
 
-function getGeoBg(W, H) {
-  if (geoBg && geoBgW === W && geoBgH === H) return geoBg;
-  geoBgW = W; geoBgH = H;
-  geoBg = document.createElement('canvas');
-  geoBg.width = Math.ceil(W * 0.5);
-  geoBg.height = Math.ceil(H * 0.5);
-  const g = geoBg.getContext('2d');
-  const bg = g.createRadialGradient(geoBg.width / 2, geoBg.height / 2, 0, geoBg.width / 2, geoBg.height / 2, Math.max(geoBg.width, geoBg.height) * 0.8);
+  mapLayerKey = key;
+  if (!mapLayer) mapLayer = document.createElement('canvas');
+  mapLayer.width = Math.max(1, Math.round(W * dpr));
+  mapLayer.height = Math.max(1, Math.round(H * dpr));
+  const g = mapLayer.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const bg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.8);
   bg.addColorStop(0, '#4a2412');
   bg.addColorStop(0.6, '#2a1209');
   bg.addColorStop(1, '#140805');
   g.fillStyle = bg;
-  g.fillRect(0, 0, geoBg.width, geoBg.height);
-  return geoBg;
-}
-
-/* ---------- disegno ---------- */
-export function drawGeoBase(cx) {
-  const { W, H, camGeo } = state;
-  cx.drawImage(getGeoBg(W, H), 0, 0, W, H);
+  g.fillRect(0, 0, W, H);
 
   const p = projection(camGeo);
-  if (!p) return;
-  const d3 = window.d3;
-  const path = d3.geoPath(p, cx);
+  if (p) {
+    const d3 = window.d3;
+    const path = d3.geoPath(p, g);
 
-  cx.beginPath(); path({ type: 'Sphere' });
-  cx.fillStyle = 'rgba(255, 190, 140, 0.04)'; cx.fill();
-  cx.strokeStyle = 'rgba(255, 214, 170, 0.22)'; cx.lineWidth = 1; cx.stroke();
+    g.beginPath(); path({ type: 'Sphere' });
+    g.fillStyle = 'rgba(255, 190, 140, 0.04)'; g.fill();
+    g.strokeStyle = 'rgba(255, 214, 170, 0.22)'; g.lineWidth = 1; g.stroke();
 
-  if (!graticule) graticule = d3.geoGraticule10();
-  cx.beginPath(); path(graticule);
-  cx.strokeStyle = 'rgba(255, 224, 188, 0.08)'; cx.stroke();
+    if (!graticule) graticule = d3.geoGraticule10();
+    g.beginPath(); path(graticule);
+    g.strokeStyle = 'rgba(255, 224, 188, 0.08)'; g.stroke();
 
-  if (land) {
-    cx.beginPath(); path(land);
-    cx.fillStyle = 'rgba(246, 176, 120, 0.22)'; cx.fill();
-    cx.strokeStyle = 'rgba(255, 216, 174, 0.52)'; cx.lineWidth = 0.9; cx.stroke();
+    if (land) {
+      g.beginPath(); path(land);
+      g.fillStyle = 'rgba(246, 176, 120, 0.22)'; g.fill();
+      g.strokeStyle = 'rgba(255, 216, 174, 0.52)'; g.lineWidth = 0.9; g.stroke();
+    }
   }
+  return mapLayer;
+}
+
+export function drawGeoBase(cx) {
+  const { W, H } = state;
+  cx.drawImage(getMapLayer(), 0, 0, W, H);
 }
 
 /* ---------- declutter con cache ---------- */
@@ -173,11 +175,6 @@ const hubLayout = new Map();
 let hubCacheKey = '';
 const activeHubs = new Set();
 
-/**
- * Calcola il centro schermo di ogni gruppo di tavole con cache basata su camera e dimensioni.
- * Allo zoom basso separa i cluster europei vicini (es. Solnhofen/Berlino/Sassonia);
- * man mano che si ingrandisce, li riporta sulle coordinate geografiche esatte.
- */
 export function layoutHubs(size, cam = state.camGeo, out = hubLayout) {
   const isGlobal = out === hubLayout;
   const key = `${state.W}|${state.H}|${cam.x.toFixed(2)}|${cam.y.toFixed(2)}|${cam.k.toFixed(4)}|${size.toFixed(2)}`;
@@ -199,7 +196,6 @@ export function layoutHubs(size, cam = state.camGeo, out = hubLayout) {
     });
   }
 
-  // Repulsione elastica: più debole ad alto zoom così i punti convergono sul luogo reale
   const anchorPull = clamp(0.04 + (cam.k - 1) * 0.035, 0.04, 0.35);
   const iters = cam.k > 4 ? 10 : 22;
 
@@ -230,8 +226,7 @@ export function layoutHubs(size, cam = state.camGeo, out = hubLayout) {
   return out;
 }
 
-/** Aloni sotto le tavole, filo verso il luogo reale e segnaposto sul luogo. */
-export function drawGeoHalos(cx, t) {
+export function drawGeoHalos(cx) {
   activeHubs.clear();
   for (const it of state.items) {
     if (it.vis) activeHubs.add(it.hubId);
@@ -253,7 +248,6 @@ export function drawGeoHalos(cx, t) {
       cx.setLineDash([]);
     }
 
-    // Segnaposto fisso nitido + alone morbido senza loop continuo a 60fps
     cx.fillStyle = 'rgba(255, 190, 125, 0.24)';
     cx.beginPath(); cx.arc(h.tx, h.ty, 9, 0, Math.PI * 2); cx.fill();
     cx.fillStyle = '#ffbe7d';
@@ -261,7 +255,6 @@ export function drawGeoHalos(cx, t) {
   }
 }
 
-/** Etichette dei luoghi sotto ogni gruppo di tavole. */
 export function drawGeoLabels(cx) {
   const counts = new Map();
   for (const it of state.items) if (it.vis) counts.set(it.hubId, (counts.get(it.hubId) || 0) + 1);

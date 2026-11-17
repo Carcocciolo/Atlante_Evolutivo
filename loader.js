@@ -1,6 +1,6 @@
 /* ============================================================
-   loader.js — caricamento di CSV e immagini (automatico, da file
-   o dati di esempio), vicini visivi e layout finale
+   loader.js — caricamento immagini con preferenza automatica
+   per WebP, decodifica ridimensionata in hardware, vicini visivi
    ============================================================ */
 import { CONFIG, state, msg, parseCSV, setItemImage, feat, prep, tsne3D, refreshVis, markDirty } from './data.js';
 import { assignHubRanks } from './geo.js';
@@ -11,7 +11,6 @@ import {
 const $ = s => document.querySelector(s);
 const K = 5;
 
-/** Le K tavole visivamente più simili a ciascuna (distanze nello spazio delle feature). */
 function computeNeighbors() {
   const { items, Dm } = state, n = items.length;
   for (let i = 0; i < n; i++) {
@@ -50,7 +49,19 @@ async function finalizeLayout() {
   markDirty();
 }
 
-/** `resolver(riga, indice)` deve restituire `{ bitmap, src }` oppure null. */
+/**
+ * Decodifica un Blob direttamente alla dimensione della miniatura tramite createImageBitmap.
+ * Evita di allocare bitmap giganteschi da 4000x3000px in RAM/VRAM quando servono 144px!
+ */
+async function decodeThumbBitmap(blob) {
+  const S = CONFIG.thumb * 2;
+  try {
+    return await createImageBitmap(blob, { resizeWidth: S, resizeQuality: 'medium' });
+  } catch (_) {
+    return await createImageBitmap(blob);
+  }
+}
+
 async function loadRows(rows, resolver) {
   if (state.busy) return;
   state.busy = true;
@@ -69,7 +80,7 @@ async function loadRows(rows, resolver) {
       try {
         const res = await resolver(rows[i], i);
         if (!res) throw new Error('missing');
-        setItemImage(state.items[i], res.bitmap, i);
+        await setItemImage(state.items[i], res.bitmap, i);
         state.items[i].src = res.src || null;
       } catch (_) { miss++; }
       setLoader(++done, total);
@@ -83,7 +94,7 @@ async function loadRows(rows, resolver) {
   state.busy = false;
 }
 
-/* ---------- caricamento automatico dal progetto ---------- */
+/* ---------- caricamento automatico dal progetto (tenta prima .webp, poi l'originale) ---------- */
 export async function autoload() {
   try {
     const res = await fetch(CONFIG.csv);
@@ -93,10 +104,25 @@ export async function autoload() {
     await loadRows(rows, async row => {
       const f = (row.filename || '').trim();
       if (!f) return null;
-      const src = CONFIG.images + f.split('/').map(encodeURIComponent).join('/');
-      const rs = await fetch(src);
-      if (!rs.ok) return null;
-      return { bitmap: await createImageBitmap(await rs.blob()), src };
+      const encoded = f.split('/').map(encodeURIComponent).join('/');
+      const origSrc = CONFIG.images + encoded;
+      const webpSrc = origSrc.replace(/\.(jpe?g|png)$/i, '.webp');
+
+      let rs = null;
+      let usedSrc = origSrc;
+      if (webpSrc !== origSrc) {
+        const tryWebp = await fetch(webpSrc).catch(() => null);
+        if (tryWebp && tryWebp.ok) {
+          rs = tryWebp;
+          usedSrc = webpSrc;
+        }
+      }
+      if (!rs) {
+        rs = await fetch(origSrc);
+        if (!rs.ok) return null;
+      }
+      const blob = await rs.blob();
+      return { bitmap: await decodeThumbBitmap(blob), src: usedSrc };
     });
   } catch (_) {
     state.busy = false;
@@ -140,19 +166,35 @@ async function loadExample() {
   await loadRows(rows, async (_, i) => ({ bitmap: await samplePlate(i % 3), src: null }));
 }
 
-/* ---------- caricamento da file scelti dall'utente ---------- */
+/* ---------- caricamento da file scelti dall'utente (supporta anche .webp con stesso nome base) ---------- */
 async function loadFromFiles() {
   const imgs = [...$('#fi').files];
   const csv = $('#fc').files[0];
   $('#wn').textContent = '';
   if (!imgs.length) { $('#wn').textContent = 'Seleziona prima le immagini.'; return; }
-  const map = new Map(imgs.map(f => [f.name.toLowerCase(), f]));
+
+  const exactMap = new Map();
+  const baseMap = new Map();
+  for (const f of imgs) {
+    const low = f.name.toLowerCase();
+    exactMap.set(low, f);
+    const base = low.replace(/\.[^.]+$/, '');
+    // Se ci sono sia .jpg che .webp con lo stesso nome, preferisce .webp
+    if (!baseMap.has(base) || low.endsWith('.webp')) {
+      baseMap.set(base, f);
+    }
+  }
+
   const rows = csv
     ? parseCSV(await csv.text())
     : imgs.map(f => ({ id: f.name.replace(/\.[^.]+$/, ''), filename: f.name }));
+
   await loadRows(rows, async row => {
-    const f = map.get((row.filename || '').toLowerCase());
-    return f ? { bitmap: await createImageBitmap(f), src: URL.createObjectURL(f) } : null;
+    const raw = (row.filename || '').toLowerCase();
+    const webpName = raw.replace(/\.(jpe?g|png)$/, '.webp');
+    const base = raw.replace(/\.[^.]+$/, '');
+    const f = exactMap.get(webpName) || exactMap.get(raw) || baseMap.get(base);
+    return f ? { bitmap: await decodeThumbBitmap(f), src: URL.createObjectURL(f) } : null;
   });
 }
 

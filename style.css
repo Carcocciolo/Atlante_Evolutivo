@@ -1,15 +1,14 @@
 /* ============================================================
-   Atlante Evolutivo — stile ottimizzato
-   Pannelli in vetro scuro sopra un canvas a tutto schermo.
+   Atlante Evolutivo — stile ad alte prestazioni (zero blur GPU)
    ============================================================ */
 :root {
   --bg: #140805;
-  --glass: rgba(28, 12, 6, 0.78);
-  --glass-solid: rgba(22, 9, 4, 0.94);
+  --glass: rgba(26, 11, 5, 0.88);
+  --glass-solid: rgba(20, 8, 4, 0.96);
   --ink: #fbeee0;
   --mute: #cdb097;
-  --line: rgba(255, 214, 170, 0.15);
-  --line-strong: rgba(255, 214, 170, 0.3);
+  --line: rgba(255, 214, 170, 0.16);
+  --line-strong: rgba(255, 214, 170, 0.32);
   --acc: #f2a65a;
   --acc-ink: #2a1206;
   --r-lg: 22px;
@@ -32,14 +31,14 @@ html, body {
 }
 
 /* ---------- canvas e atmosfera ---------- */
-#wrap { position: fixed; inset: 0; }
+#wrap { position: fixed; inset: 0; contain: strict; }
 canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 
 .vignette {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(8, 3, 1, 0.52) 100%);
+  background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(8, 3, 1, 0.5) 100%);
 }
 
 /* ---------- elementi comuni ---------- */
@@ -52,17 +51,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .panel, #detail-drawer, .dock, .loader, .overlay .card {
   background: var(--glass);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   border: 1px solid var(--line);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 230, 200, 0.06);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 230, 200, 0.06);
 }
 
 .icon-btn {
   width: 34px; height: 34px; padding: 0;
   display: inline-grid; place-items: center;
   border-radius: 50%;
-  background: rgba(20, 8, 4, 0.65);
+  background: rgba(20, 8, 4, 0.78);
   border: 1px solid var(--line-strong);
   transition: background 0.2s, border-color 0.2s, transform 0.2s var(--ease);
 }
@@ -154,7 +151,7 @@ body.has-sel .brand { opacity: 0; transform: translateX(-12px); }
   transform: translateX(-112%);
   opacity: 0; pointer-events: none;
   will-change: transform, opacity;
-  transition: transform 0.45s var(--ease), opacity 0.28s ease;
+  transition: transform 0.42s var(--ease), opacity 0.25s ease;
 }
 #detail-drawer.is-open { transform: none; opacity: 1; pointer-events: auto; }
 #close-det { position: absolute; top: 12px; right: 12px; z-index: 2; }
@@ -168,7 +165,7 @@ body.has-sel .brand { opacity: 0; transform: translateX(-12px); }
 #big {
   position: absolute; inset: 0; width: 100%; height: 100%; display: block;
   object-fit: contain;
-  transition: filter 0.35s ease, opacity 0.25s;
+  transition: filter 0.3s ease, opacity 0.25s;
 }
 #big.is-soft { filter: blur(6px) brightness(0.85); }
 
@@ -221,7 +218,7 @@ h3 { margin: 18px 0 8px; font: italic 600 15px Fraunces, Georgia, serif; color: 
   border-radius: 999px;
   transform: translateX(-50%);
   overflow-x: auto; scrollbar-width: none;
-  transition: left 0.45s var(--ease), transform 0.45s var(--ease), opacity 0.28s;
+  transition: left 0.42s var(--ease), transform 0.42s var(--ease), opacity 0.25s;
 }
 .dock::-webkit-scrollbar { display: none; }
 body.has-sel .dock { left: calc(398px + (100vw - 398px) / 2); }
@@ -234,7 +231,7 @@ body.has-sel .dock { left: calc(398px + (100vw - 398px) / 2); }
   border-radius: 999px;
   background: var(--acc);
   box-shadow: 0 4px 16px rgba(242, 166, 90, 0.35);
-  transition: transform 0.4s var(--ease);
+  transition: transform 0.38s var(--ease);
 }
 .seg[data-view="geo"]::before { transform: translateX(100%); }
 .seg button {
@@ -268,7 +265,7 @@ body.has-sel .dock { left: calc(398px + (100vw - 398px) / 2); }
   font-size: 12.5px; color: #f6c79b;
   transform: translate(-50%, 14px);
   opacity: 0; pointer-events: none;
-  transition: opacity 0.3s, transform 0.45s var(--ease);
+  transition: opacity 0.3s, transform 0.42s var(--ease);
 }
 .loader.is-on { opacity: 1; transform: translate(-50%, 0); }
 .bar { height: 3px; margin-top: 8px; border-radius: 3px; background: rgba(255, 226, 190, 0.12); overflow: hidden; }
@@ -286,7 +283,7 @@ body.has-sel .loader { left: calc(398px + (100vw - 398px) / 2); }
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
   transform: translate(-50%, -16px);
   opacity: 0; pointer-events: none;
-  transition: opacity 0.25s, transform 0.4s var(--ease);
+  transition: opacity 0.25s, transform 0.38s var(--ease);
 }
 #toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
@@ -300,7 +297,7 @@ body.has-sel .loader { left: calc(398px + (100vw - 398px) / 2); }
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
   pointer-events: none;
   will-change: transform, opacity;
-  opacity: 0; transition: opacity 0.14s;
+  opacity: 0; transition: opacity 0.12s;
 }
 #tip.is-on { opacity: 1; }
 #tip b { font: italic 600 14px/1.25 Fraunces, Georgia, serif; }
@@ -310,14 +307,14 @@ body.has-sel .loader { left: calc(398px + (100vw - 398px) / 2); }
 .overlay {
   position: fixed; inset: 0; z-index: 50;
   display: grid; place-items: center; padding: 16px;
-  background: rgba(10, 4, 2, 0.62);
+  background: rgba(10, 4, 2, 0.68);
 }
 .overlay .card {
   position: relative; width: 430px; max-width: 100%;
   padding: 26px 26px 22px;
   border-radius: 28px;
   background: var(--glass-solid);
-  animation: rise 0.45s var(--ease);
+  animation: rise 0.42s var(--ease);
 }
 @keyframes rise { from { opacity: 0; transform: translateY(18px) scale(0.98); } }
 .card .icon-btn { position: absolute; top: 14px; right: 14px; }
