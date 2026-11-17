@@ -26,6 +26,8 @@ const off = {};
 const glowCache = new Map();
 const flags = { busy: false, moved: false };
 let lastView = '', lastN = -1;
+let prevYaw = state.cam3D.yaw, prevGeoX = state.camGeo.x;
+let sheenSprite = null;
 
 /** Sprite luminoso per categoria (si disegna in modalità additiva). */
 function glow(color) {
@@ -36,12 +38,30 @@ function glow(color) {
   const g = c.getContext('2d');
   const r = g.createRadialGradient(48, 48, 0, 48, 48, 48);
   r.addColorStop(0, rgba(color, 0.85));
-  r.addColorStop(0.22, rgba(color, 0.4));
+  r.addColorStop(0.24, rgba(color, 0.38));
+  r.addColorStop(0.6, rgba(color, 0.1));
   r.addColorStop(1, rgba(color, 0));
   g.fillStyle = r;
   g.fillRect(0, 0, 96, 96);
   glowCache.set(color, c);
   return c;
+}
+
+/** Riflesso satinato diagonale pre-renderizzato per le card in primo piano. */
+function getSheen() {
+  if (sheenSprite) return sheenSprite;
+  sheenSprite = document.createElement('canvas');
+  sheenSprite.width = sheenSprite.height = 128;
+  const g = sheenSprite.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 128, 128);
+  gr.addColorStop(0, 'rgba(255, 248, 235, 0)');
+  gr.addColorStop(0.42, 'rgba(255, 248, 235, 0.24)');
+  gr.addColorStop(0.5, 'rgba(255, 255, 255, 0.36)');
+  gr.addColorStop(0.58, 'rgba(255, 248, 235, 0.12)');
+  gr.addColorStop(1, 'rgba(255, 248, 235, 0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 128, 128);
+  return sheenSprite;
 }
 
 /** Livello mip più piccolo che copre ancora la larghezza richiesta (in pixel del dispositivo). */
@@ -82,8 +102,8 @@ function placeTip(px, py) {
    rendering, in passi separati
    ============================================================ */
 
-/** Anima e proietta ogni tavola. Scrive in state.proj; segnala se qualcosa è ancora in movimento. */
-function updateItems(t, dt, is3D, baseSize, hubs) {
+/** Anima, proietta e calcola la fisica di oscillazione/allineamento di ogni tavola. */
+function updateItems(t, dt, is3D, baseSize, hubs, angularImpulse) {
   const S = state, items = S.items, n = items.length;
   const rm = RM ? 0 : 1;
   const mv = 1 - Math.exp(-dt * (RM ? 60 : 4.5));
@@ -102,7 +122,8 @@ function updateItems(t, dt, is3D, baseSize, hubs) {
 
     const vt = it.vis ? 1 : 0;
     it.vf += (vt - it.vf) * vk; if (Math.abs(vt - it.vf) > 0.01) flags.busy = true;
-    const ht = (i === S.hov || i === S.sel) ? 1 : 0;
+    const isActive = (i === S.hov || i === S.sel);
+    const ht = isActive ? 1 : 0;
     it.hs += (ht - it.hs) * vk; if (Math.abs(ht - it.hs) > 0.01) flags.busy = true;
     const ap = (t - it.b) / 700;
     it.a = ap >= 1 ? 1 : ap <= 0 ? 0 : ease(ap);
@@ -110,8 +131,8 @@ function updateItems(t, dt, is3D, baseSize, hubs) {
 
     if (is3D) {
       project3D(
-        it.x + Math.cos(t * 0.0011 + i * 1.7) * 0.004 * rm * float,
-        it.y + Math.sin(t * 0.0015 + i) * 0.005 * rm * float,
+        it.x + Math.cos(t * 0.0011 + i * 1.7) * 0.0045 * rm * float,
+        it.y + Math.sin(t * 0.0015 + i) * 0.0055 * rm * float,
         it.z, o
       );
     } else {
@@ -121,7 +142,29 @@ function updateItems(t, dt, is3D, baseSize, hubs) {
       o.scale = 1;
       o.zOrder = it.hubRank;
     }
-    o.size = baseSize * o.scale * (i === S.sel ? 1.7 : 1) * (1 + 0.3 * it.hs) * (0.55 + 0.45 * it.a) * (0.45 + 0.55 * it.vf);
+
+    // Fisica di rotazione: oscillazione fluida al trascinamento + riallineamento a 0° su hover/clic
+    if (RM) {
+      it.rot = isActive ? 0 : it.baseRot;
+    } else {
+      const targetRot = isActive ? 0 : it.baseRot;
+      if (!isActive && angularImpulse !== 0) {
+        const weight = 0.65 + (i % 5) * 0.14;
+        const depthFactor = is3D ? clamp(o.scale, 0.5, 1.4) : 1;
+        it.vrot += angularImpulse * weight * depthFactor;
+      }
+      const stiffness = isActive ? 54 : 22;
+      const damping = isActive ? 11.5 : 6.8;
+      const force = (targetRot - it.rot) * stiffness;
+      it.vrot = (it.vrot + force * dt) * Math.exp(-damping * dt);
+      it.rot = clamp(it.rot + it.vrot * dt, -0.42, 0.42);
+
+      if (Math.abs(targetRot - it.rot) > 0.0015 || Math.abs(it.vrot) > 0.004) {
+        flags.busy = true;
+      }
+    }
+
+    o.size = baseSize * o.scale * (i === S.sel ? 1.72 : 1) * (1 + 0.32 * it.hs) * (0.55 + 0.45 * it.a) * (0.45 + 0.55 * it.vf);
     it.sx = o.sx; it.sy = o.sy; it.sc = o.scale;
   }
   if (flags.moved) flags.busy = true;
@@ -153,12 +196,12 @@ function computeClusterStats() {
 function drawAuras(baseSize) {
   const S = state;
   cx.globalCompositeOperation = 'lighter';
-  cx.globalAlpha = 0.15 * (1 - 0.6 * S.focus);
+  cx.globalAlpha = 0.17 * (1 - 0.6 * S.focus);
   for (const [cat, s] of catStats) {
     if (s.n < 2) continue;
     const mx = s.sx / s.n, my = s.sy / s.n;
     const v = Math.max(0, s.sxx / s.n - mx * mx + s.syy / s.n - my * my);
-    const R = Math.sqrt(v) * 2.3 + baseSize * 1.3;
+    const R = Math.sqrt(v) * 2.4 + baseSize * 1.4;
     cx.drawImage(glow(S.col[cat]), mx - R, my - R, R * 2, R * 2);
   }
   cx.globalCompositeOperation = 'source-over';
@@ -169,7 +212,7 @@ function drawLinks(t) {
   const S = state, items = S.items, n = items.length, col = S.col;
   if (n && S.viewMode === '3d') {
     cx.lineWidth = 1;
-    cx.globalAlpha = 0.17 * (1 - 0.6 * S.focus);
+    cx.globalAlpha = 0.18 * (1 - 0.6 * S.focus);
     for (const cat of Object.keys(col)) {
       cx.beginPath();
       for (let i = 0; i < n; i++) {
@@ -215,7 +258,7 @@ function drawNode(i, big, is3D, baseSize) {
   const dim = (S.sel >= 0 && !big) ? 1 - 0.66 * S.focus : 1;
   const depth = (is3D ? clamp(o.scale * 0.92, 0.35, 1) : 1) * dim;
 
-  if (it.vf < 0.98) {                                  // filtrata: resta un puntino spento
+  if (it.vf < 0.98) {
     cx.globalAlpha = 0.22 * depth * (1 - it.vf);
     cx.fillStyle = c;
     cx.beginPath(); cx.arc(o.sx, o.sy, 3 * o.scale, 0, 6.2832); cx.fill();
@@ -223,18 +266,18 @@ function drawNode(i, big, is3D, baseSize) {
   if (it.vf < 0.02) return;
 
   const live = it.ready && S.mode === 'thumb';
-  if (big || (i === S.hov && live)) {                  // alone sotto la tavola attiva
-    const R = (live ? o.size : 22) * 1.5;
+  if (big || (i === S.hov && live)) {
+    const R = (live ? o.size : 22) * 1.6;
     cx.globalCompositeOperation = 'lighter';
-    cx.globalAlpha = (big ? 0.55 : 0.4) * depth;
+    cx.globalAlpha = (big ? 0.6 : 0.42) * depth;
     cx.drawImage(glow(c), o.sx - R, o.sy - R, R * 2, R * 2);
     cx.globalCompositeOperation = 'source-over';
   }
 
-  if (!live) {                                         // punto luminoso
+  if (!live) {
     const r = (big ? 11 : 6.5) * o.scale * (1 + 0.4 * it.hs) * it.vf;
     cx.globalCompositeOperation = 'lighter';
-    cx.globalAlpha = 0.7 * depth;
+    cx.globalAlpha = 0.72 * depth;
     cx.drawImage(glow(c), o.sx - r * 3, o.sy - r * 3, r * 6, r * 6);
     cx.globalCompositeOperation = 'source-over';
     cx.globalAlpha = depth;
@@ -248,17 +291,38 @@ function drawNode(i, big, is3D, baseSize) {
   const s = o.size, pad = s * CARD.pad;
   const w = s * (1 + 2 * CARD.pad), h = s * (1 + CARD.pad + CARD.bottom);
   const img = pickLevel(it.cards, w * dpr);
-  const rot = big ? 0 : it.rot;
+  const rot = it.rot;
   const cs = Math.cos(rot) * dpr, sn = Math.sin(rot) * dpr;
+  const alpha = Math.min(1, it.a * 1.4) * depth * it.vf;
 
-  cx.globalAlpha = Math.min(1, it.a * 1.4) * depth * it.vf;
-  cx.setTransform(cs, sn, -sn, cs, o.sx * dpr, o.sy * dpr);      // rotazione senza save()/restore()
-  cx.fillStyle = 'rgba(8, 3, 1, 0.36)';
-  cx.fillRect(-s / 2 - pad + s * 0.03, -s / 2 - pad + s * 0.05, w, h);
+  cx.globalAlpha = alpha;
+  cx.setTransform(cs, sn, -sn, cs, o.sx * dpr, o.sy * dpr);
+
+  // Ombra morbida espansa quando la tavola è sollevata (hover o selezione)
+  const lift = 1 + it.hs * 1.4;
+  cx.fillStyle = big ? 'rgba(6, 2, 1, 0.55)' : 'rgba(8, 3, 1, 0.36)';
+  cx.fillRect(-s / 2 - pad + s * 0.03 * lift, -s / 2 - pad + s * 0.055 * lift, w, h);
+
+  // Card Polaroid
   cx.drawImage(img, -s / 2 - pad, -s / 2 - pad, w, h);
+
+  // Riflesso satinato che scorre in base all'angolo di rotazione della camera e della card
+  if (it.hs > 0.05 || (is3D && o.scale > 0.85)) {
+    const sheenAlpha = alpha * (0.28 * it.hs + (is3D ? clamp((o.scale - 0.85) * 0.45, 0, 0.22) : 0));
+    if (sheenAlpha > 0.02) {
+      cx.globalCompositeOperation = 'lighter';
+      cx.globalAlpha = sheenAlpha;
+      const shift = Math.sin(S.cam3D.yaw * 1.6 + rot * 3 + i * 0.4) * (w * 0.22);
+      cx.drawImage(getSheen(), -s / 2 - pad + shift, -s / 2 - pad, w * 0.85, h);
+      cx.globalCompositeOperation = 'source-over';
+      cx.globalAlpha = alpha;
+    }
+  }
+
+  // Bordo luminoso su hover o selezione
   if (big || S.hov === i) {
-    cx.lineWidth = big ? 3 : 2;
-    cx.strokeStyle = big ? '#ee9a5b' : c;
+    cx.lineWidth = big ? 2.5 : 1.8;
+    cx.strokeStyle = big ? '#f6b26b' : c;
     cx.strokeRect(-s / 2 - pad, -s / 2 - pad, w, h);
   }
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -272,10 +336,10 @@ function drawOverlays(t, is3D, baseSize) {
     for (const [cat, s] of catStats) {
       if (s.n >= 2) labels.push({ text: cat, color: S.col[cat], x: s.x / s.n, y: s.top - 0.16, z: s.z / s.n });
     }
-    drawClusterLabels(cx, labels, 0.75 * (1 - 0.7 * S.focus));
+    drawClusterLabels(cx, labels, 0.78 * (1 - 0.7 * S.focus));
   } else if (n) drawGeoLabels(cx);
 
-  if (S.fx.length) {                                    // onda d'urto alla selezione
+  if (S.fx.length) {
     S.fx = S.fx.filter(f => t - f.t0 < 1100);
     for (const f of S.fx) {
       const p = (t - f.t0) / 1100, it = f.it;
@@ -294,7 +358,7 @@ function drawOverlays(t, is3D, baseSize) {
     cx.globalAlpha = 1;
   }
 
-  const sp = (t - S.switchT) / 520;                     // dissolvenza al cambio vista
+  const sp = (t - S.switchT) / 520;
   if (sp < 1) {
     cx.fillStyle = `rgba(20, 8, 4, ${0.92 * (1 - sp) ** 2})`;
     cx.fillRect(0, 0, S.W, S.H);
@@ -311,8 +375,23 @@ function render(t, dt) {
   const focusGoal = S.sel >= 0 ? 1 : 0;
   S.focus += (focusGoal - S.focus) * (1 - Math.exp(-dt * (RM ? 40 : 6)));
   if (Math.abs(focusGoal - S.focus) > 0.004) flags.busy = true;
+
   const camMoving = stepCamera(dt);
   if (camMoving) flags.busy = true;
+
+  // Calcola l'impulso angolare dalla velocità effettiva della camera
+  let angularImpulse = 0;
+  if (is3D) {
+    const dyaw = S.cam3D.yaw - prevYaw;
+    prevYaw = S.cam3D.yaw;
+    if (S.drag || Math.abs(S.spin.yaw) > 0.02) {
+      angularImpulse = clamp(dyaw * 14, -1.8, 1.8);
+    }
+  } else {
+    const dx = S.camGeo.x - prevGeoX;
+    prevGeoX = S.camGeo.x;
+    if (S.drag) angularImpulse = clamp(dx * 0.022, -1.5, 1.5);
+  }
 
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
   cx.imageSmoothingEnabled = true;
@@ -325,7 +404,7 @@ function render(t, dt) {
     draw3DBackground(cx, t, S.focus);
     if (S.autoRotate && !RM && S.sel < 0) flags.busy = true;
   } else {
-    if (drawGeoBase(cx, t)) flags.busy = true;          // true = ridisegno nitido in attesa
+    if (drawGeoBase(cx, t)) flags.busy = true;
     if (n) { hubs = layoutHubs(baseSize); drawGeoHalos(cx); }
   }
 
@@ -334,7 +413,7 @@ function render(t, dt) {
     cx.fillRect(0, 0, W, H);
   }
 
-  updateItems(t, dt, is3D, baseSize, hubs);
+  updateItems(t, dt, is3D, baseSize, hubs, angularImpulse);
 
   if (flags.moved || camMoving || n !== lastN || viewMode !== lastView) sortOrder(n);
   lastN = n; lastView = viewMode;
@@ -349,7 +428,7 @@ function render(t, dt) {
 
   drawOverlays(t, is3D, baseSize);
 
-  if (S.mx > -100 && !S.drag && n) {                    // hover aggiornato anche se si muove la camera
+  if (S.mx > -100 && !S.drag && n) {
     const h = pick(S.mx, S.my);
     if (h !== S.hov) { S.hov = h; setTip(h); cv.style.cursor = h >= 0 ? 'pointer' : 'grab'; flags.busy = true; }
   }
@@ -508,16 +587,10 @@ function syncSize() {
 syncSize();
 new ResizeObserver(syncSize).observe(wrap);
 
-/**
- * Risoluzione adattiva: ogni 40 frame consecutivi si guarda il tempo medio.
- * Se è alto si scende di livello (2 → 1.5 → 1); se per ~3 secondi è vicino al refresh
- * dello schermo si prova a risalire, ma mai più di due volte dallo stesso livello,
- * per non oscillare. Durante il caricamento non si misura (il t-SNE falserebbe i numeri).
- */
 const perf = { sum: 0, n: 0, fast: 0, best: 1e9, bad: [0, 0, 0] };
 function tuneDpr(ms) {
   if (state.busy) { perf.sum = perf.n = perf.fast = 0; return; }
-  if (ms > 500) return;                       // scheda in background o stallo isolato: non è un campione valido
+  if (ms > 500) return;
   perf.sum += Math.min(ms, 120); perf.n++;
   if (perf.n < 40) return;
   const avg = perf.sum / perf.n;

@@ -50,9 +50,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 
 .panel, #detail-drawer, .dock, .loader, .overlay .card {
-  background: linear-gradient(180deg, rgba(30, 13, 7, 0.93), rgba(15, 6, 3, 0.93));
+  background:
+    radial-gradient(120% 90% at 15% 0%, rgba(242, 166, 90, 0.09), transparent 55%),
+    linear-gradient(180deg, rgba(34, 14, 7, 0.94), rgba(13, 5, 2, 0.96));
   border: 1px solid var(--line);
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 230, 200, 0.05);
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 232, 204, 0.08);
 }
 
 .icon-btn {
@@ -75,7 +79,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   margin: 0;
   font: italic 600 clamp(26px, 3.2vw, 36px)/1.02 Fraunces, Georgia, serif;
   letter-spacing: -0.015em;
-  text-shadow: 0 3px 22px rgba(0, 0, 0, 0.85);
+  background: linear-gradient(135deg, #fff5e8 25%, #f5be82 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 18px rgba(0, 0, 0, 0.85));
 }
 .brand p {
   margin: 4px 0 0;
@@ -159,7 +166,7 @@ body.has-sel .brand { opacity: 0; transform: translateX(-12px); }
 .media {
   position: relative; margin: 0; flex: none;
   aspect-ratio: 4 / 3;
-  background: #070201;
+  background: radial-gradient(circle at 50% 45%, #1d0c05 0%, #060201 100%);
   border-bottom: 1px solid var(--line);
 }
 #big {
@@ -255,8 +262,8 @@ body.has-sel .dock { left: calc(398px + (100vw - 398px) / 2); }
 .seg::before {
   content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 50%;
   border-radius: 999px;
-  background: var(--acc);
-  box-shadow: 0 4px 16px rgba(242, 166, 90, 0.35);
+  background: linear-gradient(135deg, #f7b670, #e38c42);
+  box-shadow: 0 4px 18px rgba(242, 166, 90, 0.42), inset 0 1px 0 rgba(255, 245, 230, 0.45);
   transition: transform 0.38s var(--ease);
 }
 .seg[data-view="geo"]::before { transform: translateX(100%); }

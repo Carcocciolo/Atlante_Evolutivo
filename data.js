@@ -104,8 +104,9 @@ export function getNotes(r) {
 
 /* ---------- CSV ---------- */
 export function parseCSV(t) {
-  t = t.replace(/^\uFEFF/, '');
-  const first = t.split(/\r?\n/)[0] || '';
+  t = t.replace(/^﻿/, '');
+  const first = t.split(/?
+/)[0] || '';
   const d = (first.match(/;/g) || []).length > (first.match(/,/g) || []).length ? ';' : ',';
   const rows = [];
   let row = [], field = '', quoted = false;
@@ -117,8 +118,10 @@ export function parseCSV(t) {
       } else field += c;
     } else if (c === '"') quoted = true;
     else if (c === d) { row.push(field); field = ''; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && t[i + 1] === '\n') i++;
+    else if (c === '
+' || c === '') {
+      if (c === '' && t[i + 1] === '
+') i++;
       row.push(field); field = ''; rows.push(row); row = [];
     } else field += c;
   }
@@ -148,18 +151,49 @@ export function makeCardCanvas(th, color, idx) {
   c.width = S + pad * 2;
   c.height = S + pad + bottom;
   const g = c.getContext('2d');
-  g.fillStyle = '#f4efe3';
+
+  // Gradiente carta avorio caldo
+  const paper = g.createLinearGradient(0, 0, c.width, c.height);
+  paper.addColorStop(0, '#fbf6ec');
+  paper.addColorStop(0.55, '#f2eadb');
+  paper.addColorStop(1, '#e4d8c3');
+  g.fillStyle = paper;
   g.fillRect(0, 0, c.width, c.height);
+
+  // Luce radente sul bordo superiore e sinistro della carta
+  g.fillStyle = 'rgba(255, 255, 255, 0.65)';
+  g.fillRect(0, 0, c.width, 1.5);
+  g.fillRect(0, 0, 1.5, c.height);
+
+  // Foto
   g.drawImage(th, pad, pad);
-  g.strokeStyle = 'rgba(28, 12, 6, 0.22)';
+
+  // Cornice interna incassata attorno alla foto
+  g.strokeStyle = 'rgba(28, 12, 6, 0.25)';
+  g.lineWidth = 1;
+  g.strokeRect(pad + 0.5, pad + 0.5, S - 1, S - 1);
+
+  // Bordo esterno sottile
+  g.strokeStyle = 'rgba(28, 12, 6, 0.32)';
   g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
-  g.fillStyle = color || '#ee9a5b';
-  g.fillRect(pad, pad + S + Math.round(pad * 0.6), S * 0.45, Math.max(3, Math.round(pad * 0.55)));
+
+  // Barretta categoria con gradiente
+  const barY = pad + S + Math.round(pad * 0.65);
+  const barW = S * 0.46;
+  const barH = Math.max(3, Math.round(pad * 0.52));
+  const col = color || '#ee9a5b';
+  const barGrad = g.createLinearGradient(pad, barY, pad + barW, barY);
+  barGrad.addColorStop(0, col);
+  barGrad.addColorStop(1, rgba(col, 0.55));
+  g.fillStyle = barGrad;
+  g.fillRect(pad, barY, barW, barH);
+
+  // Numero tavola
   if (idx != null) {
-    g.fillStyle = 'rgba(40, 18, 8, 0.55)';
+    g.fillStyle = 'rgba(42, 18, 8, 0.58)';
     g.font = `600 ${Math.round(S * 0.075)}px Figtree, sans-serif`;
     g.textAlign = 'right';
-    g.fillText(`#${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.5));
+    g.fillText(`#${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.52));
   }
   return c;
 }
