@@ -1,15 +1,65 @@
 /* ============================================================
-   ui.js — pannelli, scheda della tavola, filtri, dock dei
-   controlli e scorciatoie da tastiera
+   ui.js — pannelli, scheda della tavola, filtri, dock,
+   menu impostazioni e scorciatoie da tastiera
    ============================================================ */
 import { state, esc, msg, markDirty, refreshVis, getNotes, CAT_COLORS, PAL } from './data.js';
 import { assignGeoHub, assignHubRanks } from './geo.js';
 import { focusOn, releaseFocus, zoomBy, resetView } from './camera.js';
+import { playClick, playSelect, playSwitch, syncMusic, unlockAudio } from './audio.js';
 
 const $ = (s, root = document) => root.querySelector(s);
 const body = document.body;
 
-/* ---------- caricamento / pannello dati ---------- */
+const PREFS_KEY = 'atlante:prefs:v11';
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    if (typeof p.soundEnabled === 'boolean') state.soundEnabled = p.soundEnabled;
+    if (typeof p.musicEnabled === 'boolean') state.musicEnabled = p.musicEnabled;
+    if (typeof p.ecoMode === 'boolean') state.ecoMode = p.ecoMode;
+  } catch (_) {}
+}
+
+function savePrefs() {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({
+      soundEnabled: state.soundEnabled,
+      musicEnabled: state.musicEnabled,
+      ecoMode: state.ecoMode
+    }));
+  } catch (_) {}
+}
+
+export function applyEcoMode(on, notify = false) {
+  state.ecoMode = !!on;
+  body.classList.toggle('is-eco', state.ecoMode);
+  const el = $('#opt-eco');
+  if (el) el.checked = state.ecoMode;
+  if (state.ecoMode && state.autoRotate) {
+    setAutoRotate(false, false);
+  } else if (!state.ecoMode && state.autoRotatePref && state.sel < 0 && state.viewMode === '3d') {
+    setAutoRotate(true, false);
+  }
+  savePrefs();
+  markDirty();
+  if (notify) {
+    msg(state.ecoMode ? 'Risparmio energetico attivato' : 'Risparmio energetico disattivato', 1800);
+  }
+}
+
+export function syncSettingsUI() {
+  const sEl = $('#opt-sound');
+  const mEl = $('#opt-music');
+  const eEl = $('#opt-eco');
+  if (sEl) sEl.checked = state.soundEnabled;
+  if (mEl) mEl.checked = state.musicEnabled;
+  if (eEl) eEl.checked = state.ecoMode;
+}
+
+/* ---------- caricamento / pannello dati / contatti / impostazioni ---------- */
 export function setLoader(done, total, label = 'Carico le tavole') {
   const el = $('#loader');
   if (done == null) { el.classList.remove('is-on'); return; }
@@ -27,6 +77,14 @@ export function openWelcome(on) {
 export function openContacts(on) {
   $('#contacts').hidden = !on;
   if (on) $('#close-contacts').focus({ preventScroll: true });
+}
+
+export function openSettings(on) {
+  $('#settings').hidden = !on;
+  if (on) {
+    syncSettingsUI();
+    $('#close-settings').focus({ preventScroll: true });
+  }
 }
 
 /* ---------- filtri ---------- */
@@ -48,6 +106,7 @@ export function buildChips() {
     b.setAttribute('aria-pressed', state.on.has(cat));
     b.innerHTML = `<i></i>${esc(cat)}<small>${counts[cat]}</small>`;
     b.onclick = () => {
+      playClick(460);
       state.on.has(cat) ? state.on.delete(cat) : state.on.add(cat);
       b.setAttribute('aria-pressed', state.on.has(cat));
       refreshVis();
@@ -57,7 +116,7 @@ export function buildChips() {
   }
 }
 
-/** Crea le tavole "scheletro" (punti sulla sfera) prima che le immagini siano pronte. */
+/** Crea le tavole "scheletro" prima che le immagini siano pronte. */
 export function initItemsSkeleton(rows) {
   const n = Math.max(1, rows.length);
   state.sel = state.hov = -1;
@@ -76,6 +135,8 @@ export function initItemsSkeleton(rows) {
       baseRot: ((i * 37 % 13) - 6) * 0.014,
       rot: ((i * 37 % 13) - 6) * 0.014,
       vrot: 0,
+      tiltY: 0,
+      vtiltY: 0,
       x, y, z, tx: x, ty: y, tz: z,
       lon: geo.lon, lat: geo.lat, hubId: geo.hubId, siteName: geo.siteName, geoStatus: geo.geoStatus,
       hubRank: 0, hubSize: 1, nn: [],
@@ -160,7 +221,6 @@ function fillDrawer(it) {
   $('.drawer-scroll').scrollTop = 0;
 }
 
-/** Attiva/disattiva la rotazione automatica; `userAction` aggiorna la preferenza dell'utente. */
 export function setAutoRotate(on, userAction = false) {
   state.autoRotate = on;
   if (userAction) state.autoRotatePref = on;
@@ -171,11 +231,13 @@ export function setAutoRotate(on, userAction = false) {
 
 export function toggleAutoRotate() {
   const next = !state.autoRotate;
+  playClick(next ? 520 : 380);
   setAutoRotate(next, true);
   msg(next ? 'Rotazione automatica attivata' : 'Rotazione automatica disattivata', 1600);
 }
 
 export function boom(it, color) {
+  if (state.ecoMode) return;
   state.fx.push({
     it, c: color, t0: performance.now(),
     sp: Array.from({ length: 16 }, (_, k) => ({ a: k / 16 * 6.283 + Math.random() * 0.3, v: 55 + Math.random() * 80 }))
@@ -183,7 +245,7 @@ export function boom(it, color) {
   markDirty();
 }
 
-/* ---------- accessibilità: i pannelli chiusi non devono essere raggiungibili da tastiera ---------- */
+/* ---------- accessibilità ---------- */
 const mobileMQ = matchMedia('(max-width: 760px)');
 let lastFocus = null;
 function syncInert() {
@@ -193,14 +255,14 @@ function syncInert() {
 }
 mobileMQ.addEventListener('change', syncInert);
 
-/* ---------- link condivisibili: #id=IMG_0012&view=geo ---------- */
+/* ---------- link condivisibili ---------- */
 function writeHash() {
   const p = new URLSearchParams();
   const it = state.items[state.sel];
   if (it) p.set('id', it.r.id);
   if (state.viewMode === 'geo') p.set('view', 'geo');
   const h = p.toString();
-  try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (_) { /* file:// */ }
+  try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (_) {}
 }
 
 export function applyHash() {
@@ -219,6 +281,7 @@ export function show(i) {
   const first = !body.classList.contains('has-sel');
   if (first) lastFocus = document.activeElement;
   state.sel = i;
+  playSelect(it.cat);
   fillDrawer(it);
   const d = $('#detail-drawer');
   d.classList.add('is-open');
@@ -234,6 +297,7 @@ export function show(i) {
 
 export function closeSelection() {
   if (state.sel < 0) return;
+  playClick(340);
   state.sel = -1;
   const d = $('#detail-drawer');
   d.classList.remove('is-open');
@@ -242,7 +306,7 @@ export function closeSelection() {
   syncInert();
   if (lastFocus && lastFocus !== document.body && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
   lastFocus = null;
-  if (state.viewMode === '3d' && state.autoRotatePref) {
+  if (state.viewMode === '3d' && state.autoRotatePref && !state.ecoMode) {
     setAutoRotate(true, false);
   }
   releaseFocus();
@@ -260,6 +324,7 @@ function stepSelection(dir) {
 /* ---------- vista 3D / mappa ---------- */
 export function setViewMode(mode) {
   if (state.viewMode === mode) return;
+  playSwitch(mode === 'geo');
   state.viewMode = mode;
   state.switchT = performance.now();
   state.hov = -1;
@@ -277,6 +342,7 @@ export function setViewMode(mode) {
 /* ---------- esportazione ---------- */
 function exportCSV() {
   if (!state.items.length) return msg('Carica prima le tavole.');
+  playClick(500);
   const head = ['id', 'filename', 'category', 'site', 'geo_status', 'lon', 'lat', 'x3d', 'y3d', 'z3d'];
   const rows = state.items.map(i => [
     i.r.id, i.r.filename || '', i.cat, i.siteName, i.geoStatus,
@@ -293,31 +359,64 @@ function exportCSV() {
 
 /* ---------- collegamento dei controlli ---------- */
 export function bindUI() {
+  loadPrefs();
+  applyEcoMode(state.ecoMode, false);
+  syncSettingsUI();
+
   $('#close-det').onclick = closeSelection;
   $('#vw-3d').onclick = () => setViewMode('3d');
   $('#vw-geo').onclick = () => setViewMode('geo');
-  $('#zi').onclick = () => zoomBy(1.3);
-  $('#zo').onclick = () => zoomBy(1 / 1.3);
-  $('#zr').onclick = () => { closeSelection(); resetView(); };
+  $('#zi').onclick = () => { playClick(520); zoomBy(1.3); };
+  $('#zo').onclick = () => { playClick(360); zoomBy(1 / 1.3); };
+  $('#zr').onclick = () => { playClick(440); closeSelection(); resetView(); };
   $('#rot-auto').onclick = toggleAutoRotate;
   $('#rot-auto').setAttribute('aria-pressed', state.autoRotate);
   $('#cp').onclick = exportCSV;
-  $('#open-data').onclick = () => openWelcome($('#welcome').hidden);
-  $('#close-welcome').onclick = () => openWelcome(false);
-  $('#open-contacts').onclick = () => openContacts($('#contacts').hidden);
-  $('#close-contacts').onclick = () => openContacts(false);
+  $('#open-data').onclick = () => { playClick(460); openWelcome($('#welcome').hidden); };
+  $('#close-welcome').onclick = () => { playClick(360); openWelcome(false); };
+
+  // Contatti (separato in basso a destra)
+  $('#open-contacts').onclick = () => { playClick(460); openContacts($('#contacts').hidden); };
+  $('#close-contacts').onclick = () => { playClick(360); openContacts(false); };
   $('#contacts').onclick = e => { if (e.target === e.currentTarget) openContacts(false); };
+
+  // Impostazioni
+  $('#open-settings').onclick = () => { playClick(480); openSettings($('#settings').hidden); };
+  $('#close-settings').onclick = () => { playClick(360); openSettings(false); };
+  $('#settings').onclick = e => { if (e.target === e.currentTarget) openSettings(false); };
+
+  $('#opt-sound').onchange = e => {
+    state.soundEnabled = e.target.checked;
+    savePrefs();
+    if (state.soundEnabled) playClick(540);
+    msg(state.soundEnabled ? 'Effetti sonori attivati' : 'Effetti sonori disattivati', 1500);
+  };
+
+  $('#opt-music').onchange = e => {
+    state.musicEnabled = e.target.checked;
+    savePrefs();
+    unlockAudio();
+    syncMusic();
+    msg(state.musicEnabled ? 'Musica ambientale attivata' : 'Musica ambientale disattivata', 1600);
+  };
+
+  $('#opt-eco').onchange = e => {
+    playClick(420);
+    applyEcoMode(e.target.checked, true);
+  };
 
   const lb = $('#lightbox');
   $('#big').onclick = () => {
     const it = state.items[state.sel];
     if (!it || !it.src) return;
+    playClick(540);
     $('img', lb).src = it.src;
     lb.hidden = false;
   };
   lb.onclick = () => { lb.hidden = true; };
 
   $('#md').onclick = e => {
+    playClick(460);
     state.mode = state.mode === 'thumb' ? 'dot' : 'thumb';
     e.currentTarget.setAttribute('aria-pressed', state.mode === 'thumb');
     markDirty();
@@ -338,6 +437,7 @@ export function bindUI() {
     switch (e.key) {
       case 'Escape':
         if (!$('#lightbox').hidden) $('#lightbox').hidden = true;
+        else if (!$('#settings').hidden) openSettings(false);
         else if (!$('#contacts').hidden) openContacts(false);
         else if (!$('#welcome').hidden) openWelcome(false);
         else closeSelection();

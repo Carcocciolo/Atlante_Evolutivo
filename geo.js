@@ -62,7 +62,10 @@ export function geoOffset(it, size, out) {
   return out;
 }
 
-export const geoThumbSize = k => clamp(36 * Math.sqrt(k), 26, 98);
+export const geoThumbSize = k => {
+  const minS = state.W <= 760 ? 30 : 26;
+  return clamp(36 * Math.sqrt(k), minS, 98);
+};
 
 /* ---------- proiezione (con cache) ---------- */
 let base = { W: -1, H: -1, scale: 1 };
@@ -121,11 +124,7 @@ export async function loadLand() {
   }
 }
 
-/* ---------- mappa rasterizzata ----------
-   Il layer è più grande dello schermo (margine 20%) e rappresenta la mappa per una camera
-   "congelata". Mentre pan e zoom sono in corso si sposta/scala con una semplice drawImage
-   (la proiezione è lineare in k e nella traslazione, quindi il risultato è esatto);
-   quando la camera si ferma viene ridisegnato nitido. Niente path d3 a ogni frame. */
+/* ---------- mappa rasterizzata ---------- */
 const MARGIN = 0.2;
 let layer = null, layerCam = null, layerKey = '', landDirty = false, lastRaster = 0;
 const prevCam = { x: NaN, y: NaN, k: NaN };
@@ -186,7 +185,6 @@ function drawGeoBg(cx) {
   cx.drawImage(geoBg, 0, 0, W, H);
 }
 
-/** Disegna la mappa. Restituisce true se un ridisegno nitido è ancora in attesa (serve un altro frame). */
 export function drawGeoBase(cx, now = performance.now()) {
   const { W, H, dpr, camGeo: c } = state;
   drawGeoBg(cx);
@@ -278,7 +276,6 @@ export function layoutHubs(size, cam = state.camGeo, out = hubLayout) {
   return out;
 }
 
-/* conteggi per hub (tavole visibili): calcolati una volta per frame e riusati dalle etichette */
 const hubVis = new Map();
 let haloSprite = null;
 
@@ -299,7 +296,9 @@ export function drawGeoHalos(cx) {
 
   for (const h of hubLayout.values()) {
     if (!hubVis.has(h.id)) continue;
-    cx.drawImage(haloSprite, h.x - h.R, h.y - h.R, h.R * 2, h.R * 2);
+    if (!state.ecoMode) {
+      cx.drawImage(haloSprite, h.x - h.R, h.y - h.R, h.R * 2, h.R * 2);
+    }
 
     if (Math.hypot(h.x - h.tx, h.y - h.ty) > 6) {
       cx.strokeStyle = 'rgba(255, 200, 140, 0.45)';

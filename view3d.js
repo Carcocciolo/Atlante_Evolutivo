@@ -1,22 +1,22 @@
 /* ============================================================
-   view3d.js — proiezione prospettica, sfondo immersivo
-   ottimizzato (cache gradienti, dust batching, etichette)
+   view3d.js — proiezione prospettica trackball 3D, sfondo
+   immersivo ottimizzato (risparmio energetico supportato)
    ============================================================ */
 import { state, RM, clamp } from './data.js';
 
 const FOV = 2.6;
 
-/** Proietta un punto 3D; scrive il risultato in `out` per non allocare ad ogni frame. */
+/** Proietta un punto 3D usando la matrice 3D della camera (rotazione libera anche oltre i poli). */
 export function project3D(x, y, z, out, c = state.cam3D) {
   const { W, H } = state;
-  const cy = Math.cos(c.yaw), sy = Math.sin(c.yaw);
-  const x1 = x * cy - z * sy;
-  const z1 = x * sy + z * cy;
-  const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
-  const y2 = y * cp - z1 * sp;
-  const z2 = y * sp + z1 * cp;
+  const m = c.rot;
+  const x1 = m[0] * x + m[1] * y + m[2] * z;
+  const y2 = m[4] * x + m[5] * y + m[6] * z;
+  const z2 = m[8] * x + m[9] * y + m[10] * z;
+
   const depth = FOV / Math.max(0.35, FOV + z2);
-  const k = Math.min(W, H) * 0.44 * c.zoom * depth;
+  const baseScale = W <= 760 ? 0.48 : 0.44;
+  const k = Math.min(W, H) * baseScale * c.zoom * depth;
   out.sx = W / 2 + c.panX + x1 * k;
   out.sy = H / 2 + c.panY + y2 * k;
   out.scale = depth;
@@ -24,7 +24,10 @@ export function project3D(x, y, z, out, c = state.cam3D) {
   return out;
 }
 
-export const thumbSize3D = zoom => clamp(38 * Math.sqrt(zoom), 24, 104);
+export const thumbSize3D = zoom => {
+  const minS = state.W <= 760 ? 28 : 24;
+  return clamp(38 * Math.sqrt(zoom), minS, 104);
+};
 
 /* ---------- sfondo e luce cursore pre-renderizzati ---------- */
 let bg = null;
@@ -62,6 +65,7 @@ const dust = Array.from({ length: 65 }, () => ({
 }));
 
 function drawDust(cx, t) {
+  if (state.ecoMode) return;
   const { W, H, cam3D } = state;
   cx.fillStyle = 'rgba(255, 214, 170, 0.22)';
   cx.beginPath();
@@ -79,6 +83,7 @@ function drawDust(cx, t) {
 const _p = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
 
 function drawRings(cx) {
+  if (state.ecoMode) return;
   cx.save();
   cx.lineWidth = 1;
   cx.setLineDash([4, 10]);
@@ -96,23 +101,23 @@ function drawRings(cx) {
 }
 
 export function draw3DBackground(cx, t, focus) {
-  const { W, H, cam3D, mx, my } = state;
+  const { W, H, cam3D, mx, my, ecoMode } = state;
   const px = clamp(cam3D.panX * 0.05, -W * 0.09, W * 0.09);
   const py = clamp(cam3D.panY * 0.05, -H * 0.09, H * 0.09);
   if (bg) cx.drawImage(bg, -W * 0.1 + px, -H * 0.1 + py, W * 1.2, H * 1.2);
 
-  if (mx > 0 && spotSprite) {
+  if (!ecoMode && mx > 0 && spotSprite) {
     cx.drawImage(spotSprite, mx - 260, my - 260, 520, 520);
   }
 
   drawDust(cx, t);
   drawRings(cx);
 
-  drawArtLayer(cx, t, 1 - 0.65 * focus);
+  if (!ecoMode) {
+    drawArtLayer(cx, t, 1 - 0.65 * focus);
+  }
 }
 
-/* Le illustrazioni sono decine di path: si ridisegnano a ~22 fps su un layer a parte
-   e si compongono con una sola drawImage (il parallasse è applicato in composizione). */
 let art = null, artKey = '', artT = -1;
 function drawArtLayer(cx, t, alpha) {
   const { W, H, dpr, cam3D } = state;
@@ -162,7 +167,7 @@ function drawBackgroundArt(cx, t) {
   const { W, H } = state;
   const s = Math.min(W, H) / 560;
   const rm = RM ? 0 : 1;
-  const px = 0, py = 0;                 // il parallasse si applica quando il layer viene composto
+  const px = 0, py = 0;
   const F = 'Fraunces,Georgia,serif';
 
   const cap = (a, b, x, y, rgb) => {
@@ -178,7 +183,7 @@ function drawBackgroundArt(cx, t) {
     cx.fillText(b, x, y + Math.max(16, 19 * s), m);
   };
 
-  // 1. ARCHAEOPTERYX — profilo fossile con artigli alari e coda piumata
+  // 1. ARCHAEOPTERYX
   cx.save();
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
@@ -186,7 +191,6 @@ function drawBackgroundArt(cx, t) {
   cx.rotate(-0.08 + Math.sin(t * 0.0004) * 0.018 * rm);
   cx.scale(s * 0.95, s * 0.95);
 
-  // Busto e collo sinuoso
   cx.strokeStyle = 'rgba(255,152,56,.68)';
   cx.fillStyle = 'rgba(255,180,68,.09)';
   cx.lineWidth = 1.65;
@@ -198,7 +202,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Collo, cranio e becco dentato
   cx.beginPath();
   cx.moveTo(-34, -8);
   cx.quadraticCurveTo(-54, -22, -62, -34);
@@ -215,7 +218,6 @@ function drawBackgroundArt(cx, t) {
   cx.arc(-71, -38, 1.8, 0, Math.PI * 2);
   cx.fill();
 
-  // Coda lunga vertebrata con penne a ventaglio
   cx.strokeStyle = 'rgba(255,182,64,.62)';
   cx.lineWidth = 1.4;
   cx.beginPath();
@@ -237,7 +239,6 @@ function drawBackgroundArt(cx, t) {
   }
   cx.stroke();
 
-  // Ala aperta con remiganti e 3 artigli alari distintivi
   const fl = Math.sin(t * 0.0014) * 0.09 * rm;
   cx.strokeStyle = 'rgba(255,214,96,.72)';
   cx.lineWidth = 1.5;
@@ -250,7 +251,6 @@ function drawBackgroundArt(cx, t) {
     cx.moveTo(-6, -12);
     cx.quadraticCurveTo((-6 + ex) / 2 + 6, (-12 + ey) / 2 - 9, ex, ey);
   }
-  // Artigli sul bordo dell'ala
   cx.moveTo(-42, -46);
   cx.quadraticCurveTo(-50, -54, -55, -52);
   cx.moveTo(-36, -52);
@@ -259,7 +259,6 @@ function drawBackgroundArt(cx, t) {
   cx.quadraticCurveTo(-35, -66, -41, -65);
   cx.stroke();
 
-  // Zampa posteriore artigliata
   cx.strokeStyle = 'rgba(255,152,56,.66)';
   cx.lineWidth = 1.6;
   cx.beginPath();
@@ -275,14 +274,13 @@ function drawBackgroundArt(cx, t) {
   cx.restore();
   cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 106 * s, 'rgba(255,176,68,');
 
-  // 2. PETTIROSSO — Erithacus rubecula (postura naturale su rametto)
+  // 2. PETTIROSSO
   cx.save();
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.22 - px * 0.9, H * 0.77 + py + Math.sin(t * 0.0006 + 1.2) * 5 * rm);
   cx.scale(s * 0.96, s * 0.96);
 
-  // Rametto sottile d'appoggio
   cx.strokeStyle = 'rgba(210,165,125,.34)';
   cx.lineWidth = 1.4;
   cx.beginPath();
@@ -292,7 +290,6 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(36, 41);
   cx.stroke();
 
-  // Coda
   cx.strokeStyle = 'rgba(250,206,162,.62)';
   cx.fillStyle = 'rgba(250,206,162,.07)';
   cx.lineWidth = 1.6;
@@ -305,7 +302,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Corpo paffuto e testa continua
   cx.beginPath();
   cx.moveTo(10, -34);
   cx.bezierCurveTo(28, -34, 34, -18, 32, -4);
@@ -315,7 +311,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Macchia pettorale arancio-rossa (Erithacus)
   cx.fillStyle = 'rgba(255,104,54,.30)';
   cx.strokeStyle = 'rgba(255,122,72,.78)';
   cx.beginPath();
@@ -325,7 +320,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Ala ripiegata con penne sottili
   cx.strokeStyle = 'rgba(250,206,162,.58)';
   cx.beginPath();
   cx.moveTo(-4, -10);
@@ -334,7 +328,6 @@ function drawBackgroundArt(cx, t) {
   cx.quadraticCurveTo(-26, 5, -37, 15);
   cx.stroke();
 
-  // Occhio vivace con punto luce e becco sottile
   cx.fillStyle = 'rgba(255,236,210,.9)';
   cx.beginPath();
   cx.arc(21, -22, 2.5, 0, Math.PI * 2);
@@ -346,7 +339,6 @@ function drawBackgroundArt(cx, t) {
   cx.lineTo(31, -17);
   cx.stroke();
 
-  // Zampe sottili sfalsate poggiate sul rametto
   cx.lineWidth = 1.4;
   cx.beginPath();
   cx.moveTo(-4, 22);
@@ -361,14 +353,13 @@ function drawBackgroundArt(cx, t) {
   cx.restore();
   cap('Erithacus rubecula', 'il Pettirosso: erede vivente dei teropodi aviani', W * 0.22 - px * 0.9, H * 0.77 + py + 76 * s, 'rgba(255,152,102,');
 
-  // 3. GRILLO DI KAUAI — Teleogryllus oceanicus (femore saltatorio scolpito e onde mute)
+  // 3. GRILLO DI KAUAI
   cx.save();
   cx.lineCap = 'round';
   cx.lineJoin = 'round';
   cx.translate(W * 0.78 + px * 1.2, H * 0.74 + py + Math.cos(t * 0.0006) * 5 * rm);
   cx.scale(s * 0.96, s * 0.96);
 
-  // Addome segmentato e torace
   cx.strokeStyle = 'rgba(116,208,88,.68)';
   cx.fillStyle = 'rgba(116,208,88,.11)';
   cx.lineWidth = 1.65;
@@ -377,7 +368,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Pronoto e capo
   cx.beginPath();
   cx.ellipse(34, -2, 12, 11, 0, 0, Math.PI * 2);
   cx.fill();
@@ -391,7 +381,6 @@ function drawBackgroundArt(cx, t) {
   cx.arc(53, -5, 2, 0, Math.PI * 2);
   cx.fill();
 
-  // Ala piatta mutante (mutazione flatwing)
   cx.fillStyle = 'rgba(130,224,102,.14)';
   cx.strokeStyle = 'rgba(130,224,102,.72)';
   cx.beginPath();
@@ -401,7 +390,6 @@ function drawBackgroundArt(cx, t) {
   cx.fill();
   cx.stroke();
 
-  // Antenne lunghe e sinuose
   cx.strokeStyle = 'rgba(116,208,88,.55)';
   cx.lineWidth = 1.3;
   cx.beginPath();
@@ -415,7 +403,6 @@ function drawBackgroundArt(cx, t) {
   });
   cx.stroke();
 
-  // Zampa posteriore saltatoria (femore muscoloso + tibia seghettata)
   cx.fillStyle = 'rgba(116,208,88,.16)';
   cx.strokeStyle = 'rgba(116,208,88,.76)';
   cx.lineWidth = 1.6;
@@ -429,21 +416,18 @@ function drawBackgroundArt(cx, t) {
   cx.moveTo(-40, -15);
   cx.lineTo(-64, 26);
   cx.lineTo(-76, 33);
-  // Zampe anteriori e mediane
   cx.moveTo(32, 8);
   cx.lineTo(41, 30);
   cx.lineTo(34, 40);
   cx.moveTo(14, 10);
   cx.lineTo(20, 32);
   cx.lineTo(12, 42);
-  // Cerci posteriori
   cx.moveTo(-40, 2);
   cx.lineTo(-60, -4);
   cx.moveTo(-40, 5);
   cx.lineTo(-62, 9);
   cx.stroke();
 
-  // Onde acustiche che svaniscono (silenzio evolutivo)
   cx.setLineDash([2, 7]);
   for (let i = 0; i < 3; i++) {
     const q = (t * 0.0005 + i / 3) % 1;

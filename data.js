@@ -25,7 +25,15 @@ export const CARD = { pad: 0.08, bottom: 0.24 };
 
 export const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export const HOME_3D = Object.freeze({ yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0 });
+export const HOME_3D = Object.freeze({
+  yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0,
+  rot: [
+    Math.cos(0.175), 0, Math.sin(0.175), 0,
+    0, 1, 0, 0,
+    -Math.sin(0.175), 0, Math.cos(0.175), 0,
+    0, 0, 0, 1
+  ]
+});
 export const HOME_GEO = Object.freeze({ x: 0, y: 0, k: 1 });
 
 export const state = {
@@ -38,13 +46,22 @@ export const state = {
   mode: 'thumb',          // 'thumb' | 'dot'
   viewMode: '3d',         // '3d' | 'geo'
   W: 0, H: 0, dpr: 1,
-  cam3D: { ...HOME_3D },
-  goal3D: { ...HOME_3D },
+  cam3D: {
+    yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0,
+    rot: new Float64Array(16)
+  },
+  goal3D: {
+    yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0,
+    rot: new Float64Array(16)
+  },
   camGeo: { ...HOME_GEO },
   goalGeo: { ...HOME_GEO },
   spin: { yaw: 0, pitch: 0 },
   autoRotate: !RM,
   autoRotatePref: !RM,
+  soundEnabled: true,
+  musicEnabled: false,
+  ecoMode: RM,
   drag: null,
   mx: -999, my: -999,
   focus: 0,
@@ -206,17 +223,12 @@ function halve(src) {
 }
 const toGPU = c => (typeof createImageBitmap === 'function' ? createImageBitmap(c) : c);
 
-/**
- * Ogni card viene salvata in tre risoluzioni (1/4, 1/2, 1/1) già in memoria GPU:
- * in fase di disegno si sceglie quella più vicina alla dimensione sullo schermo,
- * così le card lontane non sfarfallano e costano meno da disegnare.
- */
 export async function setItemImage(it, bm, idx) {
   it.th = makeThumb(bm);
   const full = makeCardCanvas(it.th, state.col[it.cat], idx);
   if (typeof bm.close === 'function') bm.close();
   const half = halve(full);
-  it.cards = await Promise.all([halve(half), half, full].map(toGPU));   // dal più piccolo al più grande
+  it.cards = await Promise.all([halve(half), half, full].map(toGPU));
   it.ready = true;
   it.b = performance.now();
   markDirty();
