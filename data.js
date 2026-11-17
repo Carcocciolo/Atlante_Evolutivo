@@ -25,30 +25,8 @@ export const CARD = { pad: 0.08, bottom: 0.24 };
 
 export const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-function initialMatrix() {
-  const cy = Math.cos(0.35), sy = Math.sin(0.35);
-  const cx = Math.cos(0.18), sx = Math.sin(0.18);
-  return [
-    cy,      0,  -sy,
-    sx * sy, cx, sx * cy,
-    cx * sy, -sx, cx * cy
-  ];
-}
-
-export const HOME_3D = Object.freeze({
-  rot: Object.freeze(initialMatrix()),
-  zoom: 1,
-  panX: 0,
-  panY: 0
-});
+export const HOME_3D = Object.freeze({ yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0 });
 export const HOME_GEO = Object.freeze({ x: 0, y: 0, k: 1 });
-
-export const cloneCam3D = (src = HOME_3D) => ({
-  rot: [...src.rot],
-  zoom: src.zoom,
-  panX: src.panX,
-  panY: src.panY
-});
 
 export const state = {
   items: [],
@@ -60,11 +38,11 @@ export const state = {
   mode: 'thumb',          // 'thumb' | 'dot'
   viewMode: '3d',         // '3d' | 'geo'
   W: 0, H: 0, dpr: 1,
-  cam3D: cloneCam3D(),
-  goal3D: cloneCam3D(),
+  cam3D: { ...HOME_3D },
+  goal3D: { ...HOME_3D },
   camGeo: { ...HOME_GEO },
   goalGeo: { ...HOME_GEO },
-  spin: { vx: 0, vy: 0 },
+  spin: { yaw: 0, pitch: 0 },
   autoRotate: !RM,
   autoRotatePref: !RM,
   drag: null,
@@ -126,9 +104,8 @@ export function getNotes(r) {
 
 /* ---------- CSV ---------- */
 export function parseCSV(t) {
-  t = t.replace(/^﻿/, '');
-  const first = t.split(/?
-/)[0] || '';
+  t = t.replace(/^\uFEFF/, '');
+  const first = t.split(/\r?\n/)[0] || '';
   const d = (first.match(/;/g) || []).length > (first.match(/,/g) || []).length ? ';' : ',';
   const rows = [];
   let row = [], field = '', quoted = false;
@@ -140,10 +117,8 @@ export function parseCSV(t) {
       } else field += c;
     } else if (c === '"') quoted = true;
     else if (c === d) { row.push(field); field = ''; }
-    else if (c === '
-' || c === '') {
-      if (c === '' && t[i + 1] === '
-') i++;
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && t[i + 1] === '\n') i++;
       row.push(field); field = ''; rows.push(row); row = [];
     } else field += c;
   }
@@ -193,6 +168,7 @@ export async function setItemImage(it, bm, idx) {
   it.th = makeThumb(bm);
   const cardCanvas = makeCardCanvas(it.th, state.col[it.cat], idx);
   if (typeof bm.close === 'function') bm.close();
+  // Trasferisce la card direttamente in memoria GPU (ImageBitmap) per drawImage a 0-copy
   it.card = typeof createImageBitmap === 'function' ? await createImageBitmap(cardCanvas) : cardCanvas;
   it.ready = true;
   it.b = performance.now();
