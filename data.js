@@ -28,6 +28,7 @@ export const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export const HOME_3D = Object.freeze({
   yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0,
+  targetX: 0, targetY: 0, targetZ: 0,
   rot: [
     Math.cos(0.175), 0, Math.sin(0.175), 0,
     0, 1, 0, 0,
@@ -44,6 +45,12 @@ export const state = {
   q: '',
   sel: -1,
   hov: -1,
+  specimenSel: -1,        // indice archetipo evolutivo in vista orbitale (-1 = nessuno)
+  specimenHov: -1,        // indice archetipo evolutivo sotto il puntatore
+  calloutSel: -1,         // indice callout anatomico selezionato
+  calloutHov: -1,         // indice callout anatomico sotto il puntatore
+  orbitPhase: 0.5,        // fase angolare lungo il piano orbitale attivo
+  orbitElev: 0.16,        // elevazione rispetto al piano orbitale attivo
   mode: 'thumb',          // 'thumb' | 'dot'
   viewMode: '3d',         // '3d' | 'geo'
   themeMode: 'auto',      // 'auto' | 'light' | 'dark'
@@ -51,10 +58,12 @@ export const state = {
   W: 0, H: 0, dpr: 1,
   cam3D: {
     yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0,
+    targetX: 0, targetY: 0, targetZ: 0,
     rot: new Float64Array(16)
   },
   goal3D: {
     yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0,
+    targetX: 0, targetY: 0, targetZ: 0,
     rot: new Float64Array(16)
   },
   camGeo: { ...HOME_GEO },

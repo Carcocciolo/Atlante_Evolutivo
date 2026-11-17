@@ -37,11 +37,12 @@
       <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></symbol>
       <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
       <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="i-orbit" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(-24 12 12)"/><circle cx="12" cy="12" r="2.6"/><circle cx="19.2" cy="8.8" r="1.5" fill="currentColor" stroke="none"/></symbol>
     </defs>
   </svg>
 
   <main id="wrap">
-    <canvas id="cv" role="img" aria-label="Atlante interattivo delle tavole: trascina per ruotare, scorri per ingrandire, clicca una tavola per aprirla"></canvas>
+    <canvas id="cv" role="img" aria-label="Atlante interattivo delle tavole e degli archetipi evolutivi: trascina per ruotare, scorri per ingrandire, clicca una tavola o un organismo per ispezionarlo"></canvas>
   </main>
 
   <div class="aurora-veil" aria-hidden="true"></div>
@@ -57,6 +58,22 @@
     <div class="hud-meridian">
       <span>00°</span><span>·</span><span>45°</span><span>·</span><span>90° ZENIT</span><span>·</span><span>135°</span><span>·</span><span>180°</span>
     </div>
+  </div>
+
+  <!-- Barra HUD Vista Orbitale Archetipo Evolutivo -->
+  <div id="orbit-hud" class="orbit-hud" hidden aria-live="polite">
+    <div class="orbit-hud-main">
+      <span class="orbit-badge">
+        <svg class="ic"><use href="#i-orbit"/></svg>
+        <span id="orbit-plane-name">PIANO ORBITALE</span>
+      </span>
+      <span class="orbit-metrics" id="orbit-metrics">INCL. +24° · FASE 030°</span>
+    </div>
+    <div class="orbit-switcher" id="orbit-switcher" role="group" aria-label="Archetipi evolutivi"></div>
+    <button type="button" id="exit-orbit" class="orbit-exit-btn" title="Torna alla vista globale dell'Atlante (Esc)">
+      <svg class="ic"><use href="#i-close"/></svg>
+      <span>Atlante</span>
+    </button>
   </div>
 
   <!-- Scala verniero ottica verticale (sinistra) -->
@@ -104,7 +121,7 @@
     </div>
   </header>
 
-  <p class="hint" id="hint">Trascina nello spazio 3D, scorri per ingrandire o clicca un vetrino per ispezionarlo</p>
+  <p class="hint" id="hint">Trascina nello spazio 3D, clicca un vetrino o un organismo evolutivo per entrare nella sua orbita anatomica</p>
 
   <!-- Pannello filtri & matrice tassonomica -->
   <section class="panel filters" aria-label="Cerca e filtra">
@@ -121,15 +138,15 @@
     <div class="chips" id="chips" role="group" aria-label="Categorie"></div>
   </section>
 
-  <!-- Scheda microscopica della tavola -->
+  <!-- Scheda microscopica della tavola / Dossier Archetipo Evolutivo -->
   <aside id="detail-drawer" aria-hidden="true" aria-labelledby="det-title" inert>
     <div class="drawer-topbar">
       <span class="drawer-code" id="det-code">SPECIMEN // 00</span>
       <div class="drawer-actions">
-        <button type="button" id="prev-item" class="icon-btn icon-btn-sm" aria-label="Tavola precedente" title="Tavola precedente (←)">
+        <button type="button" id="prev-item" class="icon-btn icon-btn-sm" aria-label="Elemento precedente" title="Precedente (←)">
           <svg class="ic"><use href="#i-chev-l"/></svg>
         </button>
-        <button type="button" id="next-item" class="icon-btn icon-btn-sm" aria-label="Tavola successiva" title="Tavola successiva (→)">
+        <button type="button" id="next-item" class="icon-btn icon-btn-sm" aria-label="Elemento successivo" title="Successivo (→)">
           <svg class="ic"><use href="#i-chev-r"/></svg>
         </button>
         <button type="button" id="toggle-grid" class="icon-btn icon-btn-sm" aria-pressed="false" aria-label="Griglia ottica di misurazione" title="Griglia ottica (R)">
@@ -140,27 +157,64 @@
         </button>
       </div>
     </div>
-    <figure class="media" id="media-stage">
-      <img id="big" alt="" title="Clicca per ingrandire a schermo intero">
-      <div class="optical-reticle-overlay" id="optical-grid" aria-hidden="true">
-        <span class="op-cross-h"></span>
-        <span class="op-cross-v"></span>
-        <span class="op-ring-1"></span>
-        <span class="op-ring-2"></span>
-        <span class="op-scale-bar">10 mm · RETICOLO OTTICO</span>
+
+    <!-- Vista Tavola Fotografica / Fossile -->
+    <div id="plate-view" class="drawer-mode">
+      <figure class="media" id="media-stage">
+        <img id="big" alt="" title="Clicca per ingrandire a schermo intero">
+        <div class="optical-reticle-overlay" id="optical-grid" aria-hidden="true">
+          <span class="op-cross-h"></span>
+          <span class="op-cross-v"></span>
+          <span class="op-ring-1"></span>
+          <span class="op-ring-2"></span>
+          <span class="op-scale-bar">10 mm · RETICOLO OTTICO</span>
+        </div>
+        <span class="zoom-badge" id="zoom-hint" aria-hidden="true">
+          <svg class="ic"><use href="#i-expand"/></svg>
+          <span>Ingrandisci</span>
+        </span>
+      </figure>
+      <div class="drawer-scroll">
+        <h2 id="det-title"></h2>
+        <div class="tags" id="det-tags"></div>
+        <div class="notes" id="det-notes" hidden></div>
+        <dl id="dl"></dl>
+        <h3>Affinità morfologiche</h3>
+        <div id="nb"></div>
       </div>
-      <span class="zoom-badge" id="zoom-hint" aria-hidden="true">
-        <svg class="ic"><use href="#i-expand"/></svg>
-        <span>Ingrandisci</span>
-      </span>
-    </figure>
-    <div class="drawer-scroll">
-      <h2 id="det-title"></h2>
-      <div class="tags" id="det-tags"></div>
-      <div class="notes" id="det-notes" hidden></div>
-      <dl id="dl"></dl>
-      <h3>Affinità morfologiche</h3>
-      <div id="nb"></div>
+    </div>
+
+    <!-- Vista Dossier Archetipo Evolutivo (Orbita & Anatomia 3D) -->
+    <div id="specimen-view" class="drawer-mode" hidden>
+      <div class="drawer-scroll spec-scroll">
+        <div class="spec-header">
+          <h2 id="spec-title"></h2>
+          <p class="spec-sci" id="spec-sci"></p>
+          <div class="tags" id="spec-tags"></div>
+        </div>
+
+        <div class="spec-summary" id="spec-summary"></div>
+
+        <div class="spec-orbit-box" id="spec-orbit-box">
+          <div class="spec-orbit-head">
+            <svg class="ic"><use href="#i-orbit"/></svg>
+            <span id="spec-orbit-title">PIANO ORBITALE DEDICATO</span>
+          </div>
+          <dl class="spec-orbit-dl" id="spec-orbit-dl"></dl>
+        </div>
+
+        <h3>Callout Anatomici 3D</h3>
+        <p class="spec-callout-hint">Clicca una struttura per centrarla nella vista orbitale</p>
+        <div class="spec-callouts" id="spec-callouts"></div>
+
+        <h3>Storia Evolutiva</h3>
+        <div class="spec-history" id="spec-history"></div>
+
+        <div id="spec-plates-wrap">
+          <h3>Vetrini dell'Atlante Correlati</h3>
+          <div id="spec-plates" class="spec-plates"></div>
+        </div>
+      </div>
     </div>
   </aside>
 

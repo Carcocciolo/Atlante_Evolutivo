@@ -1,7 +1,6 @@
 /* ============================================================
    main.js — ciclo di rendering, filamenti curvi 3D, reticolo
-   ottico di puntamento con percentuali di affinità, telemetria
-   e verniero live
+   ottico di puntamento, viste orbitali archetipi, telemetria
    ============================================================ */
 import { state, RM, CARD, ease, clamp, rgba, esc, markDirty } from './data.js';
 import { getThemeTokens, getResolvedTheme, PALETTE_MAP } from './theme.js';
@@ -9,8 +8,11 @@ import {
   geoOffset, geoThumbSize, layoutHubs, drawGeoBase, drawGeoHalos, drawGeoLabels, loadLand, screenToGeo
 } from './geo.js';
 import { project3D, thumbSize3D, draw3DBackground, drawClusterLabels, buildBackground } from './view3d.js';
-import { stepCamera, zoomBy, focusOn, rotateScreenSpace } from './camera.js';
-import { show, closeSelection, bindUI, setAutoRotate, similarityPercent } from './ui.js';
+import { stepCamera, zoomBy, focusOn, focusOnSpecimen, rotateScreenSpace } from './camera.js';
+import {
+  show, showSpecimen, selectCallout, closeSelection, bindUI, setAutoRotate, similarityPercent, syncOrbitHUD
+} from './ui.js';
+import { SPECIMENS, pickSpecimen, pickCallout } from './specimens.js';
 import { autoload, bindLoaderUI } from './loader.js';
 import { playHover, unlockAudio } from './audio.js';
 
@@ -79,7 +81,14 @@ function updateTelemetry() {
   let txt;
   if (state.viewMode === '3d') {
     const z = state.cam3D.zoom.toFixed(2);
-    txt = `SPAZIO 3D · ${z}× · ${palName}`;
+    if (state.specimenSel >= 0 && SPECIMENS[state.specimenSel]) {
+      const spec = SPECIMENS[state.specimenSel];
+      const deg = Math.round(((state.orbitPhase * 180 / Math.PI) % 360 + 360) % 360);
+      txt = `ORBITA · ${spec.name.toUpperCase()} · FASE ${String(deg).padStart(3, '0')}°`;
+      syncOrbitHUD();
+    } else {
+      txt = `SPAZIO 3D · ${z}× · ${palName}`;
+    }
 
     const yawDeg = Math.round(((state.cam3D.yaw * 180 / Math.PI) % 360 + 360) % 360);
     const pitchDeg = Math.round(clamp(state.cam3D.pitch * 180 / Math.PI, -90, 90));
@@ -129,7 +138,7 @@ function updateTelemetry() {
 }
 
 /* ---------- picking ---------- */
-function pick(px, py) {
+function pickPlate(px, py) {
   const { items, proj, mode } = state;
   const isTouch = state.W <= 760;
   const hitBoost = isTouch ? 1.18 : 1;
@@ -145,12 +154,22 @@ function pick(px, py) {
   return -1;
 }
 
-function setTip(h) {
-  if (h < 0) return tipEl.classList.remove('is-on');
-  const it = state.items[h];
-  tipEl.innerHTML = `<b>${esc(it.r.subject || it.r.id)}</b><span>${esc(it.r.id)} · ${esc(it.siteName)}</span>`;
-  tipEl.classList.add('is-on');
-  placeTip(state.mx, state.my);
+function setTip(h, specIdx = -1) {
+  if (h >= 0) {
+    const it = state.items[h];
+    tipEl.innerHTML = `<b>${esc(it.r.subject || it.r.id)}</b><span>${esc(it.r.id)} · ${esc(it.siteName)}</span>`;
+    tipEl.classList.add('is-on');
+    placeTip(state.mx, state.my);
+    return;
+  }
+  if (specIdx >= 0 && SPECIMENS[specIdx]) {
+    const sp = SPECIMENS[specIdx];
+    tipEl.innerHTML = `<b>${esc(sp.name)}</b><span>${esc(sp.scientificName)} · Clicca per orbita 3D</span>`;
+    tipEl.classList.add('is-on');
+    placeTip(state.mx, state.my);
+    return;
+  }
+  tipEl.classList.remove('is-on');
 }
 
 function placeTip(px, py) {
@@ -167,7 +186,7 @@ function updateItems(t, dt, is3D, baseSize, hubs, impulseX, impulseY) {
   const rm = noAnim ? 0 : 1;
   const mv = 1 - Math.exp(-dt * (noAnim ? 60 : 4.5));
   const vk = 1 - Math.exp(-dt * (noAnim ? 60 : 9));
-  const float = (S.autoRotate && !noAnim && S.sel < 0) ? 1 : 0;
+  const float = (S.autoRotate && !noAnim && S.sel < 0 && S.specimenSel < 0) ? 1 : 0;
 
   while (S.proj.length < n) S.proj.push({ sx: 0, sy: 0, scale: 1, zOrder: 0, size: 0 });
   S.proj.length = n;
@@ -287,10 +306,9 @@ function drawLinks(t) {
   const cvT = getThemeTokens().canvas;
   const isLight = getResolvedTheme() === 'light';
 
-  // Rete organica curva tra vicini dello stesso taxon in 3D
   if (n && S.viewMode === '3d') {
     cx.lineWidth = isLight ? 1.1 : 1;
-    cx.globalAlpha = (S.ecoMode ? 0.14 : (isLight ? 0.25 : 0.20)) * (1 - 0.6 * S.focus);
+    cx.globalAlpha = (S.ecoMode ? 0.14 : (isLight ? 0.25 : 0.20)) * (1 - 0.65 * S.focus);
     for (const cat of Object.keys(col)) {
       cx.beginPath();
       for (let i = 0; i < n; i++) {
@@ -310,7 +328,6 @@ function drawLinks(t) {
     }
   }
 
-  // Vettori illuminati verso i vicini morfologici su hover/selezione + badge %
   if (n && (S.hov >= 0 || S.sel >= 0)) {
     cx.save();
     cx.lineWidth = 1.65;
@@ -332,7 +349,6 @@ function drawLinks(t) {
       }
       cx.stroke();
 
-      // Mostra le percentuali di affinità sulle prime 3 connessioni se non in ecoMode
       if (!S.ecoMode && k === S.sel) {
         cx.setLineDash([]);
         cx.font = '600 9.5px "JetBrains Mono", monospace';
@@ -397,7 +413,8 @@ function drawNode(i, big, is3D, baseSize, t) {
   if (!big && (o.sx < -margin || o.sx > W + margin || o.sy < -margin || o.sy > H + margin)) return;
 
   const c = S.col[it.cat];
-  const dim = (S.sel >= 0 && !big) ? 1 - 0.66 * S.focus : 1;
+  const hasFocus = (S.sel >= 0 || S.specimenSel >= 0);
+  const dim = (hasFocus && !big) ? 1 - (S.specimenSel >= 0 ? 0.78 : 0.66) * S.focus : 1;
   const depth = (is3D ? clamp(o.scale * 0.92, 0.35, 1) : 1) * dim;
 
   if (it.vf < 0.98) {
@@ -416,7 +433,6 @@ function drawNode(i, big, is3D, baseSize, t) {
     cx.globalCompositeOperation = 'source-over';
   }
 
-  // Reticolo ottico di puntamento su hover o selezione
   if (big || S.hov === i) {
     const retR = live ? o.size * 0.86 : (big ? 22 : 16);
     drawTargetReticle(o.sx, o.sy, retR, big ? cvT.linkHighlight : c, t, big);
@@ -496,7 +512,7 @@ function drawOverlays(t, is3D) {
     for (const [cat, s] of catStats) {
       if (s.n >= 2) labels.push({ text: cat, color: S.col[cat], x: s.x / s.n, y: s.top - 0.16, z: s.z / s.n });
     }
-    drawClusterLabels(cx, labels, 0.84 * (1 - 0.7 * S.focus));
+    drawClusterLabels(cx, labels, 0.84 * (1 - 0.78 * S.focus));
   } else if (n) drawGeoLabels(cx);
 
   if (!S.ecoMode && S.fx.length) {
@@ -537,7 +553,7 @@ function render(t, dt) {
   const n = items.length;
   flags.busy = flags.moved = false;
 
-  const focusGoal = S.sel >= 0 ? 1 : 0;
+  const focusGoal = (S.sel >= 0 || S.specimenSel >= 0) ? 1 : 0;
   S.focus += (focusGoal - S.focus) * (1 - Math.exp(-dt * ((RM || S.ecoMode) ? 40 : 6)));
   if (Math.abs(focusGoal - S.focus) > 0.004) flags.busy = true;
 
@@ -574,7 +590,7 @@ function render(t, dt) {
 
   if (is3D) {
     draw3DBackground(cx, t, S.focus);
-    if (S.autoRotate && !RM && !S.ecoMode && S.sel < 0) flags.busy = true;
+    if (!RM && !S.ecoMode && (S.specimenSel >= 0 || (S.autoRotate && S.sel < 0))) flags.busy = true;
   } else {
     if (drawGeoBase(cx, t)) flags.busy = true;
     if (n) {
@@ -584,7 +600,7 @@ function render(t, dt) {
     }
   }
 
-  if (S.focus > 0.01) {
+  if (S.focus > 0.01 && S.specimenSel < 0) {
     cx.save();
     cx.globalAlpha = S.focus;
     cx.fillStyle = cvT.focusDim;
@@ -608,13 +624,18 @@ function render(t, dt) {
   drawOverlays(t, is3D);
   updateTelemetry();
 
-  if (S.mx > -100 && !S.drag && n) {
-    const h = pick(S.mx, S.my);
-    if (h !== S.hov) {
+  if (S.mx > -100 && !S.drag) {
+    const cHov = pickCallout(S.mx, S.my);
+    const h = cHov >= 0 ? -1 : pickPlate(S.mx, S.my);
+    const spHov = (cHov < 0 && h < 0) ? pickSpecimen(S.mx, S.my) : -1;
+
+    if (cHov !== S.calloutHov || h !== S.hov || spHov !== S.specimenHov) {
+      S.calloutHov = cHov;
       S.hov = h;
-      if (h >= 0) playHover();
-      setTip(h);
-      cv.style.cursor = h >= 0 ? 'pointer' : 'grab';
+      S.specimenHov = spHov;
+      if (h >= 0 || spHov >= 0 || cHov >= 0) playHover();
+      setTip(h, spHov);
+      cv.style.cursor = (h >= 0 || spHov >= 0 || cHov >= 0) ? 'pointer' : 'grab';
       flags.busy = true;
     }
   }
@@ -681,6 +702,8 @@ cv.addEventListener('pointermove', e => {
       cv.style.cursor = 'grabbing';
       tipEl.classList.remove('is-on');
       state.hov = -1;
+      state.specimenHov = -1;
+      state.calloutHov = -1;
     }
     if (!d.moved) return;
     if (state.viewMode === 'geo') {
@@ -689,6 +712,19 @@ cv.addEventListener('pointermove', e => {
     } else if (d.pan) {
       state.goal3D.panX = d.panX + dx;
       state.goal3D.panY = d.panY + dy;
+    } else if (state.specimenSel >= 0) {
+      // Orbita sul piano orbitale dedicato dell'archetipo selezionato
+      setAutoRotate(false, false);
+      const dPhase = stepX * 0.0085;
+      const dElev = stepY * 0.0042;
+      state.orbitPhase += dPhase;
+      state.orbitElev = clamp(state.orbitElev + dElev, -0.48, 0.48);
+
+      const now = performance.now(), dtm = (now - d.lastT) / 1000;
+      if (dtm > 0.001) {
+        const vy = dPhase / dtm;
+        state.spin.yaw = clamp(state.spin.yaw * 0.55 + vy * 0.45, -8, 8);
+      }
     } else {
       setAutoRotate(false, false);
       const dyaw = stepX * 0.0068;
@@ -712,14 +748,21 @@ cv.addEventListener('pointermove', e => {
   }
 
   if (e.pointerType === 'mouse') {
-    const h = pick(px, py);
-    if (h !== state.hov) {
+    const cHov = pickCallout(px, py);
+    const h = cHov >= 0 ? -1 : pickPlate(px, py);
+    const spHov = (cHov < 0 && h < 0) ? pickSpecimen(px, py) : -1;
+
+    if (cHov !== state.calloutHov || h !== state.hov || spHov !== state.specimenHov) {
+      state.calloutHov = cHov;
       state.hov = h;
-      if (h >= 0) playHover();
-      setTip(h);
+      state.specimenHov = spHov;
+      if (h >= 0 || spHov >= 0 || cHov >= 0) playHover();
+      setTip(h, spHov);
       markDirty();
-    } else if (h >= 0) placeTip(px, py);
-    cv.style.cursor = h >= 0 ? 'pointer' : 'grab';
+    } else if (h >= 0 || spHov >= 0) {
+      placeTip(px, py);
+    }
+    cv.style.cursor = (h >= 0 || spHov >= 0 || cHov >= 0) ? 'pointer' : 'grab';
   }
 });
 
@@ -729,6 +772,8 @@ function endPointer(e) {
   if (e.pointerType !== 'mouse') {
     state.mx = state.my = -999;
     state.hov = -1;
+    state.specimenHov = -1;
+    state.calloutHov = -1;
     tipEl.classList.remove('is-on');
   }
   const d = state.drag;
@@ -736,12 +781,26 @@ function endPointer(e) {
   if (d) {
     if (!d.moved && e.type === 'pointerup') {
       const r = cv.getBoundingClientRect();
-      const h = pick(e.clientX - r.left, e.clientY - r.top);
-      if (h >= 0) show(h); else closeSelection();
+      const px = e.clientX - r.left, py = e.clientY - r.top;
+
+      const cHit = pickCallout(px, py);
+      if (cHit >= 0) {
+        selectCallout(cHit);
+      } else {
+        const spHit = pickSpecimen(px, py);
+        const h = pickPlate(px, py);
+        if (spHit >= 0 && (state.specimenSel >= 0 || h < 0)) {
+          showSpecimen(spHit);
+        } else if (h >= 0) {
+          show(h);
+        } else {
+          closeSelection();
+        }
+      }
     } else if (performance.now() - d.lastT > 90) {
       state.spin.yaw = state.spin.pitch = 0;
     }
-    cv.style.cursor = state.hov >= 0 ? 'pointer' : 'grab';
+    cv.style.cursor = (state.hov >= 0 || state.specimenHov >= 0 || state.calloutHov >= 0) ? 'pointer' : 'grab';
   }
   markDirty();
 }
@@ -750,7 +809,10 @@ cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerleave', e => {
   if (e.pointerType !== 'mouse') return;
-  state.hov = -1; state.mx = state.my = -999;
+  state.hov = -1;
+  state.specimenHov = -1;
+  state.calloutHov = -1;
+  state.mx = state.my = -999;
   tipEl.classList.remove('is-on');
   updateTelemetry();
   markDirty();
@@ -790,7 +852,8 @@ export function syncSize() {
   cv.width = Math.round(state.W * state.dpr);
   cv.height = Math.round(state.H * state.dpr);
   buildBackground();
-  if (state.sel >= 0 && state.items[state.sel]) focusOn(state.items[state.sel]);
+  if (state.specimenSel >= 0 && SPECIMENS[state.specimenSel]) focusOnSpecimen(SPECIMENS[state.specimenSel]);
+  else if (state.sel >= 0 && state.items[state.sel]) focusOn(state.items[state.sel]);
   markDirty();
 }
 syncSize();
@@ -819,7 +882,7 @@ function tuneDpr(ms) {
 let last = 0, wasRendered = false;
 requestAnimationFrame(function loop(t) {
   const raw = t - last;
-  const isInteracting = Boolean(state.drag || state.hov >= 0 || state.fx.length);
+  const isInteracting = Boolean(state.drag || state.hov >= 0 || state.specimenHov >= 0 || state.calloutHov >= 0 || state.fx.length);
   const minInterval = state.ecoMode ? 32 : (isInteracting ? 15 : 24);
   if (raw < minInterval) {
     requestAnimationFrame(loop);

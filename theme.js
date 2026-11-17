@@ -81,375 +81,84 @@ export const PALETTES = [
     },
     light: {
       css: {
-        '--bg': '#f4ece0',
-        '--panel-top': 'rgba(255, 251, 245, 0.88)',
-        '--panel-bot': 'rgba(245, 236, 223, 0.92)',
-        '--glass-solid': 'rgba(253, 249, 242, 0.97)',
-        '--ink': '#241409',
-        '--mute': '#694d38',
-        '--line': 'rgba(96, 56, 24, 0.16)',
-        '--line-strong': 'rgba(96, 56, 24, 0.30)',
-        '--specular': 'rgba(255, 255, 255, 0.88)',
-        '--acc': '#b85c18',
-        '--acc-2': '#98470d',
-        '--acc-ink': '#fffaf4',
-        '--chip-bg': 'rgba(120, 72, 32, 0.06)',
-        '--chip-hover': 'rgba(120, 72, 32, 0.13)',
-        '--shadow': 'rgba(48, 26, 10, 0.15)',
-        '--vignette': 'rgba(196, 174, 144, 0.34)',
-        '--hud': 'rgba(168, 88, 28, 0.34)',
-        '--title-1': '#241409',
-        '--title-2': '#9e4c12',
-        '--sub-ink': '#5c412c',
-        '--card-glow': 'rgba(184, 92, 24, 0.09)',
-        '--overlay-bg': 'rgba(36, 20, 9, 0.44)',
-        '--media-1': '#efe3d2',
-        '--media-2': '#dfd0bb',
-        '--nb-frame': '#fffcf7'
+        '--bg': '#f6efe4',
+        '--panel-top': 'rgba(255, 250, 242, 0.88)',
+        '--panel-bot': 'rgba(245, 236, 222, 0.95)',
+        '--glass-solid': 'rgba(253, 248, 240, 0.97)',
+        '--ink': '#231810',
+        '--mute': '#6e5744',
+        '--line': 'rgba(138, 86, 36, 0.16)',
+        '--line-strong': 'rgba(138, 86, 36, 0.32)',
+        '--specular': 'rgba(255, 255, 255, 0.75)',
+        '--acc': '#b86820',
+        '--acc-2': '#954e12',
+        '--acc-ink': '#fffaf2',
+        '--chip-bg': 'rgba(138, 86, 36, 0.07)',
+        '--chip-hover': 'rgba(138, 86, 36, 0.14)',
+        '--shadow': 'rgba(48, 30, 14, 0.16)',
+        '--vignette': 'rgba(195, 174, 146, 0.35)',
+        '--hud': 'rgba(138, 86, 36, 0.35)',
+        '--title-1': '#231810',
+        '--title-2': '#a85a18',
+        '--sub-ink': '#4e3b2c',
+        '--card-glow': 'rgba(184, 104, 32, 0.10)',
+        '--overlay-bg': 'rgba(35, 24, 16, 0.55)',
+        '--media-1': '#efe4d4',
+        '--media-2': '#dfd0bc',
+        '--nb-frame': '#efe3d1'
       },
       canvas: {
-        bg0: '#fbf6ee', bg1: '#f0e4d3', bg2: '#e2d2ba',
-        spot0: 'rgba(196, 110, 42, 0.11)', spot1: 'rgba(218, 165, 105, 0.04)',
-        dust: 'rgba(130, 78, 36, 0.22)',
-        ringOuter: 'rgba(168, 88, 28, 0.26)',
-        ringInner: 'rgba(168, 88, 28, 0.13)',
-        ringMeridian: 'rgba(120, 68, 28, 0.14)',
-        art1: 'rgba(166, 84, 24,',
-        art2: 'rgba(194, 62, 48,',
-        art3: 'rgba(58, 130, 50,',
-        artFillAlpha: 0.07,
-        artStrokeAlpha: 0.95,
-        labelStroke: 'rgba(251, 246, 238, 0.95)',
-        geoBg0: '#faf4eb', geoBg1: '#efe3d2', geoBg2: '#e0cfb7',
-        geoSphereFill: 'rgba(184, 92, 24, 0.03)',
-        geoSphereStroke: 'rgba(156, 82, 26, 0.32)',
-        geoGrat: 'rgba(120, 72, 32, 0.12)',
-        geoLandFill: 'rgba(214, 192, 162, 0.74)',
-        geoLandStroke: 'rgba(148, 78, 26, 0.58)',
-        geoHalo0: 'rgba(184, 92, 24, 0.24)',
-        geoPin: '#b85c18',
-        geoLabelInk: 'rgba(36, 20, 9, 0.95)',
-        geoLabelSub: 'rgba(156, 76, 18, 0.92)',
-        focusDim: 'rgba(235, 222, 204, 0.52)',
-        switchFlash: 'rgba(244, 236, 224, 0.92)',
-        linkHighlight: '#b85c18',
-        cardShadow: 'rgba(48, 26, 10, 0.22)',
-        cardShadowBig: 'rgba(48, 26, 10, 0.34)',
-        cardPaper: ['#ffffff', '#fbf5ec', '#efe3d1'],
-        cardInner: 'rgba(72, 42, 18, 0.22)',
-        cardOuter: 'rgba(168, 92, 34, 0.38)',
-        cardCode: 'rgba(68, 38, 16, 0.80)',
-        dotRing: '#241409'
-      },
-      cats: {
-        'Archaeopteryx': '#c96a1b',
-        'Pettirossi': '#d9483b',
-        'Grilli': '#3f8f38',
-        'da classificare': '#76658a'
-      }
-    }
-  },
-
-  {
-    id: 'cyanotype',
-    name: 'Abisso Bioluminescente',
-    subtitle: 'Fossa oceanica · Ciano elettrico e cianotipia',
-    swatches: ['#091d36', '#4ef2f5', '#edf4f8'],
-    dark: {
-      css: {
-        '--bg': '#030912',
-        '--panel-top': 'rgba(10, 26, 46, 0.85)',
-        '--panel-bot': 'rgba(4, 12, 24, 0.92)',
-        '--glass-solid': 'rgba(6, 16, 30, 0.96)',
-        '--ink': '#e8f6fb',
-        '--mute': '#9ab8ce',
-        '--line': 'rgba(78, 242, 245, 0.16)',
-        '--line-strong': 'rgba(78, 242, 245, 0.34)',
-        '--specular': 'rgba(210, 246, 255, 0.11)',
-        '--acc': '#4ef2f5',
-        '--acc-2': '#26bfd4',
-        '--acc-ink': '#031722',
-        '--chip-bg': 'rgba(78, 242, 245, 0.07)',
-        '--chip-hover': 'rgba(78, 242, 245, 0.15)',
-        '--shadow': 'rgba(1, 5, 12, 0.78)',
-        '--vignette': 'rgba(2, 6, 12, 0.70)',
-        '--hud': 'rgba(78, 242, 245, 0.34)',
-        '--title-1': '#f2fcff',
-        '--title-2': '#76f2f5',
-        '--sub-ink': '#c2e0ef',
-        '--card-glow': 'rgba(78, 242, 245, 0.12)',
-        '--overlay-bg': 'rgba(2, 7, 14, 0.80)',
-        '--media-1': '#0a1c32',
-        '--media-2': '#030811',
-        '--nb-frame': '#0c1c30'
-      },
-      canvas: {
-        bg0: '#0d2440', bg1: '#05101f', bg2: '#02060d',
-        spot0: 'rgba(78, 242, 245, 0.14)', spot1: 'rgba(125, 195, 245, 0.05)',
-        dust: 'rgba(195, 242, 255, 0.28)',
-        ringOuter: 'rgba(78, 242, 245, 0.24)',
-        ringInner: 'rgba(78, 242, 245, 0.12)',
-        ringMeridian: 'rgba(148, 218, 246, 0.14)',
-        art1: 'rgba(245, 174, 102,',
-        art2: 'rgba(255, 118, 108,',
-        art3: 'rgba(110, 231, 183,',
+        bg0: '#fbf5ec', bg1: '#f2e7d6', bg2: '#e6d6bf',
+        spot0: 'rgba(184, 104, 32, 0.12)', spot1: 'rgba(160, 110, 60, 0.05)',
+        dust: 'rgba(138, 86, 36, 0.22)',
+        ringOuter: 'rgba(138, 86, 36, 0.24)',
+        ringInner: 'rgba(138, 86, 36, 0.14)',
+        ringMeridian: 'rgba(138, 86, 36, 0.16)',
+        art1: 'rgba(176, 94, 24,',
+        art2: 'rgba(196, 68, 48,',
+        art3: 'rgba(72, 134, 52,',
         artFillAlpha: 0.08,
-        artStrokeAlpha: 0.98,
-        labelStroke: 'rgba(3, 9, 18, 0.94)',
-        geoBg0: '#0c213b', geoBg1: '#05101f', geoBg2: '#02060d',
-        geoSphereFill: 'rgba(78, 242, 245, 0.04)',
-        geoSphereStroke: 'rgba(78, 242, 245, 0.32)',
-        geoGrat: 'rgba(148, 218, 246, 0.10)',
-        geoLandFill: 'rgba(20, 56, 92, 0.60)',
-        geoLandStroke: 'rgba(78, 242, 245, 0.54)',
-        geoHalo0: 'rgba(78, 242, 245, 0.30)',
-        geoPin: '#4ef2f5',
-        geoLabelInk: 'rgba(232, 246, 251, 0.96)',
-        geoLabelSub: 'rgba(78, 242, 245, 0.94)',
-        focusDim: 'rgba(3, 8, 16, 0.48)',
-        switchFlash: 'rgba(3, 9, 18, 0.92)',
-        linkHighlight: '#4ef2f5',
-        cardShadow: 'rgba(1, 5, 12, 0.56)',
-        cardShadowBig: 'rgba(1, 5, 12, 0.76)',
-        cardPaper: ['#10243d', '#091628', '#050d18'],
-        cardInner: 'rgba(78, 242, 245, 0.28)',
-        cardOuter: 'rgba(78, 242, 245, 0.52)',
-        cardCode: 'rgba(186, 236, 252, 0.84)',
-        dotRing: '#e8f6fb'
+        artStrokeAlpha: 0.92,
+        labelStroke: 'rgba(250, 243, 232, 0.94)',
+        geoBg0: '#faf3e8', geoBg1: '#f0e4d2', geoBg2: '#e4d3ba',
+        geoSphereFill: 'rgba(184, 104, 32, 0.05)',
+        geoSphereStroke: 'rgba(138, 86, 36, 0.34)',
+        geoGrat: 'rgba(138, 86, 36, 0.12)',
+        geoLandFill: 'rgba(198, 174, 144, 0.65)',
+        geoLandStroke: 'rgba(138, 86, 36, 0.55)',
+        geoHalo0: 'rgba(184, 104, 32, 0.26)',
+        geoPin: '#b86820',
+        geoLabelInk: 'rgba(35, 24, 16, 0.95)',
+        geoLabelSub: 'rgba(150, 82, 22, 0.92)',
+        focusDim: 'rgba(246, 239, 228, 0.55)',
+        switchFlash: 'rgba(246, 239, 228, 0.92)',
+        linkHighlight: '#b86820',
+        cardShadow: 'rgba(48, 30, 14, 0.22)',
+        cardShadowBig: 'rgba(48, 30, 14, 0.36)',
+        cardPaper: ['#fffcf7', '#f7efe2', '#ede1ce'],
+        cardInner: 'rgba(138, 86, 36, 0.24)',
+        cardOuter: 'rgba(138, 86, 36, 0.48)',
+        cardCode: 'rgba(92, 58, 28, 0.85)',
+        dotRing: '#231810'
       },
       cats: {
-        'Archaeopteryx': '#f5a962',
-        'Pettirossi': '#ff7369',
-        'Grilli': '#6ee7b7',
-        'da classificare': '#a5b4fc'
-      }
-    },
-    light: {
-      css: {
-        '--bg': '#ebf3f8',
-        '--panel-top': 'rgba(250, 253, 255, 0.88)',
-        '--panel-bot': 'rgba(236, 245, 251, 0.92)',
-        '--glass-solid': 'rgba(248, 252, 255, 0.97)',
-        '--ink': '#0b1d2e',
-        '--mute': '#3f5d78',
-        '--line': 'rgba(15, 68, 112, 0.15)',
-        '--line-strong': 'rgba(15, 68, 112, 0.28)',
-        '--specular': 'rgba(255, 255, 255, 0.92)',
-        '--acc': '#0f568c',
-        '--acc-2': '#0a416b',
-        '--acc-ink': '#f4faff',
-        '--chip-bg': 'rgba(15, 86, 140, 0.06)',
-        '--chip-hover': 'rgba(15, 86, 140, 0.13)',
-        '--shadow': 'rgba(12, 38, 64, 0.15)',
-        '--vignette': 'rgba(168, 194, 214, 0.35)',
-        '--hud': 'rgba(15, 86, 140, 0.32)',
-        '--title-1': '#0b1d2e',
-        '--title-2': '#1264a3',
-        '--sub-ink': '#335069',
-        '--card-glow': 'rgba(15, 86, 140, 0.08)',
-        '--overlay-bg': 'rgba(11, 29, 46, 0.44)',
-        '--media-1': '#e1edf5',
-        '--media-2': '#cddde8',
-        '--nb-frame': '#ffffff'
-      },
-      canvas: {
-        bg0: '#f7fbfe', bg1: '#e6f0f7', bg2: '#d4e3ee',
-        spot0: 'rgba(15, 102, 168, 0.10)', spot1: 'rgba(92, 168, 218, 0.04)',
-        dust: 'rgba(24, 82, 130, 0.20)',
-        ringOuter: 'rgba(15, 86, 140, 0.26)',
-        ringInner: 'rgba(15, 86, 140, 0.13)',
-        ringMeridian: 'rgba(28, 96, 148, 0.14)',
-        art1: 'rgba(184, 92, 28,',
-        art2: 'rgba(196, 58, 52,',
-        art3: 'rgba(28, 128, 94,',
-        artFillAlpha: 0.07,
-        artStrokeAlpha: 0.95,
-        labelStroke: 'rgba(247, 251, 254, 0.95)',
-        geoBg0: '#f5fafe', geoBg1: '#e4eff7', geoBg2: '#d2e2ed',
-        geoSphereFill: 'rgba(15, 86, 140, 0.03)',
-        geoSphereStroke: 'rgba(15, 86, 140, 0.32)',
-        geoGrat: 'rgba(24, 88, 138, 0.12)',
-        geoLandFill: 'rgba(182, 208, 228, 0.74)',
-        geoLandStroke: 'rgba(15, 86, 140, 0.58)',
-        geoHalo0: 'rgba(15, 86, 140, 0.24)',
-        geoPin: '#0f568c',
-        geoLabelInk: 'rgba(11, 29, 46, 0.95)',
-        geoLabelSub: 'rgba(15, 86, 140, 0.92)',
-        focusDim: 'rgba(222, 235, 245, 0.52)',
-        switchFlash: 'rgba(235, 243, 248, 0.92)',
-        linkHighlight: '#0f568c',
-        cardShadow: 'rgba(12, 38, 64, 0.22)',
-        cardShadowBig: 'rgba(12, 38, 64, 0.34)',
-        cardPaper: ['#ffffff', '#f5fafe', '#e7f1f8'],
-        cardInner: 'rgba(15, 58, 94, 0.22)',
-        cardOuter: 'rgba(15, 86, 140, 0.36)',
-        cardCode: 'rgba(15, 58, 94, 0.80)',
-        dotRing: '#0b1d2e'
-      },
-      cats: {
-        'Archaeopteryx': '#c96424',
-        'Pettirossi': '#cf463c',
-        'Grilli': '#1f7a5c',
-        'da classificare': '#5b6799'
+        'Archaeopteryx': '#c86d1f',
+        'Pettirossi': '#d14334',
+        'Grilli': '#4e9636',
+        'da classificare': '#7a5fb8'
       }
     }
   },
-
-  {
-    id: 'emerald',
-    name: 'Erbario Smeraldo',
-    subtitle: 'Serra vittoriana · Clorofilla e ottone',
-    swatches: ['#0a2217', '#4ee09e', '#eff5f0'],
-    dark: {
-      css: {
-        '--bg': '#030b08',
-        '--panel-top': 'rgba(11, 32, 22, 0.85)',
-        '--panel-bot': 'rgba(4, 15, 10, 0.92)',
-        '--glass-solid': 'rgba(6, 19, 13, 0.96)',
-        '--ink': '#e8f6ef',
-        '--mute': '#9cc2b0',
-        '--line': 'rgba(78, 224, 158, 0.16)',
-        '--line-strong': 'rgba(78, 224, 158, 0.32)',
-        '--specular': 'rgba(214, 250, 232, 0.10)',
-        '--acc': '#4ee09e',
-        '--acc-2': '#2cb87a',
-        '--acc-ink': '#041e12',
-        '--chip-bg': 'rgba(78, 224, 158, 0.07)',
-        '--chip-hover': 'rgba(78, 224, 158, 0.14)',
-        '--shadow': 'rgba(1, 8, 5, 0.78)',
-        '--vignette': 'rgba(2, 7, 4, 0.70)',
-        '--hud': 'rgba(78, 224, 158, 0.32)',
-        '--title-1': '#f2fbf6',
-        '--title-2': '#84e8bc',
-        '--sub-ink': '#c3e3d3',
-        '--card-glow': 'rgba(78, 224, 158, 0.11)',
-        '--overlay-bg': 'rgba(2, 8, 5, 0.80)',
-        '--media-1': '#0b2217',
-        '--media-2': '#030a06',
-        '--nb-frame': '#0d2017'
-      },
-      canvas: {
-        bg0: '#0c2419', bg1: '#05120c', bg2: '#020704',
-        spot0: 'rgba(78, 224, 158, 0.13)', spot1: 'rgba(164, 224, 180, 0.04)',
-        dust: 'rgba(202, 245, 222, 0.26)',
-        ringOuter: 'rgba(78, 224, 158, 0.23)',
-        ringInner: 'rgba(78, 224, 158, 0.11)',
-        ringMeridian: 'rgba(158, 226, 192, 0.13)',
-        art1: 'rgba(232, 184, 90,',
-        art2: 'rgba(244, 116, 98,',
-        art3: 'rgba(94, 234, 180,',
-        artFillAlpha: 0.08,
-        artStrokeAlpha: 0.98,
-        labelStroke: 'rgba(3, 11, 8, 0.94)',
-        geoBg0: '#0b2217', geoBg1: '#05120c', geoBg2: '#020704',
-        geoSphereFill: 'rgba(78, 224, 158, 0.04)',
-        geoSphereStroke: 'rgba(78, 224, 158, 0.30)',
-        geoGrat: 'rgba(158, 226, 192, 0.10)',
-        geoLandFill: 'rgba(20, 62, 43, 0.60)',
-        geoLandStroke: 'rgba(78, 224, 158, 0.52)',
-        geoHalo0: 'rgba(78, 224, 158, 0.30)',
-        geoPin: '#4ee09e',
-        geoLabelInk: 'rgba(232, 246, 239, 0.96)',
-        geoLabelSub: 'rgba(78, 224, 158, 0.94)',
-        focusDim: 'rgba(3, 10, 7, 0.48)',
-        switchFlash: 'rgba(3, 11, 8, 0.92)',
-        linkHighlight: '#4ee09e',
-        cardShadow: 'rgba(1, 8, 5, 0.56)',
-        cardShadowBig: 'rgba(1, 8, 5, 0.76)',
-        cardPaper: ['#10291e', '#091912', '#05100b'],
-        cardInner: 'rgba(78, 224, 158, 0.28)',
-        cardOuter: 'rgba(78, 224, 158, 0.50)',
-        cardCode: 'rgba(190, 242, 216, 0.84)',
-        dotRing: '#e8f6ef'
-      },
-      cats: {
-        'Archaeopteryx': '#e8b85a',
-        'Pettirossi': '#f47462',
-        'Grilli': '#5eead4',
-        'da classificare': '#a7b8d0'
-      }
-    },
-    light: {
-      css: {
-        '--bg': '#edf4ef',
-        '--panel-top': 'rgba(251, 254, 252, 0.88)',
-        '--panel-bot': 'rgba(238, 246, 240, 0.92)',
-        '--glass-solid': 'rgba(249, 253, 250, 0.97)',
-        '--ink': '#0e241a',
-        '--mute': '#3e6150',
-        '--line': 'rgba(20, 82, 54, 0.15)',
-        '--line-strong': 'rgba(20, 82, 54, 0.28)',
-        '--specular': 'rgba(255, 255, 255, 0.92)',
-        '--acc': '#186945',
-        '--acc-2': '#115235',
-        '--acc-ink': '#f4fcf7',
-        '--chip-bg': 'rgba(24, 105, 69, 0.06)',
-        '--chip-hover': 'rgba(24, 105, 69, 0.13)',
-        '--shadow': 'rgba(12, 42, 28, 0.15)',
-        '--vignette': 'rgba(172, 198, 180, 0.35)',
-        '--hud': 'rgba(24, 105, 69, 0.32)',
-        '--title-1': '#0e241a',
-        '--title-2': '#1b7a50',
-        '--sub-ink': '#345445',
-        '--card-glow': 'rgba(24, 105, 69, 0.08)',
-        '--overlay-bg': 'rgba(14, 36, 26, 0.44)',
-        '--media-1': '#e2ede5',
-        '--media-2': '#cfdfd3',
-        '--nb-frame': '#ffffff'
-      },
-      canvas: {
-        bg0: '#f7fcf9', bg1: '#e7f2ea', bg2: '#d5e4d9',
-        spot0: 'rgba(24, 118, 76, 0.10)', spot1: 'rgba(104, 178, 140, 0.04)',
-        dust: 'rgba(26, 94, 62, 0.20)',
-        ringOuter: 'rgba(24, 105, 69, 0.26)',
-        ringInner: 'rgba(24, 105, 69, 0.13)',
-        ringMeridian: 'rgba(32, 112, 76, 0.14)',
-        art1: 'rgba(176, 112, 24,',
-        art2: 'rgba(196, 66, 52,',
-        art3: 'rgba(24, 116, 76,',
-        artFillAlpha: 0.07,
-        artStrokeAlpha: 0.95,
-        labelStroke: 'rgba(247, 252, 249, 0.95)',
-        geoBg0: '#f5fbf7', geoBg1: '#e5f0e8', geoBg2: '#d3e3d7',
-        geoSphereFill: 'rgba(24, 105, 69, 0.03)',
-        geoSphereStroke: 'rgba(24, 105, 69, 0.32)',
-        geoGrat: 'rgba(28, 104, 70, 0.12)',
-        geoLandFill: 'rgba(184, 212, 194, 0.74)',
-        geoLandStroke: 'rgba(24, 105, 69, 0.58)',
-        geoHalo0: 'rgba(24, 105, 69, 0.24)',
-        geoPin: '#186945',
-        geoLabelInk: 'rgba(14, 36, 26, 0.95)',
-        geoLabelSub: 'rgba(24, 105, 69, 0.92)',
-        focusDim: 'rgba(224, 238, 228, 0.52)',
-        switchFlash: 'rgba(237, 244, 239, 0.92)',
-        linkHighlight: '#186945',
-        cardShadow: 'rgba(12, 42, 28, 0.22)',
-        cardShadowBig: 'rgba(12, 42, 28, 0.34)',
-        cardPaper: ['#ffffff', '#f5fbf7', '#e8f3ec'],
-        cardInner: 'rgba(18, 68, 46, 0.22)',
-        cardOuter: 'rgba(24, 105, 69, 0.36)',
-        cardCode: 'rgba(18, 68, 46, 0.80)',
-        dotRing: '#0e241a'
-      },
-      cats: {
-        'Archaeopteryx': '#b87619',
-        'Pettirossi': '#c94a38',
-        'Grilli': '#1b7a50',
-        'da classificare': '#5e6e82'
-      }
-    }
-  },
-
   {
     id: 'monolith',
     name: 'Prisma Platino',
-    subtitle: 'Architettura cinetica · Ottone e grafite',
-    swatches: ['#14161b', '#e5c58e', '#f4f4f2'],
+    subtitle: 'Grafite siderale · Luce ottica e titanio',
+    swatches: ['#0d0f14', '#e5c58e', '#f4f5f7'],
     dark: {
       css: {
         '--bg': '#07080a',
-        '--panel-top': 'rgba(22, 24, 30, 0.85)',
-        '--panel-bot': 'rgba(10, 11, 15, 0.92)',
+        '--panel-top': 'rgba(22, 24, 30, 0.86)',
+        '--panel-bot': 'rgba(10, 11, 15, 0.93)',
         '--glass-solid': 'rgba(12, 14, 18, 0.96)',
         '--ink': '#f4f5f7',
         '--mute': '#a6abb6',
@@ -468,264 +177,551 @@ export const PALETTES = [
         '--title-2': '#e5c58e',
         '--sub-ink': '#cfd4de',
         '--card-glow': 'rgba(229, 197, 142, 0.09)',
-        '--overlay-bg': 'rgba(4, 5, 8, 0.80)',
+        '--overlay-bg': 'rgba(4, 5, 8, 0.82)',
         '--media-1': '#16181e',
         '--media-2': '#060709',
         '--nb-frame': '#181a20'
       },
       canvas: {
-        bg0: '#17191f', bg1: '#0b0c10', bg2: '#040507',
-        spot0: 'rgba(229, 197, 142, 0.11)', spot1: 'rgba(210, 216, 228, 0.04)',
-        dust: 'rgba(232, 235, 242, 0.24)',
+        bg0: '#171920', bg1: '#0b0c10', bg2: '#050608',
+        spot0: 'rgba(229, 197, 142, 0.11)', spot1: 'rgba(160, 175, 210, 0.05)',
+        dust: 'rgba(226, 232, 245, 0.26)',
         ringOuter: 'rgba(229, 197, 142, 0.22)',
         ringInner: 'rgba(229, 197, 142, 0.11)',
-        ringMeridian: 'rgba(226, 230, 238, 0.13)',
+        ringMeridian: 'rgba(200, 210, 230, 0.13)',
         art1: 'rgba(229, 197, 142,',
-        art2: 'rgba(239, 107, 91,',
-        art3: 'rgba(125, 211, 168,',
-        artFillAlpha: 0.07,
+        art2: 'rgba(255, 118, 102,',
+        art3: 'rgba(138, 214, 128,',
+        artFillAlpha: 0.08,
         artStrokeAlpha: 0.96,
         labelStroke: 'rgba(7, 8, 10, 0.94)',
-        geoBg0: '#15171d', geoBg1: '#0b0c10', geoBg2: '#040507',
-        geoSphereFill: 'rgba(229, 197, 142, 0.035)',
+        geoBg0: '#16181f', geoBg1: '#0b0c10', geoBg2: '#050608',
+        geoSphereFill: 'rgba(229, 197, 142, 0.03)',
         geoSphereStroke: 'rgba(229, 197, 142, 0.28)',
-        geoGrat: 'rgba(226, 230, 238, 0.09)',
-        geoLandFill: 'rgba(44, 48, 58, 0.62)',
-        geoLandStroke: 'rgba(229, 197, 142, 0.50)',
-        geoHalo0: 'rgba(229, 197, 142, 0.28)',
+        geoGrat: 'rgba(200, 210, 230, 0.09)',
+        geoLandFill: 'rgba(46, 52, 66, 0.62)',
+        geoLandStroke: 'rgba(229, 197, 142, 0.48)',
+        geoHalo0: 'rgba(229, 197, 142, 0.26)',
         geoPin: '#e5c58e',
         geoLabelInk: 'rgba(244, 245, 247, 0.96)',
-        geoLabelSub: 'rgba(229, 197, 142, 0.94)',
-        focusDim: 'rgba(5, 6, 9, 0.48)',
+        geoLabelSub: 'rgba(229, 197, 142, 0.92)',
+        focusDim: 'rgba(5, 6, 8, 0.50)',
         switchFlash: 'rgba(7, 8, 10, 0.92)',
         linkHighlight: '#e5c58e',
-        cardShadow: 'rgba(0, 0, 0, 0.58)',
-        cardShadowBig: 'rgba(0, 0, 0, 0.78)',
-        cardPaper: ['#20232b', '#13151a', '#0c0d11'],
-        cardInner: 'rgba(229, 197, 142, 0.25)',
-        cardOuter: 'rgba(229, 197, 142, 0.48)',
-        cardCode: 'rgba(230, 233, 240, 0.82)',
+        cardShadow: 'rgba(2, 3, 5, 0.58)',
+        cardShadowBig: 'rgba(2, 3, 5, 0.78)',
+        cardPaper: ['#20232b', '#14161c', '#0d0e13'],
+        cardInner: 'rgba(229, 197, 142, 0.24)',
+        cardOuter: 'rgba(229, 197, 142, 0.46)',
+        cardCode: 'rgba(220, 224, 234, 0.80)',
         dotRing: '#f4f5f7'
       },
       cats: {
-        'Archaeopteryx': '#e5c58e',
-        'Pettirossi': '#ef6b5b',
-        'Grilli': '#7dd3a8',
-        'da classificare': '#9ca3af'
+        'Archaeopteryx': '#f2a65a',
+        'Pettirossi': '#ff6b57',
+        'Grilli': '#8cd96b',
+        'da classificare': '#b39ddb'
       }
     },
     light: {
       css: {
-        '--bg': '#f2f2ef',
-        '--panel-top': 'rgba(255, 255, 254, 0.88)',
-        '--panel-bot': 'rgba(243, 243, 240, 0.92)',
-        '--glass-solid': 'rgba(253, 253, 252, 0.97)',
-        '--ink': '#14161a',
-        '--mute': '#525762',
-        '--line': 'rgba(24, 28, 36, 0.14)',
-        '--line-strong': 'rgba(24, 28, 36, 0.26)',
-        '--specular': 'rgba(255, 255, 255, 0.92)',
-        '--acc': '#8f6224',
-        '--acc-2': '#704b18',
+        '--bg': '#f2f3f5',
+        '--panel-top': 'rgba(255, 255, 255, 0.88)',
+        '--panel-bot': 'rgba(241, 243, 247, 0.95)',
+        '--glass-solid': 'rgba(252, 253, 255, 0.97)',
+        '--ink': '#16181d',
+        '--mute': '#59606e',
+        '--line': 'rgba(30, 38, 54, 0.14)',
+        '--line-strong': 'rgba(30, 38, 54, 0.28)',
+        '--specular': 'rgba(255, 255, 255, 0.85)',
+        '--acc': '#8c6222',
+        '--acc-2': '#6e4b16',
         '--acc-ink': '#ffffff',
-        '--chip-bg': 'rgba(24, 28, 36, 0.05)',
-        '--chip-hover': 'rgba(24, 28, 36, 0.11)',
-        '--shadow': 'rgba(16, 18, 24, 0.14)',
-        '--vignette': 'rgba(195, 195, 188, 0.32)',
-        '--hud': 'rgba(143, 98, 36, 0.30)',
-        '--title-1': '#14161a',
-        '--title-2': '#5c492e',
-        '--sub-ink': '#464b54',
-        '--card-glow': 'rgba(143, 98, 36, 0.07)',
-        '--overlay-bg': 'rgba(20, 22, 26, 0.44)',
-        '--media-1': '#eaeae6',
-        '--media-2': '#dadad4',
-        '--nb-frame': '#ffffff'
+        '--chip-bg': 'rgba(30, 38, 54, 0.06)',
+        '--chip-hover': 'rgba(30, 38, 54, 0.12)',
+        '--shadow': 'rgba(20, 26, 38, 0.14)',
+        '--vignette': 'rgba(180, 186, 198, 0.34)',
+        '--hud': 'rgba(140, 98, 34, 0.32)',
+        '--title-1': '#16181d',
+        '--title-2': '#8c6222',
+        '--sub-ink': '#434956',
+        '--card-glow': 'rgba(140, 98, 34, 0.08)',
+        '--overlay-bg': 'rgba(22, 24, 29, 0.52)',
+        '--media-1': '#e7eaef',
+        '--media-2': '#d5dae3',
+        '--nb-frame': '#e8ebf0'
       },
       canvas: {
-        bg0: '#fcfcfa', bg1: '#edede9', bg2: '#deded8',
-        spot0: 'rgba(143, 98, 36, 0.09)', spot1: 'rgba(160, 164, 172, 0.04)',
-        dust: 'rgba(60, 64, 72, 0.18)',
-        ringOuter: 'rgba(143, 98, 36, 0.24)',
-        ringInner: 'rgba(143, 98, 36, 0.12)',
-        ringMeridian: 'rgba(64, 68, 76, 0.13)',
-        art1: 'rgba(154, 102, 32,',
-        art2: 'rgba(194, 62, 48,',
-        art3: 'rgba(42, 118, 82,',
-        artFillAlpha: 0.06,
-        artStrokeAlpha: 0.92,
-        labelStroke: 'rgba(252, 252, 250, 0.95)',
-        geoBg0: '#fafaf8', geoBg1: '#ebebe6', geoBg2: '#dcdcd5',
-        geoSphereFill: 'rgba(143, 98, 36, 0.025)',
-        geoSphereStroke: 'rgba(120, 86, 38, 0.30)',
-        geoGrat: 'rgba(64, 68, 76, 0.11)',
-        geoLandFill: 'rgba(206, 206, 200, 0.74)',
-        geoLandStroke: 'rgba(110, 82, 42, 0.54)',
-        geoHalo0: 'rgba(143, 98, 36, 0.22)',
-        geoPin: '#8f6224',
-        geoLabelInk: 'rgba(20, 22, 26, 0.95)',
-        geoLabelSub: 'rgba(143, 98, 36, 0.92)',
-        focusDim: 'rgba(232, 232, 228, 0.52)',
-        switchFlash: 'rgba(242, 242, 239, 0.92)',
-        linkHighlight: '#8f6224',
-        cardShadow: 'rgba(16, 18, 24, 0.20)',
-        cardShadowBig: 'rgba(16, 18, 24, 0.32)',
-        cardPaper: ['#ffffff', '#f8f8f6', '#ecece8'],
-        cardInner: 'rgba(32, 34, 40, 0.20)',
-        cardOuter: 'rgba(143, 98, 36, 0.34)',
-        cardCode: 'rgba(32, 34, 40, 0.80)',
-        dotRing: '#14161a'
+        bg0: '#f9fafb', bg1: '#eef0f4', bg2: '#e1e4eb',
+        spot0: 'rgba(140, 98, 34, 0.10)', spot1: 'rgba(90, 110, 145, 0.05)',
+        dust: 'rgba(45, 55, 72, 0.20)',
+        ringOuter: 'rgba(45, 55, 72, 0.22)',
+        ringInner: 'rgba(45, 55, 72, 0.12)',
+        ringMeridian: 'rgba(45, 55, 72, 0.14)',
+        art1: 'rgba(156, 102, 28,',
+        art2: 'rgba(194, 62, 46,',
+        art3: 'rgba(64, 132, 54,',
+        artFillAlpha: 0.07,
+        artStrokeAlpha: 0.90,
+        labelStroke: 'rgba(246, 247, 250, 0.94)',
+        geoBg0: '#f8f9fb', geoBg1: '#eceef3', geoBg2: '#dfe3eb',
+        geoSphereFill: 'rgba(45, 55, 72, 0.04)',
+        geoSphereStroke: 'rgba(45, 55, 72, 0.30)',
+        geoGrat: 'rgba(45, 55, 72, 0.10)',
+        geoLandFill: 'rgba(182, 190, 204, 0.65)',
+        geoLandStroke: 'rgba(68, 78, 96, 0.50)',
+        geoHalo0: 'rgba(140, 98, 34, 0.24)',
+        geoPin: '#8c6222',
+        geoLabelInk: 'rgba(22, 24, 29, 0.95)',
+        geoLabelSub: 'rgba(140, 98, 34, 0.92)',
+        focusDim: 'rgba(242, 243, 245, 0.56)',
+        switchFlash: 'rgba(242, 243, 245, 0.92)',
+        linkHighlight: '#8c6222',
+        cardShadow: 'rgba(20, 26, 38, 0.20)',
+        cardShadowBig: 'rgba(20, 26, 38, 0.34)',
+        cardPaper: ['#ffffff', '#f5f6f9', '#eaedf2'],
+        cardInner: 'rgba(45, 55, 72, 0.20)',
+        cardOuter: 'rgba(45, 55, 72, 0.42)',
+        cardCode: 'rgba(52, 60, 74, 0.84)',
+        dotRing: '#16181d'
       },
       cats: {
-        'Archaeopteryx': '#a66d1e',
-        'Pettirossi': '#c94436',
-        'Grilli': '#2c7a56',
-        'da classificare': '#6b7280'
+        'Archaeopteryx': '#c86d1f',
+        'Pettirossi': '#d14334',
+        'Grilli': '#4e9636',
+        'da classificare': '#7a5fb8'
       }
     }
   },
-
   {
-    id: 'amethyst',
-    name: 'Wunderkammer',
-    subtitle: 'Cosmo barocco · Quarzo rosa e ametista',
-    swatches: ['#1a0e30', '#f0a3c0', '#f5eff8'],
+    id: 'cyanotype',
+    name: 'Cianotipia Abissale',
+    subtitle: 'Blu di Prussia · Ciano bioluminescente',
+    swatches: ['#06131f', '#4ef2f5', '#e4f6ff'],
     dark: {
       css: {
-        '--bg': '#070410',
-        '--panel-top': 'rgba(26, 14, 48, 0.85)',
-        '--panel-bot': 'rgba(10, 6, 22, 0.92)',
-        '--glass-solid': 'rgba(13, 8, 26, 0.96)',
-        '--ink': '#f7f0fa',
-        '--mute': '#bfa9cf',
-        '--line': 'rgba(240, 163, 192, 0.16)',
-        '--line-strong': 'rgba(240, 163, 192, 0.32)',
-        '--specular': 'rgba(245, 224, 255, 0.11)',
-        '--acc': '#f0a3c0',
-        '--acc-2': '#d17b9d',
-        '--acc-ink': '#260b18',
-        '--chip-bg': 'rgba(240, 163, 192, 0.07)',
-        '--chip-hover': 'rgba(240, 163, 192, 0.14)',
-        '--shadow': 'rgba(3, 1, 8, 0.78)',
-        '--vignette': 'rgba(4, 2, 10, 0.70)',
-        '--hud': 'rgba(240, 163, 192, 0.32)',
-        '--title-1': '#fdf7ff',
-        '--title-2': '#f3b7ce',
-        '--sub-ink': '#decce8',
-        '--card-glow': 'rgba(240, 163, 192, 0.12)',
-        '--overlay-bg': 'rgba(5, 2, 12, 0.80)',
-        '--media-1': '#180d2c',
-        '--media-2': '#05020b',
-        '--nb-frame': '#1a102e'
+        '--bg': '#040a12',
+        '--panel-top': 'rgba(10, 24, 40, 0.86)',
+        '--panel-bot': 'rgba(5, 13, 24, 0.94)',
+        '--glass-solid': 'rgba(7, 17, 30, 0.96)',
+        '--ink': '#e8f6ff',
+        '--mute': '#8eb4cc',
+        '--line': 'rgba(78, 242, 245, 0.16)',
+        '--line-strong': 'rgba(78, 242, 245, 0.32)',
+        '--specular': 'rgba(190, 245, 255, 0.12)',
+        '--acc': '#4ef2f5',
+        '--acc-2': '#26b8d4',
+        '--acc-ink': '#031822',
+        '--chip-bg': 'rgba(78, 242, 245, 0.07)',
+        '--chip-hover': 'rgba(78, 242, 245, 0.15)',
+        '--shadow': 'rgba(0, 4, 10, 0.80)',
+        '--vignette': 'rgba(1, 4, 9, 0.74)',
+        '--hud': 'rgba(78, 242, 245, 0.32)',
+        '--title-1': '#f4fbff',
+        '--title-2': '#4ef2f5',
+        '--sub-ink': '#b8d9ec',
+        '--card-glow': 'rgba(78, 242, 245, 0.11)',
+        '--overlay-bg': 'rgba(2, 6, 12, 0.82)',
+        '--media-1': '#0a1c2e',
+        '--media-2': '#030912',
+        '--nb-frame': '#0b1b2b'
       },
       canvas: {
-        bg0: '#1b0f33', bg1: '#0b0619', bg2: '#030108',
-        spot0: 'rgba(240, 163, 192, 0.13)', spot1: 'rgba(182, 144, 242, 0.05)',
-        dust: 'rgba(240, 214, 252, 0.27)',
-        ringOuter: 'rgba(240, 163, 192, 0.23)',
-        ringInner: 'rgba(240, 163, 192, 0.11)',
-        ringMeridian: 'rgba(222, 184, 242, 0.14)',
-        art1: 'rgba(242, 173, 107,',
-        art2: 'rgba(255, 117, 143,',
-        art3: 'rgba(123, 224, 181,',
-        artFillAlpha: 0.08,
+        bg0: '#0b2036', bg1: '#05101d', bg2: '#02060c',
+        spot0: 'rgba(78, 242, 245, 0.13)', spot1: 'rgba(80, 150, 255, 0.06)',
+        dust: 'rgba(165, 238, 255, 0.28)',
+        ringOuter: 'rgba(78, 242, 245, 0.24)',
+        ringInner: 'rgba(78, 242, 245, 0.12)',
+        ringMeridian: 'rgba(140, 215, 255, 0.14)',
+        art1: 'rgba(246, 196, 106,',
+        art2: 'rgba(255, 118, 122,',
+        art3: 'rgba(78, 242, 245,',
+        artFillAlpha: 0.09,
         artStrokeAlpha: 0.98,
-        labelStroke: 'rgba(7, 4, 16, 0.94)',
-        geoBg0: '#190e30', geoBg1: '#0b0619', geoBg2: '#030108',
-        geoSphereFill: 'rgba(240, 163, 192, 0.04)',
-        geoSphereStroke: 'rgba(240, 163, 192, 0.30)',
-        geoGrat: 'rgba(222, 184, 242, 0.10)',
-        geoLandFill: 'rgba(52, 30, 88, 0.60)',
-        geoLandStroke: 'rgba(240, 163, 192, 0.52)',
-        geoHalo0: 'rgba(240, 163, 192, 0.30)',
-        geoPin: '#f0a3c0',
-        geoLabelInk: 'rgba(247, 240, 250, 0.96)',
-        geoLabelSub: 'rgba(240, 163, 192, 0.94)',
-        focusDim: 'rgba(6, 3, 14, 0.48)',
-        switchFlash: 'rgba(7, 4, 16, 0.92)',
-        linkHighlight: '#f0a3c0',
-        cardShadow: 'rgba(3, 1, 8, 0.56)',
-        cardShadowBig: 'rgba(3, 1, 8, 0.76)',
-        cardPaper: ['#24153d', '#150c26', '#0d0717'],
-        cardInner: 'rgba(240, 163, 192, 0.28)',
-        cardOuter: 'rgba(240, 163, 192, 0.50)',
-        cardCode: 'rgba(238, 214, 250, 0.84)',
-        dotRing: '#f7f0fa'
+        labelStroke: 'rgba(4, 10, 18, 0.94)',
+        geoBg0: '#0b2036', geoBg1: '#05101d', geoBg2: '#02060c',
+        geoSphereFill: 'rgba(78, 242, 245, 0.04)',
+        geoSphereStroke: 'rgba(78, 242, 245, 0.32)',
+        geoGrat: 'rgba(140, 215, 255, 0.10)',
+        geoLandFill: 'rgba(20, 56, 86, 0.62)',
+        geoLandStroke: 'rgba(78, 242, 245, 0.54)',
+        geoHalo0: 'rgba(78, 242, 245, 0.28)',
+        geoPin: '#4ef2f5',
+        geoLabelInk: 'rgba(232, 246, 255, 0.96)',
+        geoLabelSub: 'rgba(78, 242, 245, 0.92)',
+        focusDim: 'rgba(2, 6, 12, 0.50)',
+        switchFlash: 'rgba(4, 10, 18, 0.92)',
+        linkHighlight: '#4ef2f5',
+        cardShadow: 'rgba(1, 4, 10, 0.60)',
+        cardShadowBig: 'rgba(1, 4, 10, 0.80)',
+        cardPaper: ['#10263d', '#091829', '#050f1b'],
+        cardInner: 'rgba(78, 242, 245, 0.25)',
+        cardOuter: 'rgba(78, 242, 245, 0.48)',
+        cardCode: 'rgba(170, 232, 250, 0.84)',
+        dotRing: '#e8f6ff'
       },
       cats: {
-        'Archaeopteryx': '#f2ad6b',
-        'Pettirossi': '#ff758f',
-        'Grilli': '#7be0b5',
-        'da classificare': '#c49bff'
+        'Archaeopteryx': '#f6c46a',
+        'Pettirossi': '#ff767a',
+        'Grilli': '#4ef2f5',
+        'da classificare': '#a79bff'
       }
     },
     light: {
       css: {
-        '--bg': '#f3edf7',
-        '--panel-top': 'rgba(253, 250, 255, 0.88)',
-        '--panel-bot': 'rgba(243, 235, 248, 0.92)',
-        '--glass-solid': 'rgba(252, 248, 254, 0.97)',
-        '--ink': '#1e1026',
-        '--mute': '#5c416b',
-        '--line': 'rgba(84, 42, 108, 0.15)',
-        '--line-strong': 'rgba(84, 42, 108, 0.28)',
-        '--specular': 'rgba(255, 255, 255, 0.92)',
-        '--acc': '#7a3578',
-        '--acc-2': '#5e245c',
-        '--acc-ink': '#fdf7ff',
-        '--chip-bg': 'rgba(122, 53, 120, 0.06)',
-        '--chip-hover': 'rgba(122, 53, 120, 0.13)',
-        '--shadow': 'rgba(32, 14, 44, 0.15)',
-        '--vignette': 'rgba(196, 178, 208, 0.35)',
-        '--hud': 'rgba(122, 53, 120, 0.32)',
-        '--title-1': '#1e1026',
-        '--title-2': '#7a3578',
-        '--sub-ink': '#4e355c',
-        '--card-glow': 'rgba(122, 53, 120, 0.08)',
-        '--overlay-bg': 'rgba(30, 16, 38, 0.44)',
-        '--media-1': '#ebe1f2',
-        '--media-2': '#dacbe6',
-        '--nb-frame': '#ffffff'
+        '--bg': '#ebf4fa',
+        '--panel-top': 'rgba(248, 252, 255, 0.88)',
+        '--panel-bot': 'rgba(232, 243, 251, 0.95)',
+        '--glass-solid': 'rgba(246, 251, 255, 0.97)',
+        '--ink': '#0d2233',
+        '--mute': '#496a82',
+        '--line': 'rgba(16, 98, 138, 0.16)',
+        '--line-strong': 'rgba(16, 98, 138, 0.30)',
+        '--specular': 'rgba(255, 255, 255, 0.85)',
+        '--acc': '#0c7c9e',
+        '--acc-2': '#085d78',
+        '--acc-ink': '#ffffff',
+        '--chip-bg': 'rgba(16, 98, 138, 0.07)',
+        '--chip-hover': 'rgba(16, 98, 138, 0.14)',
+        '--shadow': 'rgba(12, 42, 66, 0.14)',
+        '--vignette': 'rgba(165, 195, 216, 0.34)',
+        '--hud': 'rgba(12, 124, 158, 0.34)',
+        '--title-1': '#0d2233',
+        '--title-2': '#0c7c9e',
+        '--sub-ink': '#325269',
+        '--card-glow': 'rgba(12, 124, 158, 0.09)',
+        '--overlay-bg': 'rgba(13, 34, 51, 0.54)',
+        '--media-1': '#dcebf5',
+        '--media-2': '#c6dceb',
+        '--nb-frame': '#dceaf4'
       },
       canvas: {
-        bg0: '#fbf7fd', bg1: '#ede2f4', bg2: '#dfd0ea',
-        spot0: 'rgba(138, 62, 134, 0.10)', spot1: 'rgba(176, 126, 204, 0.04)',
-        dust: 'rgba(92, 46, 114, 0.20)',
-        ringOuter: 'rgba(122, 53, 120, 0.26)',
-        ringInner: 'rgba(122, 53, 120, 0.13)',
-        ringMeridian: 'rgba(104, 52, 124, 0.14)',
-        art1: 'rgba(176, 96, 28,',
-        art2: 'rgba(192, 52, 84,',
-        art3: 'rgba(38, 122, 86,',
-        artFillAlpha: 0.07,
-        artStrokeAlpha: 0.95,
-        labelStroke: 'rgba(251, 247, 253, 0.95)',
-        geoBg0: '#faf5fc', geoBg1: '#ece0f3', geoBg2: '#ddcee8',
-        geoSphereFill: 'rgba(122, 53, 120, 0.03)',
-        geoSphereStroke: 'rgba(122, 53, 120, 0.32)',
-        geoGrat: 'rgba(96, 48, 118, 0.12)',
-        geoLandFill: 'rgba(208, 190, 220, 0.74)',
-        geoLandStroke: 'rgba(122, 53, 120, 0.58)',
-        geoHalo0: 'rgba(122, 53, 120, 0.24)',
-        geoPin: '#7a3578',
-        geoLabelInk: 'rgba(30, 16, 38, 0.95)',
-        geoLabelSub: 'rgba(122, 53, 120, 0.92)',
-        focusDim: 'rgba(234, 224, 242, 0.52)',
-        switchFlash: 'rgba(243, 237, 247, 0.92)',
-        linkHighlight: '#7a3578',
-        cardShadow: 'rgba(32, 14, 44, 0.22)',
-        cardShadowBig: 'rgba(32, 14, 44, 0.34)',
-        cardPaper: ['#ffffff', '#faf5fc', '#efe4f5'],
-        cardInner: 'rgba(54, 26, 72, 0.22)',
-        cardOuter: 'rgba(122, 53, 120, 0.36)',
-        cardCode: 'rgba(54, 26, 72, 0.80)',
-        dotRing: '#1e1026'
+        bg0: '#f5fafe', bg1: '#e6f1f8', bg2: '#d5e6f2',
+        spot0: 'rgba(12, 124, 158, 0.11)', spot1: 'rgba(40, 120, 190, 0.05)',
+        dust: 'rgba(16, 98, 138, 0.22)',
+        ringOuter: 'rgba(16, 98, 138, 0.24)',
+        ringInner: 'rgba(16, 98, 138, 0.13)',
+        ringMeridian: 'rgba(16, 98, 138, 0.15)',
+        art1: 'rgba(182, 104, 28,',
+        art2: 'rgba(196, 66, 62,',
+        art3: 'rgba(12, 124, 158,',
+        artFillAlpha: 0.08,
+        artStrokeAlpha: 0.92,
+        labelStroke: 'rgba(240, 248, 253, 0.94)',
+        geoBg0: '#f4f9fd', geoBg1: '#e4eff7', geoBg2: '#d2e3f0',
+        geoSphereFill: 'rgba(12, 124, 158, 0.04)',
+        geoSphereStroke: 'rgba(16, 98, 138, 0.32)',
+        geoGrat: 'rgba(16, 98, 138, 0.11)',
+        geoLandFill: 'rgba(164, 196, 218, 0.65)',
+        geoLandStroke: 'rgba(16, 98, 138, 0.52)',
+        geoHalo0: 'rgba(12, 124, 158, 0.24)',
+        geoPin: '#0c7c9e',
+        geoLabelInk: 'rgba(13, 34, 51, 0.95)',
+        geoLabelSub: 'rgba(12, 124, 158, 0.92)',
+        focusDim: 'rgba(235, 244, 250, 0.55)',
+        switchFlash: 'rgba(235, 244, 250, 0.92)',
+        linkHighlight: '#0c7c9e',
+        cardShadow: 'rgba(12, 42, 66, 0.20)',
+        cardShadowBig: 'rgba(12, 42, 66, 0.34)',
+        cardPaper: ['#ffffff', '#f0f7fc', '#e2eff8'],
+        cardInner: 'rgba(16, 98, 138, 0.22)',
+        cardOuter: 'rgba(16, 98, 138, 0.44)',
+        cardCode: 'rgba(26, 76, 108, 0.84)',
+        dotRing: '#0d2233'
       },
       cats: {
-        'Archaeopteryx': '#b56522',
-        'Pettirossi': '#c43b5a',
-        'Grilli': '#2c7d59',
-        'da classificare': '#7a4999'
+        'Archaeopteryx': '#c86d1f',
+        'Pettirossi': '#d14334',
+        'Grilli': '#0c7c9e',
+        'da classificare': '#6e58b8'
+      }
+    }
+  },
+  {
+    id: 'emerald',
+    name: 'Erbario Smeraldo',
+    subtitle: 'Foresta giurassica · Linfa e muschio antico',
+    swatches: ['#07140d', '#7ee081', '#e8f5ea'],
+    dark: {
+      css: {
+        '--bg': '#050b07',
+        '--panel-top': 'rgba(12, 26, 18, 0.86)',
+        '--panel-bot': 'rgba(6, 14, 9, 0.94)',
+        '--glass-solid': 'rgba(8, 18, 12, 0.96)',
+        '--ink': '#eaf6ec',
+        '--mute': '#95b89e',
+        '--line': 'rgba(126, 224, 129, 0.16)',
+        '--line-strong': 'rgba(126, 224, 129, 0.32)',
+        '--specular': 'rgba(210, 255, 220, 0.11)',
+        '--acc': '#7ee081',
+        '--acc-2': '#4eb85c',
+        '--acc-ink': '#061c0b',
+        '--chip-bg': 'rgba(126, 224, 129, 0.07)',
+        '--chip-hover': 'rgba(126, 224, 129, 0.15)',
+        '--shadow': 'rgba(0, 6, 2, 0.80)',
+        '--vignette': 'rgba(1, 5, 2, 0.72)',
+        '--hud': 'rgba(126, 224, 129, 0.32)',
+        '--title-1': '#f4fbf5',
+        '--title-2': '#7ee081',
+        '--sub-ink': '#bedbc4',
+        '--card-glow': 'rgba(126, 224, 129, 0.11)',
+        '--overlay-bg': 'rgba(2, 7, 4, 0.82)',
+        '--media-1': '#0d1f14',
+        '--media-2': '#040a06',
+        '--nb-frame': '#0e1e14'
+      },
+      canvas: {
+        bg0: '#0d2215', bg1: '#06110a', bg2: '#020704',
+        spot0: 'rgba(126, 224, 129, 0.12)', spot1: 'rgba(220, 195, 110, 0.05)',
+        dust: 'rgba(195, 245, 205, 0.26)',
+        ringOuter: 'rgba(126, 224, 129, 0.23)',
+        ringInner: 'rgba(126, 224, 129, 0.11)',
+        ringMeridian: 'rgba(180, 235, 190, 0.13)',
+        art1: 'rgba(242, 184, 96,',
+        art2: 'rgba(255, 118, 98,',
+        art3: 'rgba(126, 224, 129,',
+        artFillAlpha: 0.09,
+        artStrokeAlpha: 0.98,
+        labelStroke: 'rgba(5, 11, 7, 0.94)',
+        geoBg0: '#0d2215', geoBg1: '#06110a', geoBg2: '#020704',
+        geoSphereFill: 'rgba(126, 224, 129, 0.04)',
+        geoSphereStroke: 'rgba(126, 224, 129, 0.30)',
+        geoGrat: 'rgba(180, 235, 190, 0.10)',
+        geoLandFill: 'rgba(24, 64, 38, 0.62)',
+        geoLandStroke: 'rgba(126, 224, 129, 0.52)',
+        geoHalo0: 'rgba(126, 224, 129, 0.28)',
+        geoPin: '#7ee081',
+        geoLabelInk: 'rgba(234, 246, 236, 0.96)',
+        geoLabelSub: 'rgba(126, 224, 129, 0.92)',
+        focusDim: 'rgba(2, 7, 4, 0.50)',
+        switchFlash: 'rgba(5, 11, 7, 0.92)',
+        linkHighlight: '#7ee081',
+        cardShadow: 'rgba(1, 5, 2, 0.60)',
+        cardShadowBig: 'rgba(1, 5, 2, 0.80)',
+        cardPaper: ['#12261a', '#0a1810', '#060f0a'],
+        cardInner: 'rgba(126, 224, 129, 0.25)',
+        cardOuter: 'rgba(126, 224, 129, 0.46)',
+        cardCode: 'rgba(188, 236, 196, 0.84)',
+        dotRing: '#eaf6ec'
+      },
+      cats: {
+        'Archaeopteryx': '#f2b860',
+        'Pettirossi': '#ff7662',
+        'Grilli': '#7ee081',
+        'da classificare': '#b39ddb'
+      }
+    },
+    light: {
+      css: {
+        '--bg': '#edf5ee',
+        '--panel-top': 'rgba(250, 254, 250, 0.88)',
+        '--panel-bot': 'rgba(234, 245, 236, 0.95)',
+        '--glass-solid': 'rgba(248, 253, 249, 0.97)',
+        '--ink': '#112416',
+        '--mute': '#4b6b53',
+        '--line': 'rgba(28, 108, 52, 0.16)',
+        '--line-strong': 'rgba(28, 108, 52, 0.30)',
+        '--specular': 'rgba(255, 255, 255, 0.85)',
+        '--acc': '#247a3d',
+        '--acc-2': '#195c2d',
+        '--acc-ink': '#ffffff',
+        '--chip-bg': 'rgba(28, 108, 52, 0.07)',
+        '--chip-hover': 'rgba(28, 108, 52, 0.14)',
+        '--shadow': 'rgba(14, 46, 24, 0.14)',
+        '--vignette': 'rgba(170, 204, 178, 0.34)',
+        '--hud': 'rgba(36, 122, 61, 0.34)',
+        '--title-1': '#112416',
+        '--title-2': '#247a3d',
+        '--sub-ink': '#33543c',
+        '--card-glow': 'rgba(36, 122, 61, 0.09)',
+        '--overlay-bg': 'rgba(17, 36, 22, 0.54)',
+        '--media-1': '#deede1',
+        '--media-2': '#c8dfcd',
+        '--nb-frame': '#deece1'
+      },
+      canvas: {
+        bg0: '#f6fbf7', bg1: '#e8f3ea', bg2: '#d7e8da',
+        spot0: 'rgba(36, 122, 61, 0.11)', spot1: 'rgba(130, 140, 60, 0.05)',
+        dust: 'rgba(28, 108, 52, 0.22)',
+        ringOuter: 'rgba(28, 108, 52, 0.24)',
+        ringInner: 'rgba(28, 108, 52, 0.13)',
+        ringMeridian: 'rgba(28, 108, 52, 0.15)',
+        art1: 'rgba(182, 104, 28,',
+        art2: 'rgba(196, 66, 52,',
+        art3: 'rgba(36, 122, 61,',
+        artFillAlpha: 0.08,
+        artStrokeAlpha: 0.92,
+        labelStroke: 'rgba(242, 250, 244, 0.94)',
+        geoBg0: '#f5faf6', geoBg1: '#e6f2e8', geoBg2: '#d4e6d8',
+        geoSphereFill: 'rgba(36, 122, 61, 0.04)',
+        geoSphereStroke: 'rgba(28, 108, 52, 0.32)',
+        geoGrat: 'rgba(28, 108, 52, 0.11)',
+        geoLandFill: 'rgba(168, 204, 176, 0.65)',
+        geoLandStroke: 'rgba(28, 108, 52, 0.52)',
+        geoHalo0: 'rgba(36, 122, 61, 0.24)',
+        geoPin: '#247a3d',
+        geoLabelInk: 'rgba(17, 36, 22, 0.95)',
+        geoLabelSub: 'rgba(36, 122, 61, 0.92)',
+        focusDim: 'rgba(237, 245, 238, 0.55)',
+        switchFlash: 'rgba(237, 245, 238, 0.92)',
+        linkHighlight: '#247a3d',
+        cardShadow: 'rgba(14, 46, 24, 0.20)',
+        cardShadowBig: 'rgba(14, 46, 24, 0.34)',
+        cardPaper: ['#ffffff', '#f1f8f2', '#e3efe5'],
+        cardInner: 'rgba(28, 108, 52, 0.22)',
+        cardOuter: 'rgba(28, 108, 52, 0.44)',
+        cardCode: 'rgba(32, 86, 48, 0.84)',
+        dotRing: '#112416'
+      },
+      cats: {
+        'Archaeopteryx': '#c86d1f',
+        'Pettirossi': '#d14334',
+        'Grilli': '#247a3d',
+        'da classificare': '#7a5fb8'
+      }
+    }
+  },
+  {
+    id: 'amethyst',
+    name: 'Ametista Siderale',
+    subtitle: 'Velluto crepuscolare · Quarzo viola e rosa',
+    swatches: ['#120a1c', '#c792ea', '#f4ecfa'],
+    dark: {
+      css: {
+        '--bg': '#08050d',
+        '--panel-top': 'rgba(24, 15, 36, 0.86)',
+        '--panel-bot': 'rgba(11, 7, 18, 0.94)',
+        '--glass-solid': 'rgba(14, 9, 22, 0.96)',
+        '--ink': '#f5eefb',
+        '--mute': '#b39ec7',
+        '--line': 'rgba(199, 146, 234, 0.16)',
+        '--line-strong': 'rgba(199, 146, 234, 0.32)',
+        '--specular': 'rgba(240, 220, 255, 0.11)',
+        '--acc': '#c792ea',
+        '--acc-2': '#9d65c9',
+        '--acc-ink': '#180924',
+        '--chip-bg': 'rgba(199, 146, 234, 0.07)',
+        '--chip-hover': 'rgba(199, 146, 234, 0.15)',
+        '--shadow': 'rgba(3, 1, 8, 0.80)',
+        '--vignette': 'rgba(3, 1, 7, 0.72)',
+        '--hud': 'rgba(199, 146, 234, 0.32)',
+        '--title-1': '#fbf7ff',
+        '--title-2': '#c792ea',
+        '--sub-ink': '#d8c5e8',
+        '--card-glow': 'rgba(199, 146, 234, 0.11)',
+        '--overlay-bg': 'rgba(4, 2, 10, 0.82)',
+        '--media-1': '#1a1026',
+        '--media-2': '#07040c',
+        '--nb-frame': '#191124'
+      },
+      canvas: {
+        bg0: '#1b1029', bg1: '#0c0714', bg2: '#040208',
+        spot0: 'rgba(199, 146, 234, 0.13)', spot1: 'rgba(235, 130, 175, 0.05)',
+        dust: 'rgba(232, 210, 250, 0.26)',
+        ringOuter: 'rgba(199, 146, 234, 0.23)',
+        ringInner: 'rgba(199, 146, 234, 0.11)',
+        ringMeridian: 'rgba(220, 195, 245, 0.13)',
+        art1: 'rgba(242, 176, 106,',
+        art2: 'rgba(255, 118, 128,',
+        art3: 'rgba(148, 224, 138,',
+        artFillAlpha: 0.09,
+        artStrokeAlpha: 0.98,
+        labelStroke: 'rgba(8, 5, 13, 0.94)',
+        geoBg0: '#1b1029', geoBg1: '#0c0714', geoBg2: '#040208',
+        geoSphereFill: 'rgba(199, 146, 234, 0.04)',
+        geoSphereStroke: 'rgba(199, 146, 234, 0.30)',
+        geoGrat: 'rgba(220, 195, 245, 0.10)',
+        geoLandFill: 'rgba(54, 34, 78, 0.62)',
+        geoLandStroke: 'rgba(199, 146, 234, 0.52)',
+        geoHalo0: 'rgba(199, 146, 234, 0.28)',
+        geoPin: '#c792ea',
+        geoLabelInk: 'rgba(245, 238, 251, 0.96)',
+        geoLabelSub: 'rgba(199, 146, 234, 0.92)',
+        focusDim: 'rgba(4, 2, 10, 0.50)',
+        switchFlash: 'rgba(8, 5, 13, 0.92)',
+        linkHighlight: '#c792ea',
+        cardShadow: 'rgba(2, 1, 6, 0.60)',
+        cardShadowBig: 'rgba(2, 1, 6, 0.80)',
+        cardPaper: ['#221633', '#150d21', '#0d0715'],
+        cardInner: 'rgba(199, 146, 234, 0.25)',
+        cardOuter: 'rgba(199, 146, 234, 0.46)',
+        cardCode: 'rgba(224, 200, 244, 0.84)',
+        dotRing: '#f5eefb'
+      },
+      cats: {
+        'Archaeopteryx': '#f2b06a',
+        'Pettirossi': '#ff7680',
+        'Grilli': '#94e08a',
+        'da classificare': '#c792ea'
+      }
+    },
+    light: {
+      css: {
+        '--bg': '#f4effa',
+        '--panel-top': 'rgba(253, 250, 255, 0.88)',
+        '--panel-bot': 'rgba(242, 235, 250, 0.95)',
+        '--glass-solid': 'rgba(252, 249, 255, 0.97)',
+        '--ink': '#1e122b',
+        '--mute': '#624d78',
+        '--line': 'rgba(112, 56, 158, 0.16)',
+        '--line-strong': 'rgba(112, 56, 158, 0.30)',
+        '--specular': 'rgba(255, 255, 255, 0.85)',
+        '--acc': '#7a3eb3',
+        '--acc-2': '#5d2b8c',
+        '--acc-ink': '#ffffff',
+        '--chip-bg': 'rgba(112, 56, 158, 0.07)',
+        '--chip-hover': 'rgba(112, 56, 158, 0.14)',
+        '--shadow': 'rgba(34, 16, 52, 0.14)',
+        '--vignette': 'rgba(192, 174, 212, 0.34)',
+        '--hud': 'rgba(122, 62, 179, 0.34)',
+        '--title-1': '#1e122b',
+        '--title-2': '#7a3eb3',
+        '--sub-ink': '#49355e',
+        '--card-glow': 'rgba(122, 62, 179, 0.09)',
+        '--overlay-bg': 'rgba(30, 18, 43, 0.54)',
+        '--media-1': '#eae0f5',
+        '--media-2': '#d8c8eb',
+        '--nb-frame': '#eae0f4'
+      },
+      canvas: {
+        bg0: '#faf7fd', bg1: '#efe8f7', bg2: '#e2d6f0',
+        spot0: 'rgba(122, 62, 179, 0.11)', spot1: 'rgba(180, 80, 140, 0.05)',
+        dust: 'rgba(112, 56, 158, 0.22)',
+        ringOuter: 'rgba(112, 56, 158, 0.24)',
+        ringInner: 'rgba(112, 56, 158, 0.13)',
+        ringMeridian: 'rgba(112, 56, 158, 0.15)',
+        art1: 'rgba(182, 104, 28,',
+        art2: 'rgba(196, 66, 62,',
+        art3: 'rgba(64, 132, 54,',
+        artFillAlpha: 0.08,
+        artStrokeAlpha: 0.92,
+        labelStroke: 'rgba(247, 242, 252, 0.94)',
+        geoBg0: '#f9f6fc', geoBg1: '#ede5f6', geoBg2: '#dfd3ee',
+        geoSphereFill: 'rgba(122, 62, 179, 0.04)',
+        geoSphereStroke: 'rgba(112, 56, 158, 0.32)',
+        geoGrat: 'rgba(112, 56, 158, 0.11)',
+        geoLandFill: 'rgba(190, 170, 212, 0.65)',
+        geoLandStroke: 'rgba(112, 56, 158, 0.52)',
+        geoHalo0: 'rgba(122, 62, 179, 0.24)',
+        geoPin: '#7a3eb3',
+        geoLabelInk: 'rgba(30, 18, 43, 0.95)',
+        geoLabelSub: 'rgba(122, 62, 179, 0.92)',
+        focusDim: 'rgba(244, 239, 250, 0.55)',
+        switchFlash: 'rgba(244, 239, 250, 0.92)',
+        linkHighlight: '#7a3eb3',
+        cardShadow: 'rgba(34, 16, 52, 0.20)',
+        cardShadowBig: 'rgba(34, 16, 52, 0.34)',
+        cardPaper: ['#ffffff', '#f6f1fc', '#ebe2f6'],
+        cardInner: 'rgba(112, 56, 158, 0.22)',
+        cardOuter: 'rgba(112, 56, 158, 0.44)',
+        cardCode: 'rgba(78, 42, 114, 0.84)',
+        dotRing: '#1e122b'
+      },
+      cats: {
+        'Archaeopteryx': '#c86d1f',
+        'Pettirossi': '#d14334',
+        'Grilli': '#4e9636',
+        'da classificare': '#7a3eb3'
       }
     }
   }
@@ -733,12 +729,15 @@ export const PALETTES = [
 
 export const PALETTE_MAP = new Map(PALETTES.map(p => [p.id, p]));
 
-const sysDarkMQ = matchMedia('(prefers-color-scheme: dark)');
-const themeHooks = new Set();
+const LS_PAL = 'atlante:palette:v1';
+const LS_MODE = 'atlante:themeMode:v1';
+const sysDark = matchMedia('(prefers-color-scheme: dark)');
+
+const themeHooks = [];
 let cardRebuilder = null;
 
 export function registerThemeHook(fn) {
-  themeHooks.add(fn);
+  themeHooks.push(fn);
 }
 
 export function registerCardRebuilder(fn) {
@@ -746,99 +745,66 @@ export function registerCardRebuilder(fn) {
 }
 
 export function getResolvedTheme() {
-  if (state.themeMode === 'light' || state.themeMode === 'dark') {
-    return state.themeMode;
-  }
-  return sysDarkMQ.matches ? 'dark' : 'light';
+  if (state.themeMode === 'light' || state.themeMode === 'dark') return state.themeMode;
+  return sysDark.matches ? 'dark' : 'light';
 }
 
 export function getThemeTokens() {
-  const pal = PALETTE_MAP.get(state.palette) || PALETTES[0];
-  const mode = getResolvedTheme();
-  return pal[mode];
+  const pal = PALETTE_MAP.get(state.palette) || PALETTES[1];
+  const resolved = getResolvedTheme();
+  return pal[resolved] || pal.dark;
 }
 
-export function applyCategoryColors() {
+export function syncCanvasTheme() {
   const tokens = getThemeTokens();
   const cats = Object.keys(state.col);
-  if (!cats.length) return;
   cats.forEach((c, i) => {
-    state.col[c] = tokens.cats[c] || PAL[i % PAL.length];
+    state.col[c] = (tokens.cats && tokens.cats[c]) || PAL[i % PAL.length];
   });
 }
 
-export function applyTheme(rebuildCards = true) {
-  const pal = PALETTE_MAP.get(state.palette) || PALETTES[0];
+function applyAllTokens() {
   const resolved = getResolvedTheme();
-  const tokens = pal[resolved];
+  const tokens = getThemeTokens();
   const root = document.documentElement;
-
-  root.dataset.palette = pal.id;
+  root.dataset.palette = state.palette;
   root.dataset.theme = resolved;
-  root.style.colorScheme = resolved;
-
   for (const [k, v] of Object.entries(tokens.css)) {
     root.style.setProperty(k, v);
   }
-
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta && tokens.css['--bg']) {
-    meta.setAttribute('content', tokens.css['--bg']);
-  }
+  if (meta) meta.setAttribute('content', tokens.css['--bg']);
 
-  applyCategoryColors();
-
-  for (const fn of themeHooks) {
-    try { fn(resolved, pal, tokens); } catch (_) {}
-  }
-
-  if (rebuildCards && typeof cardRebuilder === 'function') {
-    cardRebuilder();
-  }
-
+  syncCanvasTheme();
+  for (const fn of themeHooks) fn();
+  if (cardRebuilder) cardRebuilder();
   markDirty();
+  window.dispatchEvent(new CustomEvent('atlante:themechange', { detail: { palette: state.palette, theme: resolved } }));
 }
 
-export function setThemeMode(mode) {
+export function applyPalette(id) {
+  if (!PALETTE_MAP.has(id)) return;
+  state.palette = id;
+  try { localStorage.setItem(LS_PAL, id); } catch (_) {}
+  applyAllTokens();
+}
+
+export function applyThemeMode(mode) {
   if (!['auto', 'light', 'dark'].includes(mode)) return;
   state.themeMode = mode;
-  applyTheme(true);
+  try { localStorage.setItem(LS_MODE, mode); } catch (_) {}
+  applyAllTokens();
 }
 
-export function setPalette(paletteId) {
-  if (!PALETTE_MAP.has(paletteId)) return;
-  state.palette = paletteId;
-  applyTheme(true);
-}
-
-export function cyclePalette() {
-  const idx = PALETTES.findIndex(p => p.id === state.palette);
-  const next = PALETTES[(idx + 1) % PALETTES.length];
-  setPalette(next.id);
-  return next;
-}
-
-export function cycleThemeMode() {
-  const order = ['auto', 'light', 'dark'];
-  const next = order[(order.indexOf(state.themeMode) + 1) % order.length];
-  setThemeMode(next);
-  return next;
-}
-
-let initialized = false;
-export function initTheme() {
-  if (!initialized) {
-    initialized = true;
-    const onSysChange = () => {
-      if (state.themeMode === 'auto') {
-        applyTheme(true);
-      }
-    };
-    if (typeof sysDarkMQ.addEventListener === 'function') {
-      sysDarkMQ.addEventListener('change', onSysChange);
-    } else if (typeof sysDarkMQ.addListener === 'function') {
-      sysDarkMQ.addListener(onSysChange);
-    }
-  }
-  applyTheme(false);
+export function initThemeSystem() {
+  try {
+    const savedPal = localStorage.getItem(LS_PAL);
+    const savedMode = localStorage.getItem(LS_MODE);
+    if (savedPal && PALETTE_MAP.has(savedPal)) state.palette = savedPal;
+    if (savedMode && ['auto', 'light', 'dark'].includes(savedMode)) state.themeMode = savedMode;
+  } catch (_) {}
+  sysDark.addEventListener('change', () => {
+    if (state.themeMode === 'auto') applyAllTokens();
+  });
+  applyAllTokens();
 }

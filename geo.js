@@ -327,7 +327,6 @@ export function drawGeoHalos(cx, t = performance.now()) {
     g.fillRect(0, 0, 128, 128);
   }
 
-  // Archi geodetici animati tra gli hub attivi
   if (!state.ecoMode && hubVis.size > 1) {
     cx.save();
     cx.strokeStyle = cvT.geoSphereStroke;
@@ -364,7 +363,6 @@ export function drawGeoHalos(cx, t = performance.now()) {
       cx.setLineDash([]);
     }
 
-    // Onda radar concentrica
     if (!RM && !state.ecoMode) {
       cx.save();
       cx.strokeStyle = cvT.geoPin;
