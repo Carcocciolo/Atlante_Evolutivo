@@ -2,6 +2,7 @@
    data.js — configurazione, stato condiviso, parsing, feature
    visive e layout t-SNE 3D con texture GPU (ImageBitmap)
    ============================================================ */
+import { getThemeTokens, registerCardRebuilder } from './theme.js';
 
 export const CONFIG = {
   csv: '02_database/database_immagini.csv',
@@ -45,6 +46,8 @@ export const state = {
   hov: -1,
   mode: 'thumb',          // 'thumb' | 'dot'
   viewMode: '3d',         // '3d' | 'geo'
+  themeMode: 'auto',      // 'auto' | 'light' | 'dark'
+  palette: 'amber',       // 'amber' | 'cyanotype' | 'emerald' | 'monolith' | 'amethyst'
   W: 0, H: 0, dpr: 1,
   cam3D: {
     yaw: 0.35, pitch: 0.18, zoom: 1, panX: 0, panY: 0,
@@ -158,6 +161,7 @@ export function makeThumb(bm, S = CONFIG.thumb) {
 }
 
 export function makeCardCanvas(th, color, idx) {
+  const cvT = getThemeTokens().canvas;
   const S = th.width;
   const pad = Math.round(S * CARD.pad);
   const bottom = Math.round(S * CARD.bottom);
@@ -166,16 +170,16 @@ export function makeCardCanvas(th, color, idx) {
   c.height = S + pad + bottom;
   const g = c.getContext('2d');
 
-  // Passepartout caldo pergamena/avorio da gabinetto naturalistico
+  // Passepartout armonizzato con la palette attiva
   const paper = g.createLinearGradient(0, 0, c.width, c.height);
-  paper.addColorStop(0, '#fbf6ed');
-  paper.addColorStop(0.6, '#f5ede0');
-  paper.addColorStop(1, '#ebe0cf');
+  paper.addColorStop(0, cvT.cardPaper[0]);
+  paper.addColorStop(0.6, cvT.cardPaper[1]);
+  paper.addColorStop(1, cvT.cardPaper[2]);
   g.fillStyle = paper;
   g.fillRect(0, 0, c.width, c.height);
 
-  // Riflesso superiore caldo
-  g.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  // Riflesso superiore
+  g.fillStyle = 'rgba(255, 255, 255, 0.72)';
   g.fillRect(0, 0, c.width, 1.5);
   g.fillRect(0, 0, 1.5, c.height);
 
@@ -183,12 +187,12 @@ export function makeCardCanvas(th, color, idx) {
   g.drawImage(th, pad, pad);
 
   // Filetto interno incassato
-  g.strokeStyle = 'rgba(42, 18, 6, 0.22)';
+  g.strokeStyle = cvT.cardInner;
   g.lineWidth = 1;
   g.strokeRect(pad + 0.5, pad + 0.5, S - 1, S - 1);
 
-  // Bordo esterno caldo
-  g.strokeStyle = 'rgba(242, 166, 90, 0.35)';
+  // Bordo esterno
+  g.strokeStyle = cvT.cardOuter;
   g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
 
   // Tacca di categoria
@@ -204,7 +208,7 @@ export function makeCardCanvas(th, color, idx) {
 
   // Codice catalogo
   if (idx != null) {
-    g.fillStyle = 'rgba(62, 32, 14, 0.72)';
+    g.fillStyle = cvT.cardCode;
     g.font = `600 ${Math.round(S * 0.072)}px "JetBrains Mono", monospace`;
     g.textAlign = 'right';
     g.fillText(`FIG.${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.52));
@@ -223,16 +227,39 @@ function halve(src) {
 }
 const toGPU = c => (typeof createImageBitmap === 'function' ? createImageBitmap(c) : c);
 
+async function buildCardMipmaps(it, idx) {
+  const full = makeCardCanvas(it.th, state.col[it.cat], idx);
+  const half = halve(full);
+  const nextCards = await Promise.all([halve(half), half, full].map(toGPU));
+  const oldCards = it.cards;
+  it.cards = nextCards;
+  if (Array.isArray(oldCards)) {
+    for (const bmp of oldCards) {
+      if (bmp && typeof bmp.close === 'function') bmp.close();
+    }
+  }
+}
+
 export async function setItemImage(it, bm, idx) {
   it.th = makeThumb(bm);
-  const full = makeCardCanvas(it.th, state.col[it.cat], idx);
+  it.cardIdx = idx;
+  await buildCardMipmaps(it, idx);
   if (typeof bm.close === 'function') bm.close();
-  const half = halve(full);
-  it.cards = await Promise.all([halve(half), half, full].map(toGPU));
   it.ready = true;
   it.b = performance.now();
   markDirty();
 }
+
+let rebuildToken = 0;
+export async function rebuildAllCards() {
+  const token = ++rebuildToken;
+  const readyItems = state.items.filter(it => it.ready && it.th);
+  if (!readyItems.length) return;
+  await Promise.all(readyItems.map((it, idx) => buildCardMipmaps(it, it.cardIdx ?? idx)));
+  if (token === rebuildToken) markDirty();
+}
+
+registerCardRebuilder(rebuildAllCards);
 
 /* ---------- feature visive (colore, istogramma, bordi) ---------- */
 export function feat(th) {

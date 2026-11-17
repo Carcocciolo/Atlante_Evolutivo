@@ -1,10 +1,11 @@
 /* ============================================================
    main.js — ciclo di rendering, fisica tilt 2D migliorata,
-   input e avvio
+   telemetria ottica live, input e avvio
    ============================================================ */
 import { state, RM, CARD, ease, clamp, rgba, esc, markDirty } from './data.js';
+import { getThemeTokens, getResolvedTheme, PALETTE_MAP } from './theme.js';
 import {
-  geoOffset, geoThumbSize, layoutHubs, drawGeoBase, drawGeoHalos, drawGeoLabels, loadLand
+  geoOffset, geoThumbSize, layoutHubs, drawGeoBase, drawGeoHalos, drawGeoLabels, loadLand, screenToGeo
 } from './geo.js';
 import { project3D, thumbSize3D, draw3DBackground, drawClusterLabels, buildBackground } from './view3d.js';
 import { stepCamera, zoomBy, focusOn, rotateScreenSpace } from './camera.js';
@@ -17,18 +18,19 @@ const cv = $('#cv');
 const cx = cv.getContext('2d', { alpha: false });
 const wrap = $('#wrap');
 const tipEl = $('#tip');
+const telTextEl = $('#telemetry-text');
 
 const order = [];
 const off = {};
 const glowCache = new Map();
 const flags = { busy: false, moved: false };
-let lastView = '', lastN = -1;
+let lastView = '', lastN = -1, lastTel = '';
 let sheenSprite = null;
 
 // Tracciamento movimento camera per il tilt 2D delle card
 let prevCamX = 0, prevCamY = 0;
 
-/** Sprite luminoso per categoria (si disegna in modalità additiva). */
+/** Sprite luminoso per categoria. */
 function glow(color) {
   let c = glowCache.get(color);
   if (c) return c;
@@ -53,11 +55,11 @@ function getSheen() {
   sheenSprite.width = sheenSprite.height = 128;
   const g = sheenSprite.getContext('2d');
   const gr = g.createLinearGradient(0, 0, 128, 128);
-  gr.addColorStop(0, 'rgba(255, 248, 235, 0)');
-  gr.addColorStop(0.42, 'rgba(255, 248, 235, 0.24)');
+  gr.addColorStop(0, 'rgba(255, 252, 245, 0)');
+  gr.addColorStop(0.42, 'rgba(255, 252, 245, 0.24)');
   gr.addColorStop(0.5, 'rgba(255, 255, 255, 0.36)');
-  gr.addColorStop(0.58, 'rgba(255, 248, 235, 0.12)');
-  gr.addColorStop(1, 'rgba(255, 248, 235, 0)');
+  gr.addColorStop(0.58, 'rgba(255, 252, 245, 0.12)');
+  gr.addColorStop(1, 'rgba(255, 252, 245, 0)');
   g.fillStyle = gr;
   g.fillRect(0, 0, 128, 128);
   return sheenSprite;
@@ -67,6 +69,31 @@ function getSheen() {
 function pickLevel(cards, devW) {
   for (let i = 0; i < cards.length; i++) if (cards[i].width >= devW * 0.8) return cards[i];
   return cards[cards.length - 1];
+}
+
+/* ---------- telemetria ottica live ---------- */
+function updateTelemetry() {
+  if (!telTextEl) return;
+  const pal = PALETTE_MAP.get(state.palette);
+  const palName = pal ? pal.name.toUpperCase() : 'AMBRA';
+  let txt;
+  if (state.viewMode === '3d') {
+    const z = state.cam3D.zoom.toFixed(2);
+    txt = `SPAZIO 3D · ${z}× · ${palName}`;
+  } else {
+    const geo = state.mx > 0 ? screenToGeo(state.mx, state.my) : null;
+    if (geo) {
+      const latStr = `${Math.abs(geo.lat).toFixed(1)}°${geo.lat >= 0 ? 'N' : 'S'}`;
+      const lonStr = `${Math.abs(geo.lon).toFixed(1)}°${geo.lon >= 0 ? 'E' : 'O'}`;
+      txt = `MAPPA · ${latStr} ${lonStr} · ${state.camGeo.k.toFixed(1)}×`;
+    } else {
+      txt = `PLANISFERO · ${state.camGeo.k.toFixed(1)}× · ${palName}`;
+    }
+  }
+  if (txt !== lastTel) {
+    lastTel = txt;
+    telTextEl.textContent = txt;
+  }
 }
 
 /* ---------- picking ---------- */
@@ -155,23 +182,19 @@ function updateItems(t, dt, is3D, baseSize, hubs, impulseX, impulseY) {
       const mass = 0.72 + (i % 5) * 0.13;
 
       if (!isActive && (Math.abs(impulseX) > 1e-4 || Math.abs(impulseY) > 1e-4)) {
-        // Il movimento orizzontale inclina lateralmente; il movimento verticale genera un leggero beccheggio/torsione
         const sideSign = (i % 2 === 0 ? 1 : -1) * 0.35;
         const torque = (-impulseX * 1.15 + impulseY * sideSign) * mass * depthFactor;
         it.vrot += torque;
         it.vtiltY += impulseY * 0.9 * mass * depthFactor;
       }
 
-      // Molla angolare (roll / rotazione 2D)
       const stiffness = isActive ? 62 : 26;
       const damping = isActive ? 12.5 : 7.8;
       const force = (targetRot - it.rot) * stiffness;
       it.vrot = (it.vrot + force * dt) * Math.exp(-damping * dt);
       it.rot = clamp(it.rot + it.vrot * dt, -0.36, 0.36);
 
-      // Molla verticale (compressione prospettica / inclinazione in avanti-indietro)
-      const targetTiltY = 0;
-      const forceY = (targetTiltY - it.tiltY) * (isActive ? 55 : 24);
+      const forceY = -it.tiltY * (isActive ? 55 : 24);
       it.vtiltY = (it.vtiltY + forceY * dt) * Math.exp(-8.2 * dt);
       it.tiltY = clamp(it.tiltY + it.vtiltY * dt, -0.22, 0.22);
 
@@ -217,8 +240,9 @@ function computeClusterStats() {
 function drawAuras(baseSize) {
   const S = state;
   if (S.ecoMode) return;
-  cx.globalCompositeOperation = 'lighter';
-  cx.globalAlpha = 0.17 * (1 - 0.6 * S.focus);
+  const isLight = getResolvedTheme() === 'light';
+  cx.globalCompositeOperation = isLight ? 'multiply' : 'lighter';
+  cx.globalAlpha = (isLight ? 0.11 : 0.17) * (1 - 0.6 * S.focus);
   for (const [cat, s] of catStats) {
     if (s.n < 2) continue;
     const mx = s.sx / s.n, my = s.sy / s.n;
@@ -232,9 +256,11 @@ function drawAuras(baseSize) {
 
 function drawLinks(t) {
   const S = state, items = S.items, n = items.length, col = S.col;
+  const cvT = getThemeTokens().canvas;
+  const isLight = getResolvedTheme() === 'light';
   if (n && S.viewMode === '3d') {
-    cx.lineWidth = 1;
-    cx.globalAlpha = (S.ecoMode ? 0.12 : 0.18) * (1 - 0.6 * S.focus);
+    cx.lineWidth = isLight ? 1.1 : 1;
+    cx.globalAlpha = (S.ecoMode ? 0.14 : (isLight ? 0.24 : 0.18)) * (1 - 0.6 * S.focus);
     for (const cat of Object.keys(col)) {
       cx.beginPath();
       for (let i = 0; i < n; i++) {
@@ -254,10 +280,10 @@ function drawLinks(t) {
     cx.lineWidth = 1.6;
     cx.setLineDash([6, 8]);
     cx.lineDashOffset = (RM || S.ecoMode) ? 0 : -t * 0.04;
-    cx.strokeStyle = '#f2a65a';
+    cx.strokeStyle = cvT.linkHighlight;
     for (const k of [S.hov, S.sel]) {
       if (k < 0 || !items[k]) continue;
-      cx.globalAlpha = k === S.sel ? 0.85 : 0.55;
+      cx.globalAlpha = k === S.sel ? 0.88 : 0.58;
       cx.beginPath();
       for (const j of items[k].nn) {
         if (!items[j] || !items[j].vis) continue;
@@ -273,6 +299,8 @@ function drawLinks(t) {
 
 function drawNode(i, big, is3D, baseSize) {
   const S = state, it = S.items[i], o = S.proj[i], dpr = S.dpr, { W, H } = S;
+  const cvT = getThemeTokens().canvas;
+  const isLight = getResolvedTheme() === 'light';
   const margin = baseSize * 2.2;
   if (!big && (o.sx < -margin || o.sx > W + margin || o.sy < -margin || o.sy > H + margin)) return;
 
@@ -290,15 +318,15 @@ function drawNode(i, big, is3D, baseSize) {
   const live = it.ready && S.mode === 'thumb';
   if (!S.ecoMode && (big || (i === S.hov && live))) {
     const R = (live ? o.size : 22) * 1.6;
-    cx.globalCompositeOperation = 'lighter';
-    cx.globalAlpha = (big ? 0.6 : 0.42) * depth;
+    cx.globalCompositeOperation = isLight ? 'multiply' : 'lighter';
+    cx.globalAlpha = (big ? (isLight ? 0.32 : 0.6) : (isLight ? 0.22 : 0.42)) * depth;
     cx.drawImage(glow(c), o.sx - R, o.sy - R, R * 2, R * 2);
     cx.globalCompositeOperation = 'source-over';
   }
 
   if (!live) {
     const r = (big ? 11 : 6.5) * o.scale * (1 + 0.4 * it.hs) * it.vf;
-    if (!S.ecoMode) {
+    if (!S.ecoMode && !isLight) {
       cx.globalCompositeOperation = 'lighter';
       cx.globalAlpha = 0.72 * depth;
       cx.drawImage(glow(c), o.sx - r * 3, o.sy - r * 3, r * 6, r * 6);
@@ -307,7 +335,7 @@ function drawNode(i, big, is3D, baseSize) {
     cx.globalAlpha = depth;
     cx.fillStyle = c;
     cx.beginPath(); cx.arc(o.sx, o.sy, r, 0, 6.2832); cx.fill();
-    if (big) { cx.lineWidth = 2.5; cx.strokeStyle = '#f4efe3'; cx.stroke(); }
+    if (big) { cx.lineWidth = 2.5; cx.strokeStyle = cvT.dotRing; cx.stroke(); }
     cx.globalAlpha = 1;
     return;
   }
@@ -316,7 +344,6 @@ function drawNode(i, big, is3D, baseSize) {
   const w = s * (1 + 2 * CARD.pad), h = s * (1 + CARD.pad + CARD.bottom);
   const img = pickLevel(it.cards, w * dpr);
   const rot = it.rot;
-  // Leggero foreshortening verticale (tiltY) per simulare la prospettiva 3D della carta inclinabile
   const tiltScaleY = 1 - Math.abs(it.tiltY || 0) * 0.28;
   const skewX = (it.tiltY || 0) * 0.22;
 
@@ -336,7 +363,7 @@ function drawNode(i, big, is3D, baseSize) {
   // Ombra morbida espansa quando la tavola è sollevata
   if (!S.ecoMode) {
     const lift = 1 + it.hs * 1.4;
-    cx.fillStyle = big ? 'rgba(6, 2, 1, 0.65)' : 'rgba(6, 2, 1, 0.45)';
+    cx.fillStyle = big ? cvT.cardShadowBig : cvT.cardShadow;
     cx.fillRect(-s / 2 - pad + s * 0.03 * lift, -s / 2 - pad + s * 0.055 * lift, w, h);
   }
 
@@ -360,7 +387,7 @@ function drawNode(i, big, is3D, baseSize) {
   // Bordo luminoso su hover o selezione
   if (big || S.hov === i) {
     cx.lineWidth = big ? 2.5 : 1.8;
-    cx.strokeStyle = big ? '#f2a65a' : c;
+    cx.strokeStyle = big ? cvT.linkHighlight : c;
     cx.strokeRect(-s / 2 - pad, -s / 2 - pad, w, h);
   }
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -368,13 +395,14 @@ function drawNode(i, big, is3D, baseSize) {
 
 function drawOverlays(t, is3D) {
   const S = state, n = S.items.length;
+  const cvT = getThemeTokens().canvas;
 
   if (is3D) {
     const labels = [];
     for (const [cat, s] of catStats) {
       if (s.n >= 2) labels.push({ text: cat, color: S.col[cat], x: s.x / s.n, y: s.top - 0.16, z: s.z / s.n });
     }
-    drawClusterLabels(cx, labels, 0.78 * (1 - 0.7 * S.focus));
+    drawClusterLabels(cx, labels, 0.84 * (1 - 0.7 * S.focus));
   } else if (n) drawGeoLabels(cx);
 
   if (!S.ecoMode && S.fx.length) {
@@ -398,14 +426,19 @@ function drawOverlays(t, is3D) {
 
   const sp = (t - S.switchT) / 520;
   if (!S.ecoMode && sp < 1) {
-    cx.fillStyle = `rgba(11, 4, 2, ${0.92 * (1 - sp) ** 2})`;
+    const alpha = Math.pow(1 - sp, 2);
+    cx.save();
+    cx.globalAlpha = alpha;
+    cx.fillStyle = cvT.switchFlash;
     cx.fillRect(0, 0, S.W, S.H);
+    cx.restore();
     flags.busy = true;
   }
 }
 
 function render(t, dt) {
   const S = state, { W, H, dpr, items, viewMode } = S;
+  const cvT = getThemeTokens().canvas;
   const is3D = viewMode === '3d';
   const n = items.length;
   flags.busy = flags.moved = false;
@@ -455,8 +488,11 @@ function render(t, dt) {
   }
 
   if (S.focus > 0.01) {
-    cx.fillStyle = `rgba(8, 3, 1, ${0.42 * S.focus})`;
+    cx.save();
+    cx.globalAlpha = S.focus;
+    cx.fillStyle = cvT.focusDim;
     cx.fillRect(0, 0, W, H);
+    cx.restore();
   }
 
   updateItems(t, dt, is3D, baseSize, hubs, impulseX, impulseY);
@@ -473,6 +509,7 @@ function render(t, dt) {
   cx.globalAlpha = 1;
 
   drawOverlays(t, is3D);
+  updateTelemetry();
 
   if (S.mx > -100 && !S.drag && n) {
     const h = pick(S.mx, S.my);
@@ -529,6 +566,8 @@ cv.addEventListener('pointermove', e => {
   state.mx = px; state.my = py;
   if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
+  if (state.viewMode === 'geo') updateTelemetry();
+
   if (pointers.size === 2 && pinch) {
     const p = pinchDist();
     zoomBy(p.d / pinch.d, p.mx - r.left, p.my - r.top);
@@ -559,7 +598,6 @@ cv.addEventListener('pointermove', e => {
       const dpitch = stepY * 0.0068;
       state.goal3D.yaw += dyaw;
       state.goal3D.pitch += dpitch;
-      // Rotazione trackball incrementale: ruota liberamente oltre entrambi i poli!
       rotateScreenSpace(state.goal3D.rot, dyaw, dpitch);
 
       const now = performance.now(), dtm = (now - d.lastT) / 1000;
@@ -617,6 +655,7 @@ cv.addEventListener('pointerleave', e => {
   if (e.pointerType !== 'mouse') return;
   state.hov = -1; state.mx = state.my = -999;
   tipEl.classList.remove('is-on');
+  updateTelemetry();
   markDirty();
 });
 
@@ -684,7 +723,6 @@ function tuneDpr(ms) {
 let last = 0, wasRendered = false;
 requestAnimationFrame(function loop(t) {
   const raw = t - last;
-  // In modalità risparmio energetico limita a ~30 fps per ridurre il carico su GPU/CPU
   if (state.ecoMode && raw < 31) {
     requestAnimationFrame(loop);
     return;

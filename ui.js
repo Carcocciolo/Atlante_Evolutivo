@@ -1,16 +1,20 @@
 /* ============================================================
    ui.js — pannelli, scheda della tavola, filtri, dock,
-   menu impostazioni e scorciatoie da tastiera
+   menu impostazioni (tema + palette) e scorciatoie da tastiera
    ============================================================ */
-import { state, esc, msg, markDirty, refreshVis, getNotes, CAT_COLORS, PAL } from './data.js';
+import { state, esc, msg, markDirty, refreshVis, getNotes, PAL } from './data.js';
+import {
+  PALETTES, PALETTE_MAP, initTheme, setThemeMode, setPalette, cycleThemeMode,
+  getResolvedTheme, getThemeTokens, registerThemeHook
+} from './theme.js';
 import { assignGeoHub, assignHubRanks } from './geo.js';
 import { focusOn, releaseFocus, zoomBy, resetView } from './camera.js';
-import { playClick, playSelect, playSwitch, syncMusic, unlockAudio } from './audio.js';
+import { playClick, playSelect, playSwitch, playThemeSwitch, syncMusic, unlockAudio } from './audio.js';
 
 const $ = (s, root = document) => root.querySelector(s);
 const body = document.body;
 
-const PREFS_KEY = 'atlante:prefs:v13';
+const PREFS_KEY = 'atlante:prefs:v14';
 
 function loadPrefs() {
   try {
@@ -20,6 +24,8 @@ function loadPrefs() {
     if (typeof p.soundEnabled === 'boolean') state.soundEnabled = p.soundEnabled;
     if (typeof p.musicEnabled === 'boolean') state.musicEnabled = p.musicEnabled;
     if (typeof p.ecoMode === 'boolean') state.ecoMode = p.ecoMode;
+    if (['auto', 'light', 'dark'].includes(p.themeMode)) state.themeMode = p.themeMode;
+    if (typeof p.palette === 'string' && PALETTE_MAP.has(p.palette)) state.palette = p.palette;
   } catch (_) {}
 }
 
@@ -28,7 +34,9 @@ function savePrefs() {
     localStorage.setItem(PREFS_KEY, JSON.stringify({
       soundEnabled: state.soundEnabled,
       musicEnabled: state.musicEnabled,
-      ecoMode: state.ecoMode
+      ecoMode: state.ecoMode,
+      themeMode: state.themeMode,
+      palette: state.palette
     }));
   } catch (_) {}
 }
@@ -50,6 +58,77 @@ export function applyEcoMode(on, notify = false) {
   }
 }
 
+function syncThemeControls() {
+  const seg = $('#theme-seg');
+  if (seg) {
+    seg.dataset.mode = state.themeMode;
+    seg.querySelectorAll('button[data-theme-mode]').forEach(btn => {
+      btn.setAttribute('aria-pressed', btn.dataset.themeMode === state.themeMode);
+    });
+  }
+
+  const status = $('#theme-status');
+  if (status) {
+    const resolved = getResolvedTheme();
+    const label = resolved === 'dark' ? 'Scuro' : 'Chiaro';
+    status.textContent = state.themeMode === 'auto'
+      ? `Automatico · segue il sistema (${label})`
+      : `Modalità manuale · ${label}`;
+  }
+
+  const grid = $('#palette-grid');
+  if (grid) {
+    grid.querySelectorAll('.pal-card').forEach(card => {
+      const active = card.dataset.palette === state.palette;
+      card.classList.toggle('is-active', active);
+      card.setAttribute('aria-pressed', active);
+    });
+  }
+}
+
+function buildPaletteCards() {
+  const grid = $('#palette-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  for (const pal of PALETTES) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pal-card';
+    btn.dataset.palette = pal.id;
+    btn.setAttribute('aria-pressed', pal.id === state.palette);
+    btn.innerHTML = `
+      <span class="pal-swatch" aria-hidden="true">
+        <i style="background:${pal.swatches[0]}"></i>
+        <i style="background:${pal.swatches[1]}"></i>
+        <i style="background:${pal.swatches[2]}"></i>
+      </span>
+      <span class="pal-meta">
+        <strong>${esc(pal.name)}</strong>
+        <small>${esc(pal.subtitle)}</small>
+      </span>
+      <span class="pal-check" aria-hidden="true">✓</span>
+    `;
+    btn.onclick = () => {
+      if (state.palette === pal.id) return;
+      setPalette(pal.id);
+      savePrefs();
+      playThemeSwitch(getResolvedTheme() === 'light');
+      msg(`Stile: ${pal.name}`, 1600);
+    };
+    grid.appendChild(btn);
+  }
+}
+
+registerThemeHook(() => {
+  syncThemeControls();
+  buildChips();
+  if (state.sel >= 0 && state.items[state.sel]) {
+    const c = state.col[state.items[state.sel].cat];
+    const tag = $('#det-tags .tag');
+    if (tag && c) tag.style.setProperty('--c', c);
+  }
+});
+
 export function syncSettingsUI() {
   const sEl = $('#opt-sound');
   const mEl = $('#opt-music');
@@ -57,6 +136,7 @@ export function syncSettingsUI() {
   if (sEl) sEl.checked = state.soundEnabled;
   if (mEl) mEl.checked = state.musicEnabled;
   if (eEl) eEl.checked = state.ecoMode;
+  syncThemeControls();
 }
 
 /* ---------- caricamento / pannello dati / contatti / impostazioni ---------- */
@@ -94,6 +174,7 @@ export function updateCount() {
 
 export function buildChips() {
   const box = $('#chips');
+  if (!box) return;
   box.innerHTML = '';
   const counts = {};
   for (const it of state.items) counts[it.cat] = (counts[it.cat] || 0) + 1;
@@ -144,9 +225,10 @@ export function initItemsSkeleton(rows) {
       vf: 1, hs: 0, a: 0, b: performance.now() + i * 10, sx: 0, sy: 0, sc: 1
     };
   });
+  const tokens = getThemeTokens();
   const cats = [...new Set(state.items.map(i => i.cat))];
   state.col = {};
-  cats.forEach((c, i) => { state.col[c] = CAT_COLORS[c] || PAL[i % PAL.length]; });
+  cats.forEach((c, i) => { state.col[c] = tokens.cats[c] || PAL[i % PAL.length]; });
   state.on = new Set(cats);
   assignHubRanks(state.items);
   refreshVis();
@@ -164,11 +246,13 @@ function thumbURL(it) {
 
 function fillDrawer(it) {
   const img = $('#big');
+  const zoomHint = $('#zoom-hint');
   const token = ++loadToken;
   img.src = thumbURL(it);
   img.classList.toggle('is-soft', !!it.src);
   img.alt = it.r.subject || it.r.id;
   img.classList.toggle('can-zoom', !!it.src);
+  if (zoomHint) zoomHint.hidden = !it.src;
   if (it.src) {
     const full = new Image();
     full.onload = full.onerror = () => {
@@ -360,6 +444,8 @@ function exportCSV() {
 /* ---------- collegamento dei controlli ---------- */
 export function bindUI() {
   loadPrefs();
+  initTheme();
+  buildPaletteCards();
   applyEcoMode(state.ecoMode, false);
   syncSettingsUI();
 
@@ -384,6 +470,23 @@ export function bindUI() {
   $('#open-settings').onclick = () => { playClick(480); openSettings($('#settings').hidden); };
   $('#close-settings').onclick = () => { playClick(360); openSettings(false); };
   $('#settings').onclick = e => { if (e.target === e.currentTarget) openSettings(false); };
+
+  // Controllo Tema (Auto / Chiaro / Scuro)
+  const themeSeg = $('#theme-seg');
+  if (themeSeg) {
+    themeSeg.querySelectorAll('button[data-theme-mode]').forEach(btn => {
+      btn.onclick = () => {
+        const mode = btn.dataset.themeMode;
+        if (state.themeMode === mode) return;
+        setThemeMode(mode);
+        savePrefs();
+        const resolved = getResolvedTheme();
+        playThemeSwitch(resolved === 'light');
+        const names = { auto: `Tema automatico (${resolved === 'dark' ? 'Scuro' : 'Chiaro'})`, light: 'Tema chiaro attivato', dark: 'Tema scuro attivato' };
+        msg(names[mode], 1700);
+      };
+    });
+  }
 
   $('#opt-sound').onchange = e => {
     state.soundEnabled = e.target.checked;
@@ -448,6 +551,15 @@ export function bindUI() {
       case '-': case '_': zoomBy(1 / 1.2); break;
       case '0': closeSelection(); resetView(); break;
       case 'g': case 'G': setViewMode(state.viewMode === '3d' ? 'geo' : '3d'); break;
+      case 't': case 'T': {
+        const next = cycleThemeMode();
+        savePrefs();
+        const resolved = getResolvedTheme();
+        playThemeSwitch(resolved === 'light');
+        const names = { auto: `Tema automatico (${resolved === 'dark' ? 'Scuro' : 'Chiaro'})`, light: 'Tema chiaro', dark: 'Tema scuro' };
+        msg(names[next], 1600);
+        break;
+      }
       case ' ':
         if (state.viewMode === '3d') { e.preventDefault(); toggleAutoRotate(); }
         break;

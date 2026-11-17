@@ -65,6 +65,28 @@ export function playClick(pitch = 420) {
   osc.stop(now + 0.09);
 }
 
+/** Accordo cristallino al cambio palette o tema chiaro/scuro. */
+export function playThemeSwitch(isLight = false) {
+  if (!state.soundEnabled) return;
+  const c = ensureCtx();
+  if (!c) return;
+  const now = c.currentTime;
+  const notes = isLight ? [523.25, 659.25, 783.99] : [392.0, 493.88, 659.25];
+  notes.forEach((f, idx) => {
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(f, now + idx * 0.03);
+    gain.gain.setValueAtTime(0.0001, now + idx * 0.03);
+    gain.gain.linearRampToValueAtTime(0.032, now + idx * 0.03 + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.03 + 0.24);
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start(now + idx * 0.03);
+    osc.stop(now + idx * 0.03 + 0.26);
+  });
+}
+
 /** Accordo caldo all'apertura di una tavola. */
 export function playSelect(cat = '') {
   if (!state.soundEnabled) return;

@@ -3,6 +3,7 @@
    mappa pre-rasterizzata a cache e disposizione cluster
    ============================================================ */
 import { state, CONFIG, clamp, markDirty, msg } from './data.js';
+import { getThemeTokens, registerThemeHook } from './theme.js';
 
 export const GEO_HUBS = [
   { id: 'kauai',     label: 'Kauai, Hawaii',             lon: -159.52, lat: 22.09 },
@@ -93,6 +94,19 @@ function projection(c) {
   return p;
 }
 
+export function screenToGeo(px, py, c = state.camGeo) {
+  const p = projection(c);
+  if (!p || typeof p.invert !== 'function') return null;
+  try {
+    const pt = p.invert([px, py]);
+    if (!pt || !Number.isFinite(pt[0]) || !Number.isFinite(pt[1])) return null;
+    if (Math.abs(pt[0]) > 180 || Math.abs(pt[1]) > 90) return null;
+    return { lon: pt[0], lat: pt[1] };
+  } catch (_) {
+    return null;
+  }
+}
+
 export function geoToScreen(lon, lat, c = state.camGeo, out = {}) {
   const p = projection(c);
   const pt = p && p([lon, lat]);
@@ -130,8 +144,18 @@ let layer = null, layerCam = null, layerKey = '', landDirty = false, lastRaster 
 const prevCam = { x: NaN, y: NaN, k: NaN };
 let camMovedAt = 0;
 let geoBg = null, geoBgKey = '';
+let haloSprite = null;
+
+export function invalidateGeoTheme() {
+  haloSprite = null;
+  geoBgKey = '';
+  landDirty = true;
+}
+
+registerThemeHook(invalidateGeoTheme);
 
 function rasterize(cam, now) {
+  const cvT = getThemeTokens().canvas;
   const { W, H, dpr } = state;
   const ls = Math.min(dpr, 1.5);
   const mx = W * MARGIN, my = H * MARGIN;
@@ -148,17 +172,17 @@ function rasterize(cam, now) {
     const d3 = window.d3;
     const path = d3.geoPath(p, g);
     g.beginPath(); path({ type: 'Sphere' });
-    g.fillStyle = 'rgba(242, 166, 90, 0.035)'; g.fill();
-    g.strokeStyle = 'rgba(242, 166, 90, 0.28)'; g.lineWidth = 1; g.stroke();
+    g.fillStyle = cvT.geoSphereFill; g.fill();
+    g.strokeStyle = cvT.geoSphereStroke; g.lineWidth = 1; g.stroke();
 
     if (!graticule) graticule = d3.geoGraticule10();
     g.beginPath(); path(graticule);
-    g.strokeStyle = 'rgba(255, 214, 170, 0.09)'; g.stroke();
+    g.strokeStyle = cvT.geoGrat; g.stroke();
 
     if (land) {
       g.beginPath(); path(land);
-      g.fillStyle = 'rgba(72, 34, 16, 0.56)'; g.fill();
-      g.strokeStyle = 'rgba(242, 166, 90, 0.52)'; g.lineWidth = 0.9; g.stroke();
+      g.fillStyle = cvT.geoLandFill; g.fill();
+      g.strokeStyle = cvT.geoLandStroke; g.lineWidth = 0.9; g.stroke();
     }
   }
   layerCam = { x: cam.x, y: cam.y, k: cam.k };
@@ -167,8 +191,9 @@ function rasterize(cam, now) {
 }
 
 function drawGeoBg(cx) {
+  const cvT = getThemeTokens().canvas;
   const { W, H } = state;
-  const key = `${W}|${H}`;
+  const key = `${W}|${H}|${state.palette}|${state.themeMode}`;
   if (geoBgKey !== key) {
     geoBgKey = key;
     const w = Math.max(1, Math.ceil(W / 2)), h = Math.max(1, Math.ceil(H / 2));
@@ -176,9 +201,9 @@ function drawGeoBg(cx) {
     geoBg.width = w; geoBg.height = h;
     const g = geoBg.getContext('2d');
     const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.8);
-    r.addColorStop(0, '#200e06');
-    r.addColorStop(0.6, '#0d0502');
-    r.addColorStop(1, '#040100');
+    r.addColorStop(0, cvT.geoBg0);
+    r.addColorStop(0.6, cvT.geoBg1);
+    r.addColorStop(1, cvT.geoBg2);
     g.fillStyle = r;
     g.fillRect(0, 0, w, h);
   }
@@ -277,9 +302,9 @@ export function layoutHubs(size, cam = state.camGeo, out = hubLayout) {
 }
 
 const hubVis = new Map();
-let haloSprite = null;
 
 export function drawGeoHalos(cx) {
+  const cvT = getThemeTokens().canvas;
   hubVis.clear();
   for (const it of state.items) if (it.vis) hubVis.set(it.hubId, (hubVis.get(it.hubId) || 0) + 1);
 
@@ -288,8 +313,8 @@ export function drawGeoHalos(cx) {
     haloSprite.width = haloSprite.height = 128;
     const g = haloSprite.getContext('2d');
     const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-    r.addColorStop(0, 'rgba(242, 166, 90, 0.28)');
-    r.addColorStop(1, 'rgba(242, 166, 90, 0)');
+    r.addColorStop(0, cvT.geoHalo0);
+    r.addColorStop(1, 'rgba(0, 0, 0, 0)');
     g.fillStyle = r;
     g.fillRect(0, 0, 128, 128);
   }
@@ -301,38 +326,39 @@ export function drawGeoHalos(cx) {
     }
 
     if (Math.hypot(h.x - h.tx, h.y - h.ty) > 6) {
-      cx.strokeStyle = 'rgba(242, 166, 90, 0.55)';
+      cx.strokeStyle = cvT.geoLandStroke;
       cx.lineWidth = 1;
       cx.setLineDash([3, 4]);
       cx.beginPath(); cx.moveTo(h.tx, h.ty); cx.lineTo(h.x, h.y); cx.stroke();
       cx.setLineDash([]);
     }
 
-    cx.fillStyle = 'rgba(242, 166, 90, 0.26)';
+    cx.fillStyle = cvT.geoHalo0;
     cx.beginPath(); cx.arc(h.tx, h.ty, 9, 0, Math.PI * 2); cx.fill();
-    cx.fillStyle = '#f2a65a';
+    cx.fillStyle = cvT.geoPin;
     cx.beginPath(); cx.arc(h.tx, h.ty, 3.4, 0, Math.PI * 2); cx.fill();
   }
 }
 
 export function drawGeoLabels(cx) {
+  const cvT = getThemeTokens().canvas;
   cx.save();
   cx.textAlign = 'center';
   cx.lineJoin = 'round';
   cx.lineWidth = 3.5;
-  cx.strokeStyle = 'rgba(11, 4, 2, 0.9)';
+  cx.strokeStyle = cvT.labelStroke;
   for (const [id, n] of hubVis) {
     const h = hubLayout.get(id);
     if (!h) continue;
     const y = h.y + h.R * 0.85 + 15;
     cx.font = 'italic 600 14.5px Fraunces, Georgia, serif';
     cx.strokeText(h.hub.label, h.x, y);
-    cx.fillStyle = 'rgba(251, 238, 224, 0.96)';
+    cx.fillStyle = cvT.geoLabelInk;
     cx.fillText(h.hub.label, h.x, y);
     cx.font = '500 10.5px "JetBrains Mono", monospace';
     const sub = `${n} ${n === 1 ? 'tavola' : 'tavole'}`;
     cx.strokeText(sub, h.x, y + 15);
-    cx.fillStyle = 'rgba(242, 166, 90, 0.92)';
+    cx.fillStyle = cvT.geoLabelSub;
     cx.fillText(sub, h.x, y + 15);
   }
   cx.restore();
