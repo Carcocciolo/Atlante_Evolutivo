@@ -1,6 +1,6 @@
 /* ============================================================
    data.js — configurazione, stato condiviso, parsing, feature
-   visive e layout t-SNE 3D con texture GPU (ImageBitmap)
+   visive, vetrini ottici GPU e layout t-SNE 3D
    ============================================================ */
 import { getThemeTokens, registerCardRebuilder } from './theme.js';
 
@@ -16,13 +16,13 @@ export const CAT_COLORS = {
   'Archaeopteryx': '#f2a65a',
   'Pettirossi': '#ff6b57',
   'Grilli': '#8cd96b',
-  'da classificare': '#a799b7'
+  'da classificare': '#b39ddb'
 };
 
-export const PAL = ['#f2a65a', '#ff6b57', '#8cd96b', '#56d1c9', '#f6c85f', '#e07a9a', '#81a4ff', '#b594f2'];
+export const PAL = ['#f2a65a', '#ff6b57', '#8cd96b', '#4ef2f5', '#f6c85f', '#e07a9a', '#81a4ff', '#b594f2'];
 
-/** Proporzioni della cornice "polaroid" rispetto al lato della foto. */
-export const CARD = { pad: 0.08, bottom: 0.24 };
+/** Proporzioni del vetrino ottico rispetto al lato della foto. */
+export const CARD = { pad: 0.085, bottom: 0.25 };
 
 export const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -150,7 +150,7 @@ export function parseCSV(t) {
     .map(x => Object.fromEntries(head.map((k, i) => [k, (x[i] || '').trim()])));
 }
 
-/* ---------- miniature e cornici (convertite in ImageBitmap GPU) ---------- */
+/* ---------- miniature e vetrini ottici (convertiti in ImageBitmap GPU) ---------- */
 export function makeThumb(bm, S = CONFIG.thumb) {
   const c = document.createElement('canvas');
   c.width = c.height = S;
@@ -169,21 +169,34 @@ export function makeCardCanvas(th, color, idx) {
   c.width = S + pad * 2;
   c.height = S + pad + bottom;
   const g = c.getContext('2d');
+  const col = color || '#f2a65a';
 
-  // Passepartout armonizzato con la palette attiva
-  const paper = g.createLinearGradient(0, 0, c.width, c.height);
-  paper.addColorStop(0, cvT.cardPaper[0]);
-  paper.addColorStop(0.6, cvT.cardPaper[1]);
-  paper.addColorStop(1, cvT.cardPaper[2]);
-  g.fillStyle = paper;
+  // Corpo del vetrino ottico museale
+  const glass = g.createLinearGradient(0, 0, c.width, c.height);
+  glass.addColorStop(0, cvT.cardPaper[0]);
+  glass.addColorStop(0.55, cvT.cardPaper[1]);
+  glass.addColorStop(1, cvT.cardPaper[2]);
+  g.fillStyle = glass;
   g.fillRect(0, 0, c.width, c.height);
 
-  // Riflesso superiore
-  g.fillStyle = 'rgba(255, 255, 255, 0.72)';
-  g.fillRect(0, 0, c.width, 1.5);
-  g.fillRect(0, 0, 1.5, c.height);
+  // Bagliore superiore del vetrino
+  const topGlow = g.createLinearGradient(0, 0, c.width, 0);
+  topGlow.addColorStop(0, rgba(col, 0.05));
+  topGlow.addColorStop(0.5, rgba(col, 0.35));
+  topGlow.addColorStop(1, rgba(col, 0.05));
+  g.fillStyle = topGlow;
+  g.fillRect(0, 0, c.width, 2);
 
-  // Foto specimen
+  // Tacche ottiche di registrazione agli angoli superiori
+  g.strokeStyle = rgba(col, 0.65);
+  g.lineWidth = 1.2;
+  const tick = Math.max(5, Math.round(pad * 0.55));
+  g.beginPath();
+  g.moveTo(3, 3 + tick); g.lineTo(3, 3); g.lineTo(3 + tick, 3);
+  g.moveTo(c.width - 3 - tick, 3); g.lineTo(c.width - 3, 3); g.lineTo(c.width - 3, 3 + tick);
+  g.stroke();
+
+  // Immagine specimen incassata
   g.drawImage(th, pad, pad);
 
   // Filetto interno incassato
@@ -191,27 +204,34 @@ export function makeCardCanvas(th, color, idx) {
   g.lineWidth = 1;
   g.strokeRect(pad + 0.5, pad + 0.5, S - 1, S - 1);
 
-  // Bordo esterno
+  // Cornice esterna di precisione
   g.strokeStyle = cvT.cardOuter;
   g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
 
-  // Tacca di categoria
-  const barY = pad + S + Math.round(pad * 0.72);
-  const barW = S * 0.42;
-  const barH = Math.max(2.5, Math.round(pad * 0.42));
-  const col = color || '#f2a65a';
-  const barGrad = g.createLinearGradient(pad, barY, pad + barW, barY);
-  barGrad.addColorStop(0, col);
-  barGrad.addColorStop(1, rgba(col, 0.45));
-  g.fillStyle = barGrad;
-  g.fillRect(pad, barY, barW, barH);
+  // Spettro cromatico di categoria + gemma luminosa
+  const barY = pad + S + Math.round(pad * 0.85);
+  const barW = S * 0.36;
+  const barH = Math.max(2.5, Math.round(pad * 0.34));
+  const dotR = Math.max(2.2, barH * 0.72);
 
-  // Codice catalogo
+  g.fillStyle = col;
+  g.beginPath();
+  g.arc(pad + dotR, barY + barH / 2, dotR, 0, Math.PI * 2);
+  g.fill();
+
+  const barX = pad + dotR * 2 + 4;
+  const barGrad = g.createLinearGradient(barX, barY, barX + barW, barY);
+  barGrad.addColorStop(0, col);
+  barGrad.addColorStop(1, rgba(col, 0.2));
+  g.fillStyle = barGrad;
+  g.fillRect(barX, barY, barW, barH);
+
+  // Codice catalogo monospaziato
   if (idx != null) {
     g.fillStyle = cvT.cardCode;
-    g.font = `600 ${Math.round(S * 0.072)}px "JetBrains Mono", monospace`;
+    g.font = `600 ${Math.round(S * 0.068)}px "JetBrains Mono", monospace`;
     g.textAlign = 'right';
-    g.fillText(`FIG.${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.52));
+    g.fillText(`SPEC.${String(idx + 1).padStart(2, '0')}`, c.width - pad, pad + S + Math.round(pad * 1.56));
   }
   return c;
 }

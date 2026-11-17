@@ -81,7 +81,7 @@ async function finalizeLayout() {
     return;
   }
   const F = prep(state.items.map(i => feat(i.th)));
-  await tsne3D(F, p => setLoader(p * 100, 100, 'Dispongo le tavole'));
+  await tsne3D(F, p => setLoader(p * 100, 100, 'Dispongo i vetrini'));
   computeNeighbors();
   writeLayout(sig, state.items);
   markDirty();
@@ -126,7 +126,7 @@ async function loadRows(rows, resolver) {
     await Promise.all(Array.from({ length: Math.min(CONFIG.concurrency, total) }, worker));
     await finalizeLayout();
     const ok = state.items.length;
-    msg(miss ? `${ok} tavole pronte, ${miss} senza immagine corrispondente.` : `${ok} tavole pronte.`);
+    msg(miss ? `${ok} vetrini pronti, ${miss} senza immagine corrispondente.` : `${ok} vetrini pronti.`);
     applyHash();
   } catch (err) {
     console.error(err);

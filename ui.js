@@ -1,92 +1,124 @@
 /* ============================================================
-   ui.js — pannelli, scheda della tavola, filtri, dock,
-   menu impostazioni (tema + palette) e scorciatoie da tastiera
+   ui.js — pannello scheda, griglia ottica di misurazione,
+   filtri tassonomici con barre di frequenza, selettore tema,
+   esportazione CSV, scorciatoie
    ============================================================ */
 import { state, esc, msg, markDirty, refreshVis, getNotes, PAL } from './data.js';
 import {
-  PALETTES, PALETTE_MAP, initTheme, setThemeMode, setPalette, cycleThemeMode,
+  PALETTES, PALETTE_MAP, initTheme, setThemeMode, setPalette, cyclePalette, cycleThemeMode,
   getResolvedTheme, getThemeTokens, registerThemeHook
 } from './theme.js';
 import { assignGeoHub, assignHubRanks } from './geo.js';
 import { focusOn, releaseFocus, zoomBy, resetView } from './camera.js';
 import { playClick, playSelect, playSwitch, playThemeSwitch, syncMusic, unlockAudio } from './audio.js';
 
-const $ = (s, root = document) => root.querySelector(s);
-const body = document.body;
+const $ = s => document.querySelector(s);
 
-const PREFS_KEY = 'atlante:prefs:v14';
+const FIELDS = [
+  ['id', 'Codice'],
+  ['category', 'Categoria'],
+  ['subject', 'Soggetto'],
+  ['site', 'Provenienza'],
+  ['type', 'Tipologia'],
+  ['author', 'Autore'],
+  ['license', 'Licenza'],
+  ['source', 'Fonte']
+];
 
-function loadPrefs() {
-  try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    if (!raw) return;
-    const p = JSON.parse(raw);
-    if (typeof p.soundEnabled === 'boolean') state.soundEnabled = p.soundEnabled;
-    if (typeof p.musicEnabled === 'boolean') state.musicEnabled = p.musicEnabled;
-    if (typeof p.ecoMode === 'boolean') state.ecoMode = p.ecoMode;
-    if (['auto', 'light', 'dark'].includes(p.themeMode)) state.themeMode = p.themeMode;
-    if (typeof p.palette === 'string' && PALETTE_MAP.has(p.palette)) state.palette = p.palette;
-  } catch (_) {}
+const THEME_STATUS_LABELS = {
+  auto: () => `Automatico · ora ${getResolvedTheme() === 'light' ? 'chiaro' : 'scuro'}`,
+  light: () => 'Chiaro · pergamena museale',
+  dark: () => 'Scuro · osservatorio notturno'
+};
+
+const THEME_ICONS = {
+  auto: '#i-auto',
+  light: '#i-sun',
+  dark: '#i-moon'
+};
+
+export function similarityPercent(i, j) {
+  const { items, Dm } = state;
+  const n = items.length;
+  if (!Dm || n < 2 || i < 0 || j < 0 || i >= n || j >= n) return null;
+  const d = Dm[i * n + j];
+  if (!Number.isFinite(d)) return null;
+  const sim = Math.round(100 / (1 + Math.sqrt(Math.max(0, d)) * 0.42));
+  return Math.max(12, Math.min(99, sim));
 }
 
-function savePrefs() {
-  try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({
-      soundEnabled: state.soundEnabled,
-      musicEnabled: state.musicEnabled,
-      ecoMode: state.ecoMode,
-      themeMode: state.themeMode,
-      palette: state.palette
-    }));
-  } catch (_) {}
+/* ---------- inizializzazione delle tavole ---------- */
+export function initItemsSkeleton(rows) {
+  state.items = rows.map(r => {
+    const geo = assignGeoHub(r);
+    const baseRot = (Math.random() - 0.5) * 0.085;
+    return {
+      r,
+      cat: (r.category || 'da classificare').trim() || 'da classificare',
+      hay: `${r.id} ${r.subject} ${r.category} ${r.notes} ${geo.siteName}`.toLowerCase(),
+      ...geo,
+      tx: (Math.random() - 0.5) * 1.4,
+      ty: (Math.random() - 0.5) * 1.4,
+      tz: (Math.random() - 0.5) * 1.4,
+      x: 0, y: 0, z: 0,
+      b: -1e9,
+      a: 0, vf: 0, hs: 0,
+      sx: 0, sy: 0, sc: 1,
+      baseRot,
+      rot: baseRot,
+      vrot: 0,
+      tiltY: 0,
+      vtiltY: 0,
+      ready: false,
+      th: null,
+      cards: null,
+      src: null,
+      vis: true,
+      nn: []
+    };
+  });
+
+  const cats = [...new Set(state.items.map(i => i.cat))];
+  const catTokens = getThemeTokens().cats;
+  state.col = Object.fromEntries(cats.map((c, i) => [c, catTokens[c] || PAL[i % PAL.length]]));
+  state.on = new Set(cats);
+  assignHubRanks(state.items);
+  buildChips();
+  updateCount();
 }
 
-export function applyEcoMode(on, notify = false) {
-  state.ecoMode = !!on;
-  body.classList.toggle('is-eco', state.ecoMode);
-  const el = $('#opt-eco');
-  if (el) el.checked = state.ecoMode;
-  if (state.ecoMode && state.autoRotate) {
-    setAutoRotate(false, false);
-  } else if (!state.ecoMode && state.autoRotatePref && state.sel < 0 && state.viewMode === '3d') {
-    setAutoRotate(true, false);
-  }
-  savePrefs();
-  markDirty();
-  if (notify) {
-    msg(state.ecoMode ? 'Risparmio energetico attivato' : 'Risparmio energetico disattivato', 1800);
-  }
-}
-
-function syncThemeControls() {
-  const seg = $('#theme-seg');
-  if (seg) {
-    seg.dataset.mode = state.themeMode;
-    seg.querySelectorAll('button[data-theme-mode]').forEach(btn => {
-      btn.setAttribute('aria-pressed', btn.dataset.themeMode === state.themeMode);
-    });
-  }
-
-  const status = $('#theme-status');
-  if (status) {
-    const resolved = getResolvedTheme();
-    const label = resolved === 'dark' ? 'Scuro' : 'Chiaro';
-    status.textContent = state.themeMode === 'auto'
-      ? `Automatico · segue il sistema (${label})`
-      : `Modalità manuale · ${label}`;
-  }
-
-  const grid = $('#palette-grid');
-  if (grid) {
-    grid.querySelectorAll('.pal-card').forEach(card => {
-      const active = card.dataset.palette === state.palette;
-      card.classList.toggle('is-active', active);
-      card.setAttribute('aria-pressed', active);
-    });
+export function buildChips() {
+  const counts = {};
+  for (const it of state.items) counts[it.cat] = (counts[it.cat] || 0) + 1;
+  const total = Math.max(1, state.items.length);
+  const el = $('#chips');
+  el.innerHTML = '';
+  for (const [c, n] of Object.entries(counts)) {
+    const pct = Math.max(14, Math.round((n / total) * 100));
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.style.setProperty('--c', state.col[c]);
+    b.style.setProperty('--pct', `${pct}%`);
+    b.setAttribute('aria-pressed', state.on.has(c) ? 'true' : 'false');
+    b.innerHTML = `<i></i><span>${esc(c)}</span><small>${n}</small>`;
+    b.onclick = () => {
+      playClick(460);
+      if (state.on.has(c)) state.on.delete(c); else state.on.add(c);
+      b.setAttribute('aria-pressed', state.on.has(c));
+      refreshVis();
+      updateCount();
+    };
+    el.appendChild(b);
   }
 }
 
-function buildPaletteCards() {
+export function updateCount() {
+  $('#vis-count').textContent = state.items.filter(i => i.vis).length;
+}
+
+/* ---------- UI tema & palette ---------- */
+function buildPaletteGrid() {
   const grid = $('#palette-grid');
   if (!grid) return;
   grid.innerHTML = '';
@@ -94,436 +126,383 @@ function buildPaletteCards() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'pal-card';
-    btn.dataset.palette = pal.id;
-    btn.setAttribute('aria-pressed', pal.id === state.palette);
+    btn.dataset.paletteId = pal.id;
+    btn.setAttribute('aria-pressed', state.palette === pal.id ? 'true' : 'false');
+    const dots = pal.swatches.map(hex => `<i style="background:${hex}"></i>`).join('');
     btn.innerHTML = `
-      <span class="pal-swatch" aria-hidden="true">
-        <i style="background:${pal.swatches[0]}"></i>
-        <i style="background:${pal.swatches[1]}"></i>
-        <i style="background:${pal.swatches[2]}"></i>
-      </span>
+      <span class="pal-swatch" aria-hidden="true">${dots}</span>
       <span class="pal-meta">
         <strong>${esc(pal.name)}</strong>
         <small>${esc(pal.subtitle)}</small>
       </span>
-      <span class="pal-check" aria-hidden="true">✓</span>
-    `;
+      <span class="pal-check" aria-hidden="true">✓</span>`;
     btn.onclick = () => {
-      if (state.palette === pal.id) return;
+      unlockAudio();
       setPalette(pal.id);
-      savePrefs();
       playThemeSwitch(getResolvedTheme() === 'light');
-      msg(`Stile: ${pal.name}`, 1600);
+      msg(`Stile attivo: ${pal.name}`);
     };
     grid.appendChild(btn);
   }
 }
 
-registerThemeHook(() => {
-  syncThemeControls();
+function syncThemeUI() {
+  const seg = $('#theme-seg');
+  if (seg) {
+    seg.dataset.mode = state.themeMode;
+    seg.querySelectorAll('button[data-theme-mode]').forEach(btn => {
+      btn.setAttribute('aria-pressed', btn.dataset.themeMode === state.themeMode ? 'true' : 'false');
+    });
+  }
+  const st = $('#theme-status');
+  if (st && THEME_STATUS_LABELS[state.themeMode]) {
+    st.textContent = THEME_STATUS_LABELS[state.themeMode]();
+  }
+  const qtUse = $('#quick-theme-ic use');
+  if (qtUse) {
+    qtUse.setAttribute('href', THEME_ICONS[state.themeMode] || '#i-auto');
+  }
+  const grid = $('#palette-grid');
+  if (grid) {
+    grid.querySelectorAll('.pal-card').forEach(card => {
+      const active = card.dataset.paletteId === state.palette;
+      card.classList.toggle('is-active', active);
+      card.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
   buildChips();
   if (state.sel >= 0 && state.items[state.sel]) {
-    const c = state.col[state.items[state.sel].cat];
-    const tag = $('#det-tags .tag');
-    if (tag && c) tag.style.setProperty('--c', c);
-  }
-});
-
-export function syncSettingsUI() {
-  const sEl = $('#opt-sound');
-  const mEl = $('#opt-music');
-  const eEl = $('#opt-eco');
-  if (sEl) sEl.checked = state.soundEnabled;
-  if (mEl) mEl.checked = state.musicEnabled;
-  if (eEl) eEl.checked = state.ecoMode;
-  syncThemeControls();
-}
-
-/* ---------- caricamento / pannello dati / contatti / impostazioni ---------- */
-export function setLoader(done, total, label = 'Carico le tavole') {
-  const el = $('#loader');
-  if (done == null) { el.classList.remove('is-on'); return; }
-  el.classList.add('is-on');
-  const pct = total ? done / total * 100 : 0;
-  $('#ld-text').textContent = total === 100 ? `${label}… ${Math.round(pct)}%` : `${label}… ${done} di ${total}`;
-  $('#ld-bar').style.width = pct + '%';
-}
-
-export function openWelcome(on) {
-  $('#welcome').hidden = !on;
-  if (on) $('#fi').focus({ preventScroll: true });
-}
-
-export function openContacts(on) {
-  $('#contacts').hidden = !on;
-  if (on) $('#close-contacts').focus({ preventScroll: true });
-}
-
-export function openSettings(on) {
-  $('#settings').hidden = !on;
-  if (on) {
-    syncSettingsUI();
-    $('#close-settings').focus({ preventScroll: true });
+    const it = state.items[state.sel];
+    const catTag = $('#det-tags .tag');
+    if (catTag) catTag.style.setProperty('--c', state.col[it.cat]);
   }
 }
 
-/* ---------- filtri ---------- */
-export function updateCount() {
-  $('#vis-count').textContent = state.items.reduce((n, it) => n + (it.vis ? 1 : 0), 0);
+registerThemeHook(syncThemeUI);
+
+/* ---------- vista (3D <-> planisfero) ---------- */
+export function setViewMode(mode, silent = false) {
+  if (state.viewMode === mode) return;
+  if (!silent) playSwitch(mode === 'geo');
+  state.viewMode = mode;
+  state.switchT = performance.now();
+  document.body.dataset.view = mode;
+  $('#seg').dataset.view = mode;
+  $('#vw-3d').setAttribute('aria-pressed', mode === '3d');
+  $('#vw-geo').setAttribute('aria-pressed', mode === 'geo');
+  if (state.sel >= 0 && state.items[state.sel]) focusOn(state.items[state.sel]);
+  markDirty();
 }
 
-export function buildChips() {
-  const box = $('#chips');
-  if (!box) return;
-  box.innerHTML = '';
-  const counts = {};
-  for (const it of state.items) counts[it.cat] = (counts[it.cat] || 0) + 1;
-  for (const cat of Object.keys(state.col)) {
-    if (!counts[cat]) continue;
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'chip';
-    b.style.setProperty('--c', state.col[cat]);
-    b.setAttribute('aria-pressed', state.on.has(cat));
-    b.innerHTML = `<i></i>${esc(cat)}<small>${counts[cat]}</small>`;
-    b.onclick = () => {
-      playClick(460);
-      state.on.has(cat) ? state.on.delete(cat) : state.on.add(cat);
-      b.setAttribute('aria-pressed', state.on.has(cat));
-      refreshVis();
-      updateCount();
-    };
-    box.appendChild(b);
+export function setAutoRotate(v, remember = true) {
+  state.autoRotate = v;
+  if (remember) state.autoRotatePref = v;
+  $('#rot-auto').setAttribute('aria-pressed', v);
+  markDirty();
+}
+
+/* ---------- scheda e visualizzatore a schermo intero ---------- */
+let showToken = 0;
+
+function openLightbox(src, alt) {
+  const lb = $('#lightbox');
+  const img = lb.querySelector('img');
+  img.src = src;
+  img.alt = alt || '';
+  lb.hidden = false;
+  playClick(520);
+}
+
+function closeLightbox() {
+  const lb = $('#lightbox');
+  if (lb.hidden) return;
+  lb.hidden = true;
+  lb.querySelector('img').removeAttribute('src');
+  playClick(340);
+}
+
+export function show(i) {
+  const it = state.items[i];
+  if (!it) return;
+  const tok = ++showToken;
+  state.sel = i;
+  playSelect(it.cat);
+
+  if (state.W <= 760) {
+    const qInput = $('#q');
+    if (qInput && document.activeElement === qInput) qInput.blur();
   }
-}
 
-/** Crea le tavole "scheletro" prima che le immagini siano pronte. */
-export function initItemsSkeleton(rows) {
-  const n = Math.max(1, rows.length);
-  state.sel = state.hov = -1;
-  state.Dm = null;
-  state.proj.length = 0;
-  state.items = rows.map((r, i) => {
-    const cat = (r.category || '').trim() || 'da classificare';
-    const geo = assignGeoHub(r);
-    const phi = Math.acos(1 - 2 * (i + 0.5) / n);
-    const theta = Math.PI * (1 + Math.sqrt(5)) * i;
-    const x = Math.cos(theta) * Math.sin(phi) * 0.78;
-    const y = Math.cos(phi) * 0.78;
-    const z = Math.sin(theta) * Math.sin(phi) * 0.78;
-    return {
-      r, cat, th: null, cards: null, src: null, ready: false, vis: true,
-      baseRot: ((i * 37 % 13) - 6) * 0.014,
-      rot: ((i * 37 % 13) - 6) * 0.014,
-      vrot: 0,
-      tiltY: 0,
-      vtiltY: 0,
-      x, y, z, tx: x, ty: y, tz: z,
-      lon: geo.lon, lat: geo.lat, hubId: geo.hubId, siteName: geo.siteName, geoStatus: geo.geoStatus,
-      hubRank: 0, hubSize: 1, nn: [],
-      hay: `${r.id} ${r.subject || ''} ${r.author || ''} ${r.notes || ''} ${geo.siteName}`.toLowerCase(),
-      vf: 1, hs: 0, a: 0, b: performance.now() + i * 10, sx: 0, sy: 0, sc: 1
-    };
-  });
-  const tokens = getThemeTokens();
-  const cats = [...new Set(state.items.map(i => i.cat))];
-  state.col = {};
-  cats.forEach((c, i) => { state.col[c] = tokens.cats[c] || PAL[i % PAL.length]; });
-  state.on = new Set(cats);
-  assignHubRanks(state.items);
-  refreshVis();
-  buildChips();
-  updateCount();
-}
+  document.body.classList.add('has-sel');
+  const drawer = $('#detail-drawer');
+  drawer.classList.add('is-open');
+  drawer.setAttribute('aria-hidden', 'false');
+  drawer.removeAttribute('inert');
 
-/* ---------- scheda della tavola ---------- */
-let loadToken = 0;
-const HIDDEN_KEYS = new Set(['subject', 'notes', 'filename', 'category']);
+  const codeEl = $('#det-code');
+  if (codeEl) {
+    codeEl.textContent = `SPECIMEN // ${String((it.cardIdx ?? i) + 1).padStart(2, '0')} · ${it.r.id}`;
+  }
 
-function thumbURL(it) {
-  return it.thumbURL || (it.thumbURL = it.th.toDataURL('image/jpeg', 0.85));
-}
-
-function fillDrawer(it) {
-  const img = $('#big');
+  const big = $('#big');
   const zoomHint = $('#zoom-hint');
-  const token = ++loadToken;
-  img.src = thumbURL(it);
-  img.classList.toggle('is-soft', !!it.src);
-  img.alt = it.r.subject || it.r.id;
-  img.classList.toggle('can-zoom', !!it.src);
-  if (zoomHint) zoomHint.hidden = !it.src;
+  big.classList.remove('can-zoom');
+  big.onclick = null;
+  if (zoomHint) zoomHint.hidden = true;
+
+  if (it.th) { big.src = it.th.toDataURL(); big.classList.add('is-soft'); }
+  else { big.removeAttribute('src'); big.classList.remove('is-soft'); }
+  big.alt = it.r.subject || it.r.id;
+
+  const enableZoom = fullSrc => {
+    big.classList.add('can-zoom');
+    big.onclick = () => openLightbox(fullSrc, big.alt);
+    if (zoomHint) zoomHint.hidden = false;
+  };
+
   if (it.src) {
     const full = new Image();
-    full.onload = full.onerror = () => {
-      if (token !== loadToken) return;
-      if (full.naturalWidth) img.src = it.src;
-      img.classList.remove('is-soft');
+    full.onload = () => {
+      if (tok === showToken) {
+        big.src = it.src;
+        big.classList.remove('is-soft');
+        enableZoom(it.src);
+      }
     };
     full.src = it.src;
+  } else if (it.th) {
+    big.classList.remove('is-soft');
+    enableZoom(big.src);
   }
 
   $('#det-title').textContent = it.r.subject || it.r.id;
-  const c = state.col[it.cat];
+
+  const geoTag = it.geoStatus === 'esatto'
+    ? `<span class="tag tag-geo" title="Località indicata nei metadati della tavola">${esc(it.siteName)}</span>`
+    : `<span class="tag tag-geo is-guess" title="Località inferita dalla specie (non dichiarata nei metadati)">${esc(it.siteName)} · areale</span>`;
   $('#det-tags').innerHTML =
-    `<span class="tag" style="--c:${c}"><i></i>${esc(it.cat)}</span>` +
-    `<span class="tag tag-geo${it.geoStatus === 'inferito' ? ' is-guess' : ''}" ` +
-    `title="${it.geoStatus === 'inferito' ? 'Località dedotta dal soggetto' : 'Località indicata nella scheda'}">${esc(it.siteName)}</span>`;
+    `<span class="tag" style="--c:${state.col[it.cat]}"><i></i>${esc(it.cat)}</span>` + geoTag;
 
   const notes = getNotes(it.r);
-  const nEl = $('#det-notes');
-  nEl.hidden = !notes.length;
-  nEl.innerHTML = notes.map(n => `<p>${esc(n)}</p>`).join('');
+  const notesEl = $('#det-notes');
+  notesEl.hidden = !notes.length;
+  notesEl.innerHTML = notes.map(n => `<p>${esc(n)}</p>`).join('');
 
-  $('#dl').innerHTML = Object.entries(it.r)
-    .filter(([k, v]) => v && !HIDDEN_KEYS.has(k))
-    .map(([k, v]) => {
-      const label = esc(k.replace(/_/g, ' '));
-      if (k === 'source' && /^https?:/.test(v)) {
-        let host = v;
-        try { host = new URL(v).hostname.replace(/^www\./, ''); } catch (_) {}
-        return `<dt>${label}</dt><dd><a href="${esc(v)}" target="_blank" rel="noopener">${esc(host)}</a></dd>`;
-      }
-      return `<dt>${label}</dt><dd>${esc(v)}</dd>`;
-    }).join('');
+  const data = { ...it.r, site: it.siteName };
+  $('#dl').innerHTML = FIELDS
+    .filter(([k]) => data[k])
+    .map(([k, label]) => {
+      const v = data[k];
+      const dd = /^https?:\/\//i.test(v)
+        ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>`
+        : esc(v);
+      return `<dt>${label}</dt><dd>${dd}</dd>`;
+    })
+    .join('');
 
   const nb = $('#nb');
   nb.innerHTML = '';
   for (const j of it.nn) {
     const o = state.items[j];
-    if (!o || !o.ready) continue;
+    if (!o) continue;
     const b = document.createElement('button');
     b.type = 'button';
-    b.title = o.r.id + (o.r.subject ? ' — ' + o.r.subject : '');
-    const k = document.createElement('canvas');
-    k.width = k.height = 72;
-    k.getContext('2d').drawImage(o.th, 0, 0, 72, 72);
-    b.appendChild(k);
+    const sim = similarityPercent(i, j);
+    b.title = `${o.r.subject || o.r.id}${sim ? ` · affinità ${sim}%` : ''}`;
+    if (o.th) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 56;
+      c.getContext('2d').drawImage(o.th, 0, 0, 56, 56);
+      b.appendChild(c);
+    }
+    if (sim) {
+      const badge = document.createElement('span');
+      badge.className = 'nb-sim';
+      badge.textContent = `${sim}%`;
+      b.appendChild(badge);
+    }
     b.onclick = () => show(j);
     nb.appendChild(b);
   }
-  $('.drawer-scroll').scrollTop = 0;
-}
 
-export function setAutoRotate(on, userAction = false) {
-  state.autoRotate = on;
-  if (userAction) state.autoRotatePref = on;
-  const btn = $('#rot-auto');
-  if (btn) btn.setAttribute('aria-pressed', on);
-  markDirty();
-}
-
-export function toggleAutoRotate() {
-  const next = !state.autoRotate;
-  playClick(next ? 520 : 380);
-  setAutoRotate(next, true);
-  msg(next ? 'Rotazione automatica attivata' : 'Rotazione automatica disattivata', 1600);
-}
-
-export function boom(it, color) {
-  if (state.ecoMode) return;
   state.fx.push({
-    it, c: color, t0: performance.now(),
-    sp: Array.from({ length: 16 }, (_, k) => ({ a: k / 16 * 6.283 + Math.random() * 0.3, v: 55 + Math.random() * 80 }))
+    it, t0: performance.now(), c: state.col[it.cat],
+    sp: Array.from({ length: 14 }, (_, k) => ({ a: k * 0.4488, v: 64 + (k % 3) * 26 }))
   });
-  markDirty();
-}
-
-/* ---------- accessibilità ---------- */
-const mobileMQ = matchMedia('(max-width: 760px)');
-let lastFocus = null;
-function syncInert() {
-  const open = body.classList.contains('has-sel');
-  $('#detail-drawer').inert = !open;
-  $('.dock').inert = mobileMQ.matches && open;
-}
-mobileMQ.addEventListener('change', syncInert);
-
-/* ---------- link condivisibili ---------- */
-function writeHash() {
-  const p = new URLSearchParams();
-  const it = state.items[state.sel];
-  if (it) p.set('id', it.r.id);
-  if (state.viewMode === 'geo') p.set('view', 'geo');
-  const h = p.toString();
-  try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (_) {}
-}
-
-export function applyHash() {
-  const p = new URLSearchParams(location.hash.slice(1));
-  if (p.get('view') === 'geo') setViewMode('geo');
-  const id = p.get('id');
-  if (id) {
-    const i = state.items.findIndex(it => it.r.id === id);
-    if (i >= 0) show(i);
-  }
-}
-
-export function show(i) {
-  const it = state.items[i];
-  if (!it || !it.ready) return;
-  const first = !body.classList.contains('has-sel');
-  if (first) lastFocus = document.activeElement;
-  state.sel = i;
-  playSelect(it.cat);
-  fillDrawer(it);
-  const d = $('#detail-drawer');
-  d.classList.add('is-open');
-  d.setAttribute('aria-hidden', 'false');
-  body.classList.add('has-sel');
-  syncInert();
-  if (first) $('#close-det').focus({ preventScroll: true });
-  writeHash();
-  if (state.viewMode === '3d') setAutoRotate(false, false);
   focusOn(it);
-  boom(it, state.col[it.cat]);
+  location.hash = encodeURIComponent(it.r.id);
 }
 
 export function closeSelection() {
   if (state.sel < 0) return;
   playClick(340);
   state.sel = -1;
-  const d = $('#detail-drawer');
-  d.classList.remove('is-open');
-  d.setAttribute('aria-hidden', 'true');
-  body.classList.remove('has-sel');
-  syncInert();
-  if (lastFocus && lastFocus !== document.body && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
-  lastFocus = null;
-  if (state.viewMode === '3d' && state.autoRotatePref && !state.ecoMode) {
-    setAutoRotate(true, false);
-  }
+  document.body.classList.remove('has-sel');
+  const drawer = $('#detail-drawer');
+  drawer.classList.remove('is-open');
+  drawer.setAttribute('aria-hidden', 'true');
+  drawer.setAttribute('inert', '');
   releaseFocus();
-  writeHash();
-  markDirty();
+  history.replaceState(null, '', location.pathname + location.search);
 }
 
-function stepSelection(dir) {
-  const list = state.items.map((it, i) => (it.ready && it.vis ? i : -1)).filter(i => i >= 0);
-  if (!list.length) return;
-  const at = list.indexOf(state.sel);
-  show(list[(at + dir + list.length) % list.length] ?? list[0]);
+/* ---------- caricamento e finestre ---------- */
+export function setLoader(done, total, label = 'Carico le tavole') {
+  const el = $('#loader');
+  if (done == null) { el.classList.remove('is-on'); return; }
+  el.classList.add('is-on');
+  $('#ld-text').textContent = `${label} · ${Math.round(done)}/${total}`;
+  $('#ld-bar').style.width = `${total ? (done / total) * 100 : 0}%`;
 }
 
-/* ---------- vista 3D / mappa ---------- */
-export function setViewMode(mode) {
-  if (state.viewMode === mode) return;
-  playSwitch(mode === 'geo');
-  state.viewMode = mode;
-  state.switchT = performance.now();
-  state.hov = -1;
-  $('#tip').classList.remove('is-on');
-  $('#seg').dataset.view = mode;
-  body.dataset.view = mode;
-  $('#vw-3d').setAttribute('aria-pressed', mode === '3d');
-  $('#vw-geo').setAttribute('aria-pressed', mode === 'geo');
-  $('#rot-auto').hidden = mode !== '3d';
-  if (state.sel >= 0) focusOn(state.items[state.sel]);
-  writeHash();
-  markDirty();
+export function openWelcome(v) {
+  const el = $('#welcome');
+  el.hidden = !v;
+  if (v) el.querySelector('input, button')?.focus();
 }
 
-/* ---------- esportazione ---------- */
+export function openSettings(v) {
+  const el = $('#settings');
+  el.hidden = !v;
+  if (v) {
+    syncThemeUI();
+    el.querySelector('button')?.focus();
+  }
+}
+
+export function openContacts(v) {
+  const el = $('#contacts');
+  el.hidden = !v;
+  if (v) el.querySelector('button')?.focus();
+}
+
+/* ---------- esportazione CSV ---------- */
 function exportCSV() {
-  if (!state.items.length) return msg('Carica prima le tavole.');
-  playClick(500);
-  const head = ['id', 'filename', 'category', 'site', 'geo_status', 'lon', 'lat', 'x3d', 'y3d', 'z3d'];
-  const rows = state.items.map(i => [
-    i.r.id, i.r.filename || '', i.cat, i.siteName, i.geoStatus,
-    i.lon.toFixed(4), i.lat.toFixed(4), i.tx.toFixed(4), i.ty.toFixed(4), i.tz.toFixed(4)
-  ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
-  const blob = new Blob(['\uFEFF' + head.join(',') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'atlante_coordinate.csv';
+  const sep = ';';
+  const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = [['id', 'subject', 'category', 'site', 'lon', 'lat', 'x', 'y', 'z'].join(sep)];
+  for (const it of state.items) {
+    rows.push([
+      it.r.id, it.r.subject, it.cat, it.siteName,
+      it.lon.toFixed(4), it.lat.toFixed(4),
+      it.x.toFixed(4), it.y.toFixed(4), it.z.toFixed(4)
+    ].map(cell).join(sep));
+  }
+  const blob = new Blob(['\uFEFF' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: 'atlante_evolutivo_coordinate.csv'
+  });
   a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   msg('Coordinate esportate.');
 }
 
-/* ---------- collegamento dei controlli ---------- */
+/* ---------- binding ---------- */
 export function bindUI() {
-  loadPrefs();
   initTheme();
-  buildPaletteCards();
-  applyEcoMode(state.ecoMode, false);
-  syncSettingsUI();
+  buildPaletteGrid();
+  syncThemeUI();
 
-  $('#close-det').onclick = closeSelection;
   $('#vw-3d').onclick = () => setViewMode('3d');
   $('#vw-geo').onclick = () => setViewMode('geo');
+  $('#rot-auto').onclick = () => {
+    playClick(480);
+    setAutoRotate(!state.autoRotate);
+  };
+  $('#md').onclick = () => {
+    playClick(440);
+    state.mode = state.mode === 'thumb' ? 'dot' : 'thumb';
+    $('#md').setAttribute('aria-pressed', state.mode === 'thumb');
+    markDirty();
+  };
   $('#zi').onclick = () => { playClick(520); zoomBy(1.3); };
-  $('#zo').onclick = () => { playClick(360); zoomBy(1 / 1.3); };
-  $('#zr').onclick = () => { playClick(440); closeSelection(); resetView(); };
-  $('#rot-auto').onclick = toggleAutoRotate;
-  $('#rot-auto').setAttribute('aria-pressed', state.autoRotate);
-  $('#cp').onclick = exportCSV;
-  $('#open-data').onclick = () => { playClick(460); openWelcome($('#welcome').hidden); };
+  $('#zo').onclick = () => { playClick(380); zoomBy(1 / 1.3); };
+  $('#zr').onclick = () => { playClick(460); resetView(); };
+  $('#cp').onclick = () => { playClick(500); exportCSV(); };
+
+  // Controlli rapidi sulla dock per palette e tema
+  const quickPalBtn = $('#quick-pal');
+  if (quickPalBtn) {
+    quickPalBtn.onclick = () => {
+      unlockAudio();
+      const next = cyclePalette();
+      playThemeSwitch(getResolvedTheme() === 'light');
+      msg(`Stile: ${next.name}`);
+    };
+  }
+  const quickThemeBtn = $('#quick-theme');
+  if (quickThemeBtn) {
+    quickThemeBtn.onclick = () => {
+      unlockAudio();
+      const next = cycleThemeMode();
+      playThemeSwitch(getResolvedTheme() === 'light');
+      const label = next === 'auto' ? 'Automatico' : next === 'light' ? 'Chiaro' : 'Scuro';
+      msg(`Tema: ${label}`);
+    };
+  }
+
+  // Toggle reticolo ottico nella scheda specimen
+  const toggleGridBtn = $('#toggle-grid');
+  const mediaStage = $('#media-stage');
+  if (toggleGridBtn && mediaStage) {
+    toggleGridBtn.onclick = () => {
+      playClick(540);
+      const active = mediaStage.classList.toggle('has-grid');
+      toggleGridBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    };
+  }
+
+  $('#open-data').onclick = () => { playClick(460); openWelcome(true); };
   $('#close-welcome').onclick = () => { playClick(360); openWelcome(false); };
+  $('#welcome').onclick = e => { if (e.target === e.currentTarget) openWelcome(false); };
 
-  // Contatti (separato in basso a destra)
-  $('#open-contacts').onclick = () => { playClick(460); openContacts($('#contacts').hidden); };
-  $('#close-contacts').onclick = () => { playClick(360); openContacts(false); };
-  $('#contacts').onclick = e => { if (e.target === e.currentTarget) openContacts(false); };
-
-  // Impostazioni
-  $('#open-settings').onclick = () => { playClick(480); openSettings($('#settings').hidden); };
+  $('#open-settings').onclick = () => { playClick(460); openSettings(true); };
   $('#close-settings').onclick = () => { playClick(360); openSettings(false); };
   $('#settings').onclick = e => { if (e.target === e.currentTarget) openSettings(false); };
 
-  // Controllo Tema (Auto / Chiaro / Scuro)
   const themeSeg = $('#theme-seg');
   if (themeSeg) {
     themeSeg.querySelectorAll('button[data-theme-mode]').forEach(btn => {
       btn.onclick = () => {
-        const mode = btn.dataset.themeMode;
-        if (state.themeMode === mode) return;
-        setThemeMode(mode);
-        savePrefs();
-        const resolved = getResolvedTheme();
-        playThemeSwitch(resolved === 'light');
-        const names = { auto: `Tema automatico (${resolved === 'dark' ? 'Scuro' : 'Chiaro'})`, light: 'Tema chiaro attivato', dark: 'Tema scuro attivato' };
-        msg(names[mode], 1700);
+        unlockAudio();
+        setThemeMode(btn.dataset.themeMode);
+        playThemeSwitch(getResolvedTheme() === 'light');
       };
     });
   }
 
+  $('#open-contacts').onclick = () => { playClick(460); openContacts(true); };
+  $('#close-contacts').onclick = () => { playClick(360); openContacts(false); };
+  $('#contacts').onclick = e => { if (e.target === e.currentTarget) openContacts(false); };
+
+  $('#close-det').onclick = closeSelection;
+  $('#lightbox').onclick = closeLightbox;
+
   $('#opt-sound').onchange = e => {
     state.soundEnabled = e.target.checked;
-    savePrefs();
     if (state.soundEnabled) playClick(540);
-    msg(state.soundEnabled ? 'Effetti sonori attivati' : 'Effetti sonori disattivati', 1500);
   };
-
   $('#opt-music').onchange = e => {
     state.musicEnabled = e.target.checked;
-    savePrefs();
     unlockAudio();
     syncMusic();
-    msg(state.musicEnabled ? 'Musica ambientale attivata' : 'Musica ambientale disattivata', 1600);
   };
-
   $('#opt-eco').onchange = e => {
-    playClick(420);
-    applyEcoMode(e.target.checked, true);
-  };
-
-  const lb = $('#lightbox');
-  $('#big').onclick = () => {
-    const it = state.items[state.sel];
-    if (!it || !it.src) return;
-    playClick(540);
-    $('img', lb).src = it.src;
-    lb.hidden = false;
-  };
-  lb.onclick = () => { lb.hidden = true; };
-
-  $('#md').onclick = e => {
-    playClick(460);
-    state.mode = state.mode === 'thumb' ? 'dot' : 'thumb';
-    e.currentTarget.setAttribute('aria-pressed', state.mode === 'thumb');
+    state.ecoMode = e.target.checked;
+    document.body.classList.toggle('is-eco', state.ecoMode);
+    if (state.ecoMode) {
+      setAutoRotate(false, false);
+    } else {
+      setAutoRotate(state.autoRotatePref, false);
+    }
     markDirty();
   };
+
+  if (state.ecoMode) {
+    document.body.classList.add('is-eco');
+    $('#opt-eco').checked = true;
+  }
 
   $('#q').oninput = e => {
     state.q = e.target.value.trim().toLowerCase();
@@ -532,39 +511,40 @@ export function bindUI() {
   };
 
   addEventListener('keydown', e => {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.target.closest('input, textarea')) {
-      if (e.key === 'Escape') e.target.blur();
-      return;
+    const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+    if (e.key === 'Escape') {
+      if (!$('#lightbox').hidden) return closeLightbox();
+      if (!$('#settings').hidden) return openSettings(false);
+      if (!$('#contacts').hidden) return openContacts(false);
+      if (!$('#welcome').hidden) return openWelcome(false);
+      return closeSelection();
     }
-    switch (e.key) {
-      case 'Escape':
-        if (!$('#lightbox').hidden) $('#lightbox').hidden = true;
-        else if (!$('#settings').hidden) openSettings(false);
-        else if (!$('#contacts').hidden) openContacts(false);
-        else if (!$('#welcome').hidden) openWelcome(false);
-        else closeSelection();
-        break;
-      case 'ArrowRight': stepSelection(1); break;
-      case 'ArrowLeft': stepSelection(-1); break;
-      case '+': case '=': zoomBy(1.2); break;
-      case '-': case '_': zoomBy(1 / 1.2); break;
-      case '0': closeSelection(); resetView(); break;
-      case 'g': case 'G': setViewMode(state.viewMode === '3d' ? 'geo' : '3d'); break;
-      case 't': case 'T': {
-        const next = cycleThemeMode();
-        savePrefs();
-        const resolved = getResolvedTheme();
-        playThemeSwitch(resolved === 'light');
-        const names = { auto: `Tema automatico (${resolved === 'dark' ? 'Scuro' : 'Chiaro'})`, light: 'Tema chiaro', dark: 'Tema scuro' };
-        msg(names[next], 1600);
-        break;
-      }
-      case ' ':
-        if (state.viewMode === '3d') { e.preventDefault(); toggleAutoRotate(); }
-        break;
-      case '/': e.preventDefault(); $('#q').focus(); break;
-      default: return;
+    if (typing) return;
+    if (e.key === '/') { e.preventDefault(); $('#q').focus(); }
+    else if (e.key === ' ') { e.preventDefault(); setAutoRotate(!state.autoRotate); }
+    else if (e.key === 'g' || e.key === 'G') setViewMode(state.viewMode === '3d' ? 'geo' : '3d');
+    else if (e.key === 'p' || e.key === 'P') {
+      unlockAudio();
+      const next = cyclePalette();
+      playThemeSwitch(getResolvedTheme() === 'light');
+      msg(`Stile: ${next.name}`);
     }
+    else if (e.key === 't' || e.key === 'T') {
+      unlockAudio();
+      const next = cycleThemeMode();
+      playThemeSwitch(getResolvedTheme() === 'light');
+      const label = next === 'auto' ? 'Automatico' : next === 'light' ? 'Chiaro' : 'Scuro';
+      msg(`Tema: ${label}`);
+    }
+    else if (e.key === '+' || e.key === '=') zoomBy(1.25);
+    else if (e.key === '-') zoomBy(1 / 1.25);
+    else if (e.key === '0') resetView();
   });
+}
+
+export function applyHash() {
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (!id) return;
+  const i = state.items.findIndex(x => x.r.id === id);
+  if (i >= 0) show(i);
 }

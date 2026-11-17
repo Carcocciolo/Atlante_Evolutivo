@@ -1,8 +1,8 @@
 /* ============================================================
    geo.js — hub geografici, proiezione Natural Earth (d3-geo),
-   mappa pre-rasterizzata a cache e disposizione cluster
+   archi geodetici evolutivi e radar cartografici
    ============================================================ */
-import { state, CONFIG, clamp, markDirty, msg } from './data.js';
+import { state, CONFIG, RM, clamp, markDirty, msg } from './data.js';
 import { getThemeTokens, registerThemeHook } from './theme.js';
 
 export const GEO_HUBS = [
@@ -18,6 +18,14 @@ export const GEO_HUBS = [
 ];
 const HUB_BY_ID = new Map(GEO_HUBS.map(h => [h.id, h]));
 const GOLDEN = 2.39996;
+
+const GEO_ARCS = [
+  ['solnhofen', 'berlino'],
+  ['solnhofen', 'fujian'],
+  ['fujian', 'broome'],
+  ['simbruini', 'oulu'],
+  ['italia', 'kauai']
+];
 
 export function assignGeoHub(r) {
   const cat = (r.category || '').toLowerCase();
@@ -303,7 +311,7 @@ export function layoutHubs(size, cam = state.camGeo, out = hubLayout) {
 
 const hubVis = new Map();
 
-export function drawGeoHalos(cx) {
+export function drawGeoHalos(cx, t = performance.now()) {
   const cvT = getThemeTokens().canvas;
   hubVis.clear();
   for (const it of state.items) if (it.vis) hubVis.set(it.hubId, (hubVis.get(it.hubId) || 0) + 1);
@@ -319,6 +327,29 @@ export function drawGeoHalos(cx) {
     g.fillRect(0, 0, 128, 128);
   }
 
+  // Archi geodetici animati tra gli hub attivi
+  if (!state.ecoMode && hubVis.size > 1) {
+    cx.save();
+    cx.strokeStyle = cvT.geoSphereStroke;
+    cx.lineWidth = 1.1;
+    cx.setLineDash([4, 7]);
+    if (!RM) cx.lineDashOffset = -t * 0.025;
+    for (const [idA, idB] of GEO_ARCS) {
+      const ha = hubLayout.get(idA);
+      const hb = hubLayout.get(idB);
+      if (!ha || !hb || !hubVis.has(idA) || !hubVis.has(idB)) continue;
+      const mx = (ha.tx + hb.tx) * 0.5;
+      const my = (ha.ty + hb.ty) * 0.5 - Math.hypot(hb.tx - ha.tx, hb.ty - ha.ty) * 0.14;
+      cx.beginPath();
+      cx.moveTo(ha.tx, ha.ty);
+      cx.quadraticCurveTo(mx, my, hb.tx, hb.ty);
+      cx.stroke();
+    }
+    cx.restore();
+  }
+
+  const pulse = (RM || state.ecoMode) ? 0 : (t * 0.00055) % 1;
+
   for (const h of hubLayout.values()) {
     if (!hubVis.has(h.id)) continue;
     if (!state.ecoMode) {
@@ -331,6 +362,18 @@ export function drawGeoHalos(cx) {
       cx.setLineDash([3, 4]);
       cx.beginPath(); cx.moveTo(h.tx, h.ty); cx.lineTo(h.x, h.y); cx.stroke();
       cx.setLineDash([]);
+    }
+
+    // Onda radar concentrica
+    if (!RM && !state.ecoMode) {
+      cx.save();
+      cx.strokeStyle = cvT.geoPin;
+      cx.lineWidth = 1;
+      cx.globalAlpha = Math.pow(1 - pulse, 2) * 0.65;
+      cx.beginPath();
+      cx.arc(h.tx, h.ty, 5 + pulse * 22, 0, Math.PI * 2);
+      cx.stroke();
+      cx.restore();
     }
 
     cx.fillStyle = cvT.geoHalo0;
@@ -356,7 +399,7 @@ export function drawGeoLabels(cx) {
     cx.fillStyle = cvT.geoLabelInk;
     cx.fillText(h.hub.label, h.x, y);
     cx.font = '500 10.5px "JetBrains Mono", monospace';
-    const sub = `${n} ${n === 1 ? 'tavola' : 'tavole'}`;
+    const sub = `${n} ${n === 1 ? 'vetrino' : 'vetrini'}`;
     cx.strokeText(sub, h.x, y + 15);
     cx.fillStyle = cvT.geoLabelSub;
     cx.fillText(sub, h.x, y + 15);

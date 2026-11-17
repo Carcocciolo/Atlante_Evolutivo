@@ -1,214 +1,191 @@
 /* ============================================================
-   audio.js — suoni UI procedurali e paesaggio sonoro evolutivo
-   generati interamente tramite Web Audio API (zero file esterni)
+   audio.js — sintetizzatore Web Audio procedurale per
+   feedback tattili ottici e paesaggio sonoro generativo
    ============================================================ */
 import { state } from './data.js';
 
 let ctx = null;
+let masterGain = null;
+let musicGain = null;
+let musicTimer = 0;
 let musicRunning = false;
-let musicTimer = null;
-let musicMaster = null;
+let lastHoverAt = 0;
 
 function ensureCtx() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
-  }
-  if (ctx.state === 'suspended') {
-    ctx.resume().catch(() => {});
+    masterGain = ctx.createGain();
+    masterGain.gain.value = 0.24;
+    masterGain.connect(ctx.destination);
+
+    musicGain = ctx.createGain();
+    musicGain.gain.value = 0.0001;
+    musicGain.connect(masterGain);
   }
   return ctx;
 }
 
-/** Suono morbido quando si passa sopra una tavola. */
+export function unlockAudio() {
+  const c = ensureCtx();
+  if (c && c.state === 'suspended') {
+    c.resume().catch(() => {});
+  }
+}
+
 export function playHover() {
   if (!state.soundEnabled) return;
+  const now = performance.now();
+  if (now - lastHoverAt < 55) return;
+  lastHoverAt = now;
+
   const c = ensureCtx();
-  if (!c) return;
-  const now = c.currentTime;
+  if (!c || c.state !== 'running') return;
+  const t = c.currentTime;
   const osc = c.createOscillator();
-  const gain = c.createGain();
+  const g = c.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(520, now);
-  osc.frequency.exponentialRampToValueAtTime(760, now + 0.045);
-
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.linearRampToValueAtTime(0.025, now + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
-
-  osc.connect(gain);
-  gain.connect(c.destination);
-  osc.start(now);
-  osc.stop(now + 0.06);
+  osc.frequency.setValueAtTime(760 + Math.random() * 140, t);
+  osc.frequency.exponentialRampToValueAtTime(1120, t + 0.045);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.06, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.06);
 }
 
-/** Suono tattile per clic su pulsanti e controlli. */
-export function playClick(pitch = 420) {
+export function playClick(freq = 460) {
   if (!state.soundEnabled) return;
   const c = ensureCtx();
   if (!c) return;
-  const now = c.currentTime;
+  if (c.state === 'suspended') c.resume().catch(() => {});
+  if (c.state !== 'running') return;
+  const t = c.currentTime;
   const osc = c.createOscillator();
-  const gain = c.createGain();
+  const g = c.createGain();
   osc.type = 'triangle';
-  osc.frequency.setValueAtTime(pitch, now);
-  osc.frequency.exponentialRampToValueAtTime(pitch * 0.65, now + 0.07);
-
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.linearRampToValueAtTime(0.06, now + 0.008);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
-
-  osc.connect(gain);
-  gain.connect(c.destination);
-  osc.start(now);
-  osc.stop(now + 0.09);
+  osc.frequency.setValueAtTime(freq, t);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.65, t + 0.075);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.14, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.085);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.09);
 }
 
-/** Accordo cristallino al cambio palette o tema chiaro/scuro. */
-export function playThemeSwitch(isLight = false) {
-  if (!state.soundEnabled) return;
-  const c = ensureCtx();
-  if (!c) return;
-  const now = c.currentTime;
-  const notes = isLight ? [523.25, 659.25, 783.99] : [392.0, 493.88, 659.25];
-  notes.forEach((f, idx) => {
-    const osc = c.createOscillator();
-    const gain = c.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(f, now + idx * 0.03);
-    gain.gain.setValueAtTime(0.0001, now + idx * 0.03);
-    gain.gain.linearRampToValueAtTime(0.032, now + idx * 0.03 + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.03 + 0.24);
-    osc.connect(gain);
-    gain.connect(c.destination);
-    osc.start(now + idx * 0.03);
-    osc.stop(now + idx * 0.03 + 0.26);
-  });
-}
-
-/** Accordo caldo all'apertura di una tavola. */
 export function playSelect(cat = '') {
   if (!state.soundEnabled) return;
   const c = ensureCtx();
   if (!c) return;
-  const now = c.currentTime;
-  const freqs = cat.includes('Grilli')
-    ? [392.0, 493.88, 587.33]
-    : cat.includes('Pettirossi')
-    ? [349.23, 440.0, 523.25]
-    : [293.66, 369.99, 440.0];
-
-  freqs.forEach((f, idx) => {
+  if (c.state === 'suspended') c.resume().catch(() => {});
+  if (c.state !== 'running') return;
+  const t = c.currentTime;
+  const base = cat.includes('Pettirossi') ? 523.25 : cat.includes('Grilli') ? 587.33 : 440;
+  [1, 1.25, 1.5].forEach((ratio, idx) => {
     const osc = c.createOscillator();
-    const gain = c.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(f, now + idx * 0.025);
-
-    gain.gain.setValueAtTime(0.0001, now + idx * 0.025);
-    gain.gain.linearRampToValueAtTime(0.04, now + idx * 0.025 + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.025 + 0.34);
-
-    osc.connect(gain);
-    gain.connect(c.destination);
-    osc.start(now + idx * 0.025);
-    osc.stop(now + idx * 0.025 + 0.36);
+    const g = c.createGain();
+    osc.type = idx === 0 ? 'sine' : 'triangle';
+    const start = t + idx * 0.032;
+    osc.frequency.setValueAtTime(base * ratio, start);
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.linearRampToValueAtTime(0.11 / (idx + 1), start + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + 0.34);
+    osc.connect(g);
+    g.connect(masterGain);
+    osc.start(start);
+    osc.stop(start + 0.36);
   });
 }
 
-/** Transizione morbida tra vista Spazio 3D e Mappa. */
 export function playSwitch(toGeo = false) {
   if (!state.soundEnabled) return;
   const c = ensureCtx();
   if (!c) return;
-  const now = c.currentTime;
+  if (c.state === 'suspended') c.resume().catch(() => {});
+  if (c.state !== 'running') return;
+  const t = c.currentTime;
   const osc = c.createOscillator();
-  const gain = c.createGain();
+  const g = c.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(toGeo ? 260 : 380, now);
-  osc.frequency.exponentialRampToValueAtTime(toGeo ? 390 : 250, now + 0.18);
-
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.linearRampToValueAtTime(0.055, now + 0.03);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
-
-  osc.connect(gain);
-  gain.connect(c.destination);
-  osc.start(now);
-  osc.stop(now + 0.24);
+  osc.frequency.setValueAtTime(toGeo ? 320 : 540, t);
+  osc.frequency.exponentialRampToValueAtTime(toGeo ? 620 : 300, t + 0.18);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.14, t + 0.025);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.21);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.22);
 }
 
-/* ---------- Musica ambientale generativa (scala pentatonica calda) ---------- */
-const SCALE = [146.83, 174.61, 196.0, 220.0, 261.63, 293.66, 349.23, 392.0, 440.0];
+export function playThemeSwitch(isLight = false) {
+  if (!state.soundEnabled) return;
+  const c = ensureCtx();
+  if (!c) return;
+  if (c.state === 'suspended') c.resume().catch(() => {});
+  if (c.state !== 'running') return;
+  const t = c.currentTime;
+  const notes = isLight ? [523.25, 659.25, 783.99] : [493.88, 392.0, 293.66];
+  notes.forEach((f, idx) => {
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = 'sine';
+    const st = t + idx * 0.04;
+    osc.frequency.setValueAtTime(f, st);
+    g.gain.setValueAtTime(0.0001, st);
+    g.gain.linearRampToValueAtTime(0.09, st + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, st + 0.25);
+    osc.connect(g);
+    g.connect(masterGain);
+    osc.start(st);
+    osc.stop(st + 0.27);
+  });
+}
+
+const SCALE = [220, 261.63, 293.66, 329.63, 392.0, 440, 523.25, 659.25];
 
 function triggerAmbientNote() {
   if (!musicRunning || !state.musicEnabled) return;
   const c = ensureCtx();
-  if (!c || !musicMaster) return;
-
-  const now = c.currentTime;
-  const f = SCALE[Math.floor(Math.random() * SCALE.length)];
-  const dur = 3.2 + Math.random() * 2.4;
-
+  if (!c || c.state !== 'running') return;
+  const t = c.currentTime;
+  const freq = SCALE[Math.floor(Math.random() * SCALE.length)];
   const osc = c.createOscillator();
-  const sub = c.createOscillator();
-  const filter = c.createBiquadFilter();
-  const env = c.createGain();
-
+  const g = c.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(f, now);
-
-  sub.type = 'triangle';
-  sub.frequency.setValueAtTime(f * 0.5, now);
-
-  filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(640, now);
-
-  env.gain.setValueAtTime(0.0001, now);
-  env.gain.linearRampToValueAtTime(0.045, now + dur * 0.35);
-  env.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-  osc.connect(filter);
-  sub.connect(filter);
-  filter.connect(env);
-  env.connect(musicMaster);
-
-  osc.start(now);
-  sub.start(now);
-  osc.stop(now + dur + 0.05);
-  sub.stop(now + dur + 0.05);
-
-  musicTimer = setTimeout(triggerAmbientNote, 1600 + Math.random() * 1900);
+  osc.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.08, t + 0.9);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 3.4);
+  osc.connect(g);
+  g.connect(musicGain);
+  osc.start(t);
+  osc.stop(t + 3.5);
 }
 
 export function syncMusic() {
+  const c = ensureCtx();
+  if (!c) return;
   if (state.musicEnabled) {
-    const c = ensureCtx();
-    if (!c) return;
-    if (!musicMaster) {
-      musicMaster = c.createGain();
-      musicMaster.gain.value = 0.85;
-      musicMaster.connect(c.destination);
-    }
+    if (c.state === 'suspended') c.resume().catch(() => {});
+    musicGain.gain.cancelScheduledValues(c.currentTime);
+    musicGain.gain.setTargetAtTime(0.38, c.currentTime, 0.4);
     if (!musicRunning) {
       musicRunning = true;
-      musicMaster.gain.setTargetAtTime(0.85, c.currentTime, 0.3);
       triggerAmbientNote();
+      musicTimer = setInterval(triggerAmbientNote, 2100);
     }
-  } else if (musicRunning) {
+  } else {
     musicRunning = false;
-    clearTimeout(musicTimer);
-    if (ctx && musicMaster) {
-      musicMaster.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.25);
+    clearInterval(musicTimer);
+    if (musicGain) {
+      musicGain.gain.cancelScheduledValues(c.currentTime);
+      musicGain.gain.setTargetAtTime(0.0001, c.currentTime, 0.25);
     }
-  }
-}
-
-/** Sblocca AudioContext al primo gesto dell'utente se la musica è attiva. */
-export function unlockAudio() {
-  if (state.musicEnabled && !musicRunning) {
-    syncMusic();
-  } else if (ctx && ctx.state === 'suspended') {
-    ctx.resume().catch(() => {});
   }
 }

@@ -9,17 +9,14 @@ import { geoThumbSize, geoOffset, layoutHubs } from './geo.js';
 export const ZOOM_3D = [0.45, 4.8];
 export const ZOOM_GEO = [0.75, 18];
 
-/* ---------- algebra matriciale 3x3 (salvata in array 16 per compatibilità) ---------- */
 export function setIdentityRot(m) {
   m.fill(0);
   m[0] = m[5] = m[10] = m[15] = 1;
   return m;
 }
 
-/** Applica una rotazione incrementale nel sistema schermo: dyaw attorno a Y, dpitch attorno a X. */
 export function rotateScreenSpace(m, dyaw, dpitch) {
   if (Math.abs(dyaw) > 1e-9) {
-    // Rotazione attorno all'asse Y dello schermo (ruota X e Z)
     const c = Math.cos(-dyaw), s = Math.sin(-dyaw);
     const r00 = m[0], r01 = m[1], r02 = m[2];
     const r20 = m[8], r21 = m[9], r22 = m[10];
@@ -31,7 +28,6 @@ export function rotateScreenSpace(m, dyaw, dpitch) {
     m[10] = -s * r02 + c * r22;
   }
   if (Math.abs(dpitch) > 1e-9) {
-    // Rotazione attorno all'asse X dello schermo (ruota Y e Z — permette di superare i poli!)
     const c = Math.cos(dpitch), s = Math.sin(dpitch);
     const r10 = m[4], r11 = m[5], r12 = m[6];
     const r20 = m[8], r21 = m[9], r22 = m[10];
@@ -45,7 +41,6 @@ export function rotateScreenSpace(m, dyaw, dpitch) {
   orthonormalize(m);
 }
 
-/** Ortogonalizzazione di Gram-Schmidt per evitare deriva numerica. */
 function orthonormalize(m) {
   let x0 = m[0], x1 = m[1], x2 = m[2];
   let lx = Math.hypot(x0, x1, x2) || 1;
@@ -57,7 +52,6 @@ function orthonormalize(m) {
   let ly = Math.hypot(y0, y1, y2) || 1;
   y0 /= ly; y1 /= ly; y2 /= ly;
 
-  // Z = X × Y
   const z0 = x1 * y2 - x2 * y1;
   const z1 = x2 * y0 - x0 * y2;
   const z2 = x0 * y1 - x1 * y0;
@@ -67,7 +61,6 @@ function orthonormalize(m) {
   m[8] = z0; m[9] = z1; m[10] = z2;
 }
 
-/** Interpola la matrice `cur` verso `goal` e ortogonalizza. */
 function lerpRot(cur, goal, k) {
   let diff = 0;
   for (const idx of [0, 1, 2, 4, 5, 6, 8, 9, 10]) {
@@ -85,11 +78,9 @@ export function initHome3D(m) {
   return m;
 }
 
-// Inizializza le camere 3D all'avvio
 initHome3D(state.cam3D.rot);
 initHome3D(state.goal3D.rot);
 
-/** Avanza le camere di `dt` secondi. Restituisce true finché c'è movimento. */
 export function stepCamera(dt) {
   const s = state;
   const instant = RM || s.ecoMode;
@@ -139,7 +130,6 @@ export function stepCamera(dt) {
   return moving;
 }
 
-/** Zoom moltiplicativo; sulla mappa è centrato sul punto (px, py). */
 export function zoomBy(f, px = state.W / 2, py = state.H / 2) {
   if (state.viewMode === '3d') {
     const g = state.goal3D;
@@ -164,7 +154,6 @@ export function resetView() {
   state.dirty = true;
 }
 
-/** Quando si chiude la scheda la camera si allontana dolcemente. */
 export function releaseFocus() {
   if (state.viewMode === '3d') {
     state.goal3D.zoom = 1;
@@ -174,36 +163,30 @@ export function releaseFocus() {
   state.dirty = true;
 }
 
-/** Centro dell'area libera accanto alla scheda (a destra su desktop, in alto su mobile). */
 function freeCenter() {
   const { W, H } = state;
-  if (W > 760) { const left = 398; return { x: left + (W - left) / 2, y: H / 2 }; }
-  return { x: W / 2, y: H * 0.25 };
+  if (W > 760) { const left = 408; return { x: left + (W - left) / 2, y: H / 2 }; }
+  return { x: W / 2, y: H * 0.24 };
 }
 
 const _probe = {}, _off = {};
 
-/** Porta la tavola `it` davanti alla camera, nell'area libera dello schermo. */
 export function focusOn(it) {
   const want = freeCenter();
   if (state.viewMode === '3d') {
     const g = state.goal3D;
-    // Costruisce una matrice di vista che porta `it` esattamente verso -Z (davanti alla camera)
     const len = Math.hypot(it.x, it.y, it.z) || 1;
     let zx = -it.x / len, zy = -it.y / len, zz = -it.z / len;
 
-    // Vettore "up" di riferimento (se quasi parallelo a Z, usa X)
     let ux = 0, uy = 1, uz = 0;
     if (Math.abs(zy) > 0.94) { ux = 0; uy = 0; uz = 1; }
 
-    // X = up × Z
     let xx = uy * zz - uz * zy;
     let xy = uz * zx - ux * zz;
     let xz = ux * zy - uy * zx;
     const xl = Math.hypot(xx, xy, xz) || 1;
     xx /= xl; xy /= xl; xz /= xl;
 
-    // Y = Z × X
     const yx = zy * xz - zz * xy;
     const yy = zz * xx - zx * xz;
     const yz = zx * xy - zy * xx;
@@ -214,7 +197,7 @@ export function focusOn(it) {
     rot[8] = zx; rot[9] = zy; rot[10] = zz;
     rot[15] = 1;
 
-    const zoom = state.W <= 760 ? 1.45 : 1.7;
+    const zoom = state.W <= 760 ? 1.45 : 1.72;
     project3D(it.x, it.y, it.z, _probe, { rot, zoom, panX: 0, panY: 0 });
     g.rot.set(rot);
     g.zoom = zoom;

@@ -1,6 +1,7 @@
 /* ============================================================
-   main.js — ciclo di rendering, fisica tilt 2D migliorata,
-   telemetria ottica live, input e avvio
+   main.js — ciclo di rendering, filamenti curvi 3D, reticolo
+   ottico di puntamento con percentuali di affinità, telemetria
+   e verniero live
    ============================================================ */
 import { state, RM, CARD, ease, clamp, rgba, esc, markDirty } from './data.js';
 import { getThemeTokens, getResolvedTheme, PALETTE_MAP } from './theme.js';
@@ -9,7 +10,7 @@ import {
 } from './geo.js';
 import { project3D, thumbSize3D, draw3DBackground, drawClusterLabels, buildBackground } from './view3d.js';
 import { stepCamera, zoomBy, focusOn, rotateScreenSpace } from './camera.js';
-import { show, closeSelection, bindUI, setAutoRotate } from './ui.js';
+import { show, closeSelection, bindUI, setAutoRotate, similarityPercent } from './ui.js';
 import { autoload, bindLoaderUI } from './loader.js';
 import { playHover, unlockAudio } from './audio.js';
 
@@ -19,18 +20,20 @@ const cx = cv.getContext('2d', { alpha: false });
 const wrap = $('#wrap');
 const tipEl = $('#tip');
 const telTextEl = $('#telemetry-text');
+const axisReadoutEl = $('#axis-readout');
+const astrolabeSvg = $('#astrolabe-svg');
+const vernierNeedle = $('#vernier-needle');
+const vernierVal = $('#vernier-val');
 
 const order = [];
 const off = {};
 const glowCache = new Map();
 const flags = { busy: false, moved: false };
-let lastView = '', lastN = -1, lastTel = '';
+let lastView = '', lastN = -1, lastTel = '', lastAxis = '', lastVernier = '';
 let sheenSprite = null;
 
-// Tracciamento movimento camera per il tilt 2D delle card
 let prevCamX = 0, prevCamY = 0;
 
-/** Sprite luminoso per categoria. */
 function glow(color) {
   let c = glowCache.get(color);
   if (c) return c;
@@ -48,7 +51,6 @@ function glow(color) {
   return c;
 }
 
-/** Riflesso satinato diagonale pre-renderizzato per le card in primo piano. */
 function getSheen() {
   if (sheenSprite) return sheenSprite;
   sheenSprite = document.createElement('canvas');
@@ -65,32 +67,58 @@ function getSheen() {
   return sheenSprite;
 }
 
-/** Livello mip più piccolo che copre ancora la larghezza richiesta (in pixel del dispositivo). */
 function pickLevel(cards, devW) {
   for (let i = 0; i < cards.length; i++) if (cards[i].width >= devW * 0.8) return cards[i];
   return cards[cards.length - 1];
 }
 
-/* ---------- telemetria ottica live ---------- */
+/* ---------- telemetria ottica, verniero & astrolabio live ---------- */
 function updateTelemetry() {
-  if (!telTextEl) return;
   const pal = PALETTE_MAP.get(state.palette);
   const palName = pal ? pal.name.toUpperCase() : 'AMBRA';
   let txt;
   if (state.viewMode === '3d') {
     const z = state.cam3D.zoom.toFixed(2);
     txt = `SPAZIO 3D · ${z}× · ${palName}`;
+
+    const yawDeg = Math.round(((state.cam3D.yaw * 180 / Math.PI) % 360 + 360) % 360);
+    const pitchDeg = Math.round(clamp(state.cam3D.pitch * 180 / Math.PI, -90, 90));
+    const axStr = `YAW ${String(yawDeg).padStart(3, '0')}° · PITCH ${pitchDeg >= 0 ? '+' : ''}${pitchDeg}° · FOV ${z}×`;
+    if (axisReadoutEl && axStr !== lastAxis) {
+      lastAxis = axStr;
+      axisReadoutEl.textContent = axStr;
+    }
+    if (astrolabeSvg && !state.ecoMode) {
+      astrolabeSvg.style.transform = `rotate(${(state.cam3D.yaw * 57.2958).toFixed(1)}deg)`;
+    }
+    if (vernierNeedle && vernierVal && !state.ecoMode) {
+      const pct = clamp(50 - (pitchDeg / 90) * 42, 8, 92);
+      const vStr = `${pitchDeg >= 0 ? '+' : ''}${pitchDeg}°`;
+      if (vStr !== lastVernier) {
+        lastVernier = vStr;
+        vernierNeedle.style.top = `${pct.toFixed(1)}%`;
+        vernierVal.textContent = vStr;
+      }
+    }
   } else {
     const geo = state.mx > 0 ? screenToGeo(state.mx, state.my) : null;
     if (geo) {
       const latStr = `${Math.abs(geo.lat).toFixed(1)}°${geo.lat >= 0 ? 'N' : 'S'}`;
       const lonStr = `${Math.abs(geo.lon).toFixed(1)}°${geo.lon >= 0 ? 'E' : 'O'}`;
       txt = `MAPPA · ${latStr} ${lonStr} · ${state.camGeo.k.toFixed(1)}×`;
+      if (vernierNeedle && vernierVal && !state.ecoMode) {
+        const pct = clamp(50 - (geo.lat / 90) * 44, 8, 92);
+        if (latStr !== lastVernier) {
+          lastVernier = latStr;
+          vernierNeedle.style.top = `${pct.toFixed(1)}%`;
+          vernierVal.textContent = latStr;
+        }
+      }
     } else {
       txt = `PLANISFERO · ${state.camGeo.k.toFixed(1)}× · ${palName}`;
     }
   }
-  if (txt !== lastTel) {
+  if (telTextEl && txt !== lastTel) {
     lastTel = txt;
     telTextEl.textContent = txt;
   }
@@ -129,8 +157,6 @@ function placeTip(px, py) {
 /* ============================================================
    rendering, in passi separati
    ============================================================ */
-
-/** Anima, proietta e calcola la fisica di tilt e oscillazione di ogni tavola. */
 function updateItems(t, dt, is3D, baseSize, hubs, impulseX, impulseY) {
   const S = state, items = S.items, n = items.length;
   const noAnim = RM || S.ecoMode;
@@ -172,7 +198,6 @@ function updateItems(t, dt, is3D, baseSize, hubs, impulseX, impulseY) {
       o.zOrder = it.hubRank;
     }
 
-    // Fisica di tilt migliorata: risposta sia orizzontale che verticale (pendolo smorzato con inerzia d'aria)
     if (noAnim) {
       it.rot = isActive ? 0 : it.baseRot;
       it.tiltY = 0;
@@ -221,7 +246,6 @@ function sortOrder(n) {
   order.sort((a, b) => P[b].zOrder - P[a].zOrder);
 }
 
-/* statistiche per categoria: servono ad alone e nome del gruppo in 3D */
 const catStats = new Map();
 function computeClusterStats() {
   for (const s of catStats.values()) s.n = 0;
@@ -236,31 +260,33 @@ function computeClusterStats() {
   }
 }
 
-/** Alone morbido sotto ogni nuvola di tavole. */
 function drawAuras(baseSize) {
   const S = state;
   if (S.ecoMode) return;
   const isLight = getResolvedTheme() === 'light';
   cx.globalCompositeOperation = isLight ? 'multiply' : 'lighter';
-  cx.globalAlpha = (isLight ? 0.11 : 0.17) * (1 - 0.6 * S.focus);
+  cx.globalAlpha = (isLight ? 0.11 : 0.18) * (1 - 0.6 * S.focus);
   for (const [cat, s] of catStats) {
     if (s.n < 2) continue;
     const mx = s.sx / s.n, my = s.sy / s.n;
     const v = Math.max(0, s.sxx / s.n - mx * mx + s.syy / s.n - my * my);
-    const R = Math.sqrt(v) * 2.4 + baseSize * 1.4;
+    const R = Math.sqrt(v) * 2.4 + baseSize * 1.45;
     cx.drawImage(glow(S.col[cat]), mx - R, my - R, R * 2, R * 2);
   }
   cx.globalCompositeOperation = 'source-over';
   cx.globalAlpha = 1;
 }
 
+/** Filamenti curvi di costellazione e vettori di affinità con percentuale. */
 function drawLinks(t) {
   const S = state, items = S.items, n = items.length, col = S.col;
   const cvT = getThemeTokens().canvas;
   const isLight = getResolvedTheme() === 'light';
+
+  // Rete organica curva tra vicini dello stesso taxon in 3D
   if (n && S.viewMode === '3d') {
     cx.lineWidth = isLight ? 1.1 : 1;
-    cx.globalAlpha = (S.ecoMode ? 0.14 : (isLight ? 0.24 : 0.18)) * (1 - 0.6 * S.focus);
+    cx.globalAlpha = (S.ecoMode ? 0.14 : (isLight ? 0.25 : 0.20)) * (1 - 0.6 * S.focus);
     for (const cat of Object.keys(col)) {
       cx.beginPath();
       for (let i = 0; i < n; i++) {
@@ -269,35 +295,97 @@ function drawLinks(t) {
         for (let k = 0; k < 2 && k < a.nn.length; k++) {
           const b = items[a.nn[k]];
           if (!b || !b.vis) continue;
-          cx.moveTo(a.sx, a.sy); cx.lineTo(b.sx, b.sy);
+          const mx = (a.sx + b.sx) * 0.5 - (b.sy - a.sy) * 0.12;
+          const my = (a.sy + b.sy) * 0.5 + (b.sx - a.sx) * 0.12;
+          cx.moveTo(a.sx, a.sy);
+          cx.quadraticCurveTo(mx, my, b.sx, b.sy);
         }
       }
       cx.strokeStyle = col[cat];
       cx.stroke();
     }
   }
+
+  // Vettori illuminati verso i vicini morfologici su hover/selezione + badge %
   if (n && (S.hov >= 0 || S.sel >= 0)) {
-    cx.lineWidth = 1.6;
-    cx.setLineDash([6, 8]);
-    cx.lineDashOffset = (RM || S.ecoMode) ? 0 : -t * 0.04;
+    cx.save();
+    cx.lineWidth = 1.65;
+    cx.setLineDash([5, 7]);
+    cx.lineDashOffset = (RM || S.ecoMode) ? 0 : -t * 0.045;
     cx.strokeStyle = cvT.linkHighlight;
     for (const k of [S.hov, S.sel]) {
       if (k < 0 || !items[k]) continue;
-      cx.globalAlpha = k === S.sel ? 0.88 : 0.58;
+      const a = items[k];
+      cx.globalAlpha = k === S.sel ? 0.90 : 0.65;
       cx.beginPath();
-      for (const j of items[k].nn) {
-        if (!items[j] || !items[j].vis) continue;
-        cx.moveTo(items[k].sx, items[k].sy); cx.lineTo(items[j].sx, items[j].sy);
+      for (const j of a.nn) {
+        const b = items[j];
+        if (!b || !b.vis) continue;
+        const mx = (a.sx + b.sx) * 0.5 - (b.sy - a.sy) * 0.14;
+        const my = (a.sy + b.sy) * 0.5 + (b.sx - a.sx) * 0.14;
+        cx.moveTo(a.sx, a.sy);
+        cx.quadraticCurveTo(mx, my, b.sx, b.sy);
       }
       cx.stroke();
+
+      // Mostra le percentuali di affinità sulle prime 3 connessioni se non in ecoMode
+      if (!S.ecoMode && k === S.sel) {
+        cx.setLineDash([]);
+        cx.font = '600 9.5px "JetBrains Mono", monospace';
+        cx.textAlign = 'center';
+        cx.textBaseline = 'middle';
+        for (let idx = 0; idx < Math.min(3, a.nn.length); idx++) {
+          const j = a.nn[idx];
+          const b = items[j];
+          if (!b || !b.vis) continue;
+          const sim = similarityPercent(k, j);
+          if (!sim) continue;
+          const lx = (a.sx * 0.45 + b.sx * 0.55) - (b.sy - a.sy) * 0.07;
+          const ly = (a.sy * 0.45 + b.sy * 0.55) + (b.sx - a.sx) * 0.07;
+          cx.globalAlpha = 0.88;
+          cx.fillStyle = cvT.labelStroke;
+          cx.fillRect(lx - 16, ly - 8, 32, 16);
+          cx.strokeStyle = cvT.linkHighlight;
+          cx.lineWidth = 1;
+          cx.strokeRect(lx - 16, ly - 8, 32, 16);
+          cx.fillStyle = cvT.linkHighlight;
+          cx.fillText(`${sim}%`, lx, ly + 0.5);
+        }
+        cx.setLineDash([5, 7]);
+        cx.lineWidth = 1.65;
+      }
     }
-    cx.setLineDash([]);
-    cx.globalAlpha = 1;
+    cx.restore();
     if (!RM && !S.ecoMode) flags.busy = true;
   }
 }
 
-function drawNode(i, big, is3D, baseSize) {
+/** Mirino ottico rotante attorno al vetrino puntato o selezionato. */
+function drawTargetReticle(x, y, radius, color, t, isSelected) {
+  if (state.ecoMode) return;
+  cx.save();
+  cx.translate(x, y);
+  const spin = RM ? 0 : t * (isSelected ? 0.0007 : 0.0012);
+  cx.rotate(spin);
+
+  cx.strokeStyle = color;
+  cx.lineWidth = isSelected ? 1.6 : 1.25;
+  cx.globalAlpha = isSelected ? 0.85 : 0.65;
+  cx.setLineDash([10, 8]);
+  cx.beginPath();
+  cx.arc(0, 0, radius, 0, Math.PI * 2);
+  cx.stroke();
+
+  cx.rotate(-spin * 2.1);
+  cx.setLineDash([3, 11]);
+  cx.beginPath();
+  cx.arc(0, 0, radius + 7, 0, Math.PI * 2);
+  cx.stroke();
+
+  cx.restore();
+}
+
+function drawNode(i, big, is3D, baseSize, t) {
   const S = state, it = S.items[i], o = S.proj[i], dpr = S.dpr, { W, H } = S;
   const cvT = getThemeTokens().canvas;
   const isLight = getResolvedTheme() === 'light';
@@ -317,11 +405,17 @@ function drawNode(i, big, is3D, baseSize) {
 
   const live = it.ready && S.mode === 'thumb';
   if (!S.ecoMode && (big || (i === S.hov && live))) {
-    const R = (live ? o.size : 22) * 1.6;
+    const R = (live ? o.size : 22) * 1.65;
     cx.globalCompositeOperation = isLight ? 'multiply' : 'lighter';
-    cx.globalAlpha = (big ? (isLight ? 0.32 : 0.6) : (isLight ? 0.22 : 0.42)) * depth;
+    cx.globalAlpha = (big ? (isLight ? 0.32 : 0.62) : (isLight ? 0.22 : 0.44)) * depth;
     cx.drawImage(glow(c), o.sx - R, o.sy - R, R * 2, R * 2);
     cx.globalCompositeOperation = 'source-over';
+  }
+
+  // Reticolo ottico di puntamento su hover o selezione
+  if (big || S.hov === i) {
+    const retR = live ? o.size * 0.86 : (big ? 22 : 16);
+    drawTargetReticle(o.sx, o.sy, retR, big ? cvT.linkHighlight : c, t, big);
   }
 
   if (!live) {
@@ -360,17 +454,14 @@ function drawNode(i, big, is3D, baseSize) {
     o.sy * dpr
   );
 
-  // Ombra morbida espansa quando la tavola è sollevata
   if (!S.ecoMode) {
     const lift = 1 + it.hs * 1.4;
     cx.fillStyle = big ? cvT.cardShadowBig : cvT.cardShadow;
     cx.fillRect(-s / 2 - pad + s * 0.03 * lift, -s / 2 - pad + s * 0.055 * lift, w, h);
   }
 
-  // Card Polaroid
   cx.drawImage(img, -s / 2 - pad, -s / 2 - pad, w, h);
 
-  // Riflesso satinato dinamico in base a tilt e rotazione
   if (!S.ecoMode && (it.hs > 0.05 || Math.abs(rot) > 0.04 || (is3D && o.scale > 0.85))) {
     const tiltGlow = clamp(Math.abs(rot) * 0.65 + Math.abs(it.tiltY || 0) * 0.8, 0, 0.24);
     const sheenAlpha = alpha * (0.28 * it.hs + tiltGlow + (is3D ? clamp((o.scale - 0.85) * 0.45, 0, 0.2) : 0));
@@ -384,9 +475,8 @@ function drawNode(i, big, is3D, baseSize) {
     }
   }
 
-  // Bordo luminoso su hover o selezione
   if (big || S.hov === i) {
-    cx.lineWidth = big ? 2.5 : 1.8;
+    cx.lineWidth = big ? 2.4 : 1.7;
     cx.strokeStyle = big ? cvT.linkHighlight : c;
     cx.strokeRect(-s / 2 - pad, -s / 2 - pad, w, h);
   }
@@ -450,7 +540,6 @@ function render(t, dt) {
   const camMoving = stepCamera(dt);
   if (camMoving) flags.busy = true;
 
-  // Calcola l'impulso 2D del movimento effettivo della camera
   let impulseX = 0, impulseY = 0;
   if (is3D) {
     const dyaw = S.cam3D.yaw - prevCamX;
@@ -484,7 +573,11 @@ function render(t, dt) {
     if (S.autoRotate && !RM && !S.ecoMode && S.sel < 0) flags.busy = true;
   } else {
     if (drawGeoBase(cx, t)) flags.busy = true;
-    if (n) { hubs = layoutHubs(baseSize); drawGeoHalos(cx); }
+    if (n) {
+      hubs = layoutHubs(baseSize);
+      drawGeoHalos(cx, t);
+      if (!RM && !S.ecoMode) flags.busy = true;
+    }
   }
 
   if (S.focus > 0.01) {
@@ -503,9 +596,9 @@ function render(t, dt) {
   if (is3D) { computeClusterStats(); drawAuras(baseSize); }
   drawLinks(t);
 
-  for (const i of order) if (i !== S.sel && i !== S.hov) drawNode(i, false, is3D, baseSize);
-  if (S.hov >= 0 && S.hov !== S.sel && items[S.hov]) drawNode(S.hov, false, is3D, baseSize);
-  if (S.sel >= 0 && items[S.sel]) drawNode(S.sel, true, is3D, baseSize);
+  for (const i of order) if (i !== S.sel && i !== S.hov) drawNode(i, false, is3D, baseSize, t);
+  if (S.hov >= 0 && S.hov !== S.sel && items[S.hov]) drawNode(S.hov, false, is3D, baseSize, t);
+  if (S.sel >= 0 && items[S.sel]) drawNode(S.sel, true, is3D, baseSize, t);
   cx.globalAlpha = 1;
 
   drawOverlays(t, is3D);
@@ -667,7 +760,6 @@ cv.addEventListener('wheel', e => {
   zoomBy(Math.exp(clamp(-dy, -120, 120) * 0.0016), e.clientX - r.left, e.clientY - r.top);
 }, { passive: false });
 
-/* suggerimento iniziale */
 const hint = $('#hint');
 const hideHint = () => hint && hint.classList.add('is-gone');
 cv.addEventListener('pointerdown', hideHint, { once: true });

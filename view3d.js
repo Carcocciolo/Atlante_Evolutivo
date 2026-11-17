@@ -1,13 +1,13 @@
 /* ============================================================
-   view3d.js — proiezione prospettica trackball 3D, sfondo
-   immersivo ottimizzato (multi-palette e risparmio energetico)
+   view3d.js — proiezione prospettica trackball 3D, sfera
+   armillare graduata, campo stellare a parallasse e tavole
+   evolutive con geometria costruttiva
    ============================================================ */
 import { state, RM, clamp } from './data.js';
 import { getThemeTokens, registerThemeHook } from './theme.js';
 
 const FOV = 2.6;
 
-/** Proietta un punto 3D usando la matrice 3D della camera (rotazione libera anche oltre i poli). */
 export function project3D(x, y, z, out, c = state.cam3D) {
   const { W, H } = state;
   const m = c.rot;
@@ -42,7 +42,7 @@ export function buildBackground() {
   bg = document.createElement('canvas');
   bg.width = w; bg.height = h;
   const g = bg.getContext('2d');
-  const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.82);
+  const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.85);
   r.addColorStop(0, cvT.bg0);
   r.addColorStop(0.52, cvT.bg1);
   r.addColorStop(1, cvT.bg2);
@@ -72,9 +72,13 @@ export function invalidateView3DTheme() {
 
 registerThemeHook(invalidateView3DTheme);
 
-const dust = Array.from({ length: 65 }, () => ({
-  x: Math.random(), y: Math.random(), z: Math.random(),
-  s: Math.random() * 1.5 + 0.5, p: Math.random() * 6.3, v: Math.random() * 0.0003 + 0.0001
+const dust = Array.from({ length: 85 }, (_, idx) => ({
+  x: Math.random(),
+  y: Math.random(),
+  z: idx < 45 ? Math.random() * 0.45 : 0.45 + Math.random() * 0.55,
+  s: idx < 45 ? Math.random() * 0.9 + 0.35 : Math.random() * 1.6 + 0.6,
+  p: Math.random() * 6.3,
+  v: Math.random() * 0.00028 + 0.00008
 }));
 
 function drawDust(cx, t) {
@@ -85,9 +89,9 @@ function drawDust(cx, t) {
   cx.beginPath();
   for (const d of dust) {
     if (!RM) { d.y -= d.v; if (d.y < 0) d.y = 1; }
-    const x = (((d.x * W - cam3D.yaw * W * 0.16 * (0.3 + d.z) + cam3D.panX * 0.2 * d.z) % W) + W) % W;
-    const y = (((d.y * H - cam3D.pitch * H * 0.1 * d.z) % H) + H) % H;
-    const rad = d.s * (0.6 + d.z * 0.7) * (0.8 + 0.2 * Math.sin(t * 0.002 + d.p));
+    const x = (((d.x * W - cam3D.yaw * W * 0.18 * (0.25 + d.z) + cam3D.panX * 0.22 * d.z) % W) + W) % W;
+    const y = (((d.y * H - cam3D.pitch * H * 0.12 * d.z + cam3D.panY * 0.14 * d.z) % H) + H) % H;
+    const rad = d.s * (0.55 + d.z * 0.75) * (0.78 + 0.22 * Math.sin(t * 0.002 + d.p));
     cx.moveTo(x + rad, y);
     cx.arc(x, y, rad, 0, Math.PI * 2);
   }
@@ -103,27 +107,28 @@ function drawRings(cx) {
   cx.save();
   cx.lineWidth = 1;
 
-  // Equatore astrolabico e anello interno
-  cx.setLineDash([3, 8]);
-  [[1.02, cvT.ringOuter], [0.58, cvT.ringInner]].forEach(([R, stroke]) => {
+  // Equatore astrolabico principale e orbita interna
+  cx.setLineDash([3, 7]);
+  [[1.04, cvT.ringOuter], [0.56, cvT.ringInner]].forEach(([R, stroke]) => {
     cx.strokeStyle = stroke;
     cx.beginPath();
-    for (let i = 0; i <= 64; i++) {
-      const ang = (i / 64) * Math.PI * 2;
+    for (let i = 0; i <= 72; i++) {
+      const ang = (i / 72) * Math.PI * 2;
       project3D(Math.cos(ang) * R, 0, Math.sin(ang) * R, _p);
       if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
     }
     cx.stroke();
   });
 
-  // Tacche graduate sull'equatore astrolabico
+  // Tacche graduate sull'equatore astrolabico (36 settori da 10°)
   cx.setLineDash([]);
   cx.strokeStyle = cvT.ringOuter;
   cx.beginPath();
-  for (let i = 0; i < 24; i++) {
-    const ang = (i / 24) * Math.PI * 2;
-    const r0 = i % 6 === 0 ? 0.97 : 0.995;
-    const r1 = i % 6 === 0 ? 1.07 : 1.045;
+  for (let i = 0; i < 36; i++) {
+    const ang = (i / 36) * Math.PI * 2;
+    const isCard = i % 9 === 0;
+    const r0 = isCard ? 0.96 : i % 3 === 0 ? 0.99 : 1.01;
+    const r1 = isCard ? 1.11 : i % 3 === 0 ? 1.08 : 1.06;
     project3D(Math.cos(ang) * r0, 0, Math.sin(ang) * r0, _p);
     project3D(Math.cos(ang) * r1, 0, Math.sin(ang) * r1, _p2);
     cx.moveTo(_p.sx, _p.sy);
@@ -131,25 +136,60 @@ function drawRings(cx) {
   }
   cx.stroke();
 
-  // Meridiano verticale ortogonale
-  cx.setLineDash([3, 8]);
+  // Indicatori cardinali sull'equatore (0°, 90°, 180°, 270°)
+  cx.font = '500 9.5px "JetBrains Mono", monospace';
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.fillStyle = cvT.ringOuter;
+  const cardinals = ['0°', '90°', '180°', '270°'];
+  for (let c = 0; c < 4; c++) {
+    const ang = (c / 4) * Math.PI * 2;
+    project3D(Math.cos(ang) * 1.17, 0, Math.sin(ang) * 1.17, _p);
+    if (_p.scale > 0.62) {
+      cx.globalAlpha = clamp((_p.scale - 0.62) * 1.4, 0.25, 0.78);
+      cx.fillText(cardinals[c], _p.sx, _p.sy);
+    }
+  }
+  cx.globalAlpha = 1;
+
+  // Anello eclittico inclinato di 23.5°
+  const tilt = 0.41;
+  const ct = Math.cos(tilt), st = Math.sin(tilt);
+  cx.setLineDash([2, 8]);
   cx.strokeStyle = cvT.ringMeridian;
   cx.beginPath();
-  for (let i = 0; i <= 64; i++) {
-    const ang = (i / 64) * Math.PI * 2;
-    project3D(Math.cos(ang) * 1.02, Math.sin(ang) * 1.02, 0, _p);
+  for (let i = 0; i <= 72; i++) {
+    const ang = (i / 72) * Math.PI * 2;
+    const bx = Math.cos(ang) * 1.04;
+    const bz = Math.sin(ang) * 1.04;
+    project3D(bx * ct, bx * st, bz, _p);
     if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
   }
   cx.stroke();
 
-  // Asse polare zenit-nadir
-  cx.setLineDash([2, 10]);
-  project3D(0, -1.06, 0, _p);
-  project3D(0, 1.06, 0, _p2);
+  // Meridiano verticale ortogonale
+  cx.beginPath();
+  for (let i = 0; i <= 72; i++) {
+    const ang = (i / 72) * Math.PI * 2;
+    project3D(Math.cos(ang) * 1.04, Math.sin(ang) * 1.04, 0, _p);
+    if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+  }
+  cx.stroke();
+
+  // Asse polare zenit-nadir con nodi terminali
+  cx.setLineDash([2, 9]);
+  project3D(0, -1.10, 0, _p);
+  project3D(0, 1.10, 0, _p2);
   cx.beginPath();
   cx.moveTo(_p.sx, _p.sy);
   cx.lineTo(_p2.sx, _p2.sy);
   cx.stroke();
+  cx.setLineDash([]);
+  cx.fillStyle = cvT.ringOuter;
+  cx.beginPath();
+  cx.arc(_p.sx, _p.sy, 2.5, 0, Math.PI * 2);
+  cx.arc(_p2.sx, _p2.sy, 2.5, 0, Math.PI * 2);
+  cx.fill();
 
   cx.restore();
 }
@@ -195,7 +235,6 @@ function drawArtLayer(cx, t, alpha) {
   cx.globalAlpha = 1;
 }
 
-/** Nome di ogni gruppo sospeso al centro della sua nuvola di tavole. */
 export function drawClusterLabels(cx, labels, alpha) {
   const cvT = getThemeTokens().canvas;
   cx.save();
@@ -216,7 +255,22 @@ export function drawClusterLabels(cx, labels, alpha) {
   cx.restore();
 }
 
-/* ---------- illustrazioni di sfondo (Archaeopteryx, pettirosso, grillo) ---------- */
+/* ---------- illustrazioni di sfondo con geometria costruttiva ---------- */
+function drawBlueprintHalo(cx, rgb, sa, r1, r2) {
+  cx.save();
+  cx.strokeStyle = rgb + (0.18 * sa).toFixed(2) + ')';
+  cx.lineWidth = 0.85;
+  cx.setLineDash([2, 6]);
+  cx.beginPath();
+  cx.arc(0, 0, r1, 0, Math.PI * 2);
+  cx.moveTo(r2, 0);
+  cx.arc(0, 0, r2, 0, Math.PI * 2);
+  cx.moveTo(-r2 - 14, 0); cx.lineTo(r2 + 14, 0);
+  cx.moveTo(0, -r2 - 14); cx.lineTo(0, r2 + 14);
+  cx.stroke();
+  cx.restore();
+}
+
 function drawBackgroundArt(cx, t) {
   const cvT = getThemeTokens().canvas;
   const { W, H } = state;
@@ -248,6 +302,7 @@ function drawBackgroundArt(cx, t) {
   cx.translate(W * 0.56 + px, H * 0.21 + py + Math.sin(t * 0.0005) * 7 * rm);
   cx.rotate(-0.08 + Math.sin(t * 0.0004) * 0.018 * rm);
   cx.scale(s * 0.95, s * 0.95);
+  drawBlueprintHalo(cx, c1, sa, 46, 78);
 
   cx.strokeStyle = c1 + (0.68 * sa).toFixed(2) + ')';
   cx.fillStyle = c1 + fa.toFixed(2) + ')';
@@ -339,6 +394,7 @@ function drawBackgroundArt(cx, t) {
   cx.lineJoin = 'round';
   cx.translate(W * 0.22 - px * 0.9, H * 0.77 + py + Math.sin(t * 0.0006 + 1.2) * 5 * rm);
   cx.scale(s * 0.96, s * 0.96);
+  drawBlueprintHalo(cx, c2, sa, 38, 62);
 
   cx.strokeStyle = c1 + (0.36 * sa).toFixed(2) + ')';
   cx.lineWidth = 1.4;
@@ -419,6 +475,7 @@ function drawBackgroundArt(cx, t) {
   cx.lineJoin = 'round';
   cx.translate(W * 0.78 + px * 1.2, H * 0.74 + py + Math.cos(t * 0.0006) * 5 * rm);
   cx.scale(s * 0.96, s * 0.96);
+  drawBlueprintHalo(cx, c3, sa, 38, 64);
 
   cx.strokeStyle = c3 + (0.68 * sa).toFixed(2) + ')';
   cx.fillStyle = c3 + (fa * 1.1).toFixed(2) + ')';
