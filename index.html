@@ -3,98 +3,110 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Atlante Evolutivo 3D &amp; Geografico</title>
+  <meta name="theme-color" content="#140805">
+  <title>Atlante Evolutivo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,600&display=swap">
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/d3-array@3/dist/d3-array.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/d3-geo@3/dist/d3-geo.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-array@3.2.4/dist/d3-array.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-geo@3.1.1/dist/d3-geo.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js" defer></script>
 </head>
-<body>
-  <div class="app">
-    <!-- Area Visualizzazione Principale (Unico Canvas per Spazio 3D e Mappa Geografica d3-geo) -->
-    <main id="wrap">
-      <canvas id="cv" aria-label="Atlante interattivo delle immagini"></canvas>
-      <div id="tip"></div>
-    </main>
+<body data-view="3d">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18"/></symbol>
+      <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 4v4.5H16"/></symbol>
+      <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-9 9"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+      <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5m0 0L8 9m4-4 4 4M5 20h14"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    </defs>
+  </svg>
 
-    <!-- Header discreto in alto a sinistra -->
-    <header class="brand-badge">
-      <h1>Atlante Evolutivo</h1>
-      <p class="sub">Archaeopteryx, Pettirossi &amp; Grilli</p>
-    </header>
+  <main id="wrap">
+    <canvas id="cv" role="img" aria-label="Atlante interattivo delle tavole: trascina per ruotare, scorri per ingrandire, clicca una tavola per aprirla"></canvas>
+  </main>
+  <div class="vignette" aria-hidden="true"></div>
+  <div id="tip" role="tooltip"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
 
-    <!-- ALTO A DESTRA: Menu a tendina Categorie & Ricerca -->
-    <div class="top-right-dock">
-      <details class="dropdown-card" id="cat-dropdown">
-        <summary>
-          <span>Categorie &amp; Ricerca</span>
-          <span class="badge-count" id="vis-count">0</span>
-        </summary>
-        <div class="dropdown-body">
-          <input type="search" id="q" placeholder="Cerca ID, luogo, soggetto…">
-          <div class="chips-grid" id="chips"></div>
-          <div class="divider"></div>
-          <details class="sub-acc" id="dati-acc">
-            <summary>Sorgente Dati (CSV / Immagini)</summary>
-            <div class="sub-acc-body">
-              <label for="fc">database_immagini.csv</label>
-              <input type="file" id="fc" accept=".csv,text/csv">
-              <label for="fi">Cartella immagini</label>
-              <input type="file" id="fi" accept="image/*" multiple>
-              <div class="row">
-                <button type="button" class="p" id="go">Crea mappa</button>
-                <button type="button" id="ex">Dati esempio</button>
-              </div>
-            </div>
-          </details>
-          <p id="st" aria-live="polite"></p>
-          <p id="wn"></p>
-        </div>
-      </details>
+  <header class="brand">
+    <h1>Atlante Evolutivo</h1>
+    <p>Archaeopteryx, pettirossi e grilli</p>
+  </header>
+
+  <section class="panel filters" aria-label="Cerca e filtra">
+    <label class="search">
+      <svg class="ic"><use href="#i-search"/></svg>
+      <input type="search" id="q" placeholder="Cerca per ID, luogo o soggetto" autocomplete="off" aria-label="Cerca tavole">
+      <span class="count" id="vis-count" title="Tavole visibili">0</span>
+    </label>
+    <div class="chips" id="chips" role="group" aria-label="Categorie"></div>
+  </section>
+
+  <aside id="detail-drawer" aria-hidden="true" aria-labelledby="det-title">
+    <button type="button" id="close-det" class="icon-btn" aria-label="Chiudi scheda" title="Chiudi (Esc)">
+      <svg class="ic"><use href="#i-close"/></svg>
+    </button>
+    <figure class="media"><img id="big" alt=""></figure>
+    <div class="drawer-scroll">
+      <h2 id="det-title"></h2>
+      <div class="tags" id="det-tags"></div>
+      <div class="notes" id="det-notes" hidden></div>
+      <dl id="dl"></dl>
+      <h3>Tavole affini</h3>
+      <div id="nb"></div>
     </div>
+  </aside>
 
-    <!-- SINISTRA: Pannello scorrevole della Tavola Selezionata -->
-    <aside id="detail-drawer" aria-hidden="true">
-      <div class="drawer-head">
-        <span class="drawer-eyebrow">Scheda Tavola</span>
-        <button type="button" id="close-det" class="icon-btn" aria-label="Chiudi scheda" title="Chiudi scheda">✕</button>
-      </div>
-      <div class="drawer-scroll">
-        <canvas id="big" width="440" height="330"></canvas>
-        <h2 id="det-title"></h2>
-        <dl id="dl"></dl>
-        <div class="note">Tavole più affini nello spazio visivo:</div>
-        <div id="nb"></div>
-      </div>
-    </aside>
+  <nav class="dock" aria-label="Controlli della vista">
+    <div class="seg" id="seg" data-view="3d" role="group" aria-label="Tipo di vista">
+      <button type="button" id="vw-3d" aria-pressed="true" title="Spazio 3D (G)"><svg class="ic"><use href="#i-cube"/></svg><span>Spazio</span></button>
+      <button type="button" id="vw-geo" aria-pressed="false" title="Mappa geografica (G)"><svg class="ic"><use href="#i-globe"/></svg><span>Mappa</span></button>
+    </div>
+    <span class="sep"></span>
+    <button type="button" class="tool" id="rot-auto" aria-pressed="true" aria-label="Rotazione automatica" title="Rotazione automatica (Spazio)"><svg class="ic"><use href="#i-rotate"/></svg></button>
+    <button type="button" class="tool" id="md" aria-pressed="true" aria-label="Mostra miniature" title="Miniature / punti luminosi"><svg class="ic"><use href="#i-image"/></svg></button>
+    <button type="button" class="tool" id="tr" aria-pressed="false" aria-label="Passeggiata guidata" title="Passeggiata guidata">
+      <svg class="ic ic-play"><use href="#i-play"/></svg><svg class="ic ic-stop"><use href="#i-stop"/></svg>
+    </button>
+    <span class="sep"></span>
+    <button type="button" class="tool" id="zo" aria-label="Riduci" title="Riduci (−)"><svg class="ic"><use href="#i-minus"/></svg></button>
+    <button type="button" class="tool" id="zi" aria-label="Ingrandisci" title="Ingrandisci (+)"><svg class="ic"><use href="#i-plus"/></svg></button>
+    <button type="button" class="tool" id="zr" aria-label="Ripristina vista" title="Ripristina vista (0)"><svg class="ic"><use href="#i-fit"/></svg></button>
+    <span class="sep"></span>
+    <button type="button" class="tool" id="cp" aria-label="Esporta coordinate" title="Esporta coordinate (CSV)"><svg class="ic"><use href="#i-download"/></svg></button>
+    <button type="button" class="tool" id="open-data" aria-label="Carica dati" title="Carica dati"><svg class="ic"><use href="#i-upload"/></svg></button>
+  </nav>
 
-    <!-- BASSO A DESTRA: Switch Vista + Pulsante Impostazioni Visualizzazione + Zoom -->
-    <div class="bottom-right-dock">
-      <div id="view-settings-popover" class="popover-card" hidden>
-        <div class="popover-title">Impostazioni Visualizzazione</div>
-        <div class="settings-list">
-          <button type="button" id="rot-auto" aria-pressed="true">↻ Rotazione 3D: ON</button>
-          <button type="button" id="md">✦ Solo punti luminosi</button>
-          <button type="button" id="tr">▶ Passeggiata guidata</button>
-          <button type="button" id="cp">⧉ Esporta coordinate</button>
-        </div>
-        <textarea id="out" hidden readonly></textarea>
-        <div class="zoom-bar">
-          <button id="zi" type="button" aria-label="Ingrandisci" title="Ingrandisci">+</button>
-          <button id="zo" type="button" aria-label="Riduci" title="Riduci">−</button>
-          <button id="zr" type="button" aria-label="Ripristina vista" title="Ripristina vista">⟲</button>
-        </div>
-      </div>
+  <div id="loader" class="loader" role="status">
+    <span id="ld-text"></span>
+    <div class="bar"><i id="ld-bar"></i></div>
+  </div>
 
-      <div class="bottom-controls-bar">
-        <div class="segmented-switch" role="group" aria-label="Cambia visualizzazione">
-          <button id="vw-3d" type="button" class="is-active" aria-pressed="true">✦ Spazio 3D</button>
-          <button id="vw-geo" type="button" aria-pressed="false">⌖ Mappa Geografica</button>
-        </div>
-        <button id="btn-settings" type="button" class="settings-trigger" aria-expanded="false" aria-controls="view-settings-popover" title="Impostazioni visualizzazione">
-          ⚙ Opzioni
-        </button>
+  <div id="welcome" class="overlay" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="wl-title">
+      <button type="button" id="close-welcome" class="icon-btn" aria-label="Chiudi" title="Chiudi (Esc)"><svg class="ic"><use href="#i-close"/></svg></button>
+      <h2 id="wl-title">Carica le tavole</h2>
+      <p>Se apri il progetto da un server (GitHub Pages, Live Server) il database si carica da solo. Altrimenti scegli qui i file.</p>
+      <label for="fc">Database CSV <small>02_database/database_immagini.csv</small></label>
+      <input type="file" id="fc" accept=".csv,text/csv">
+      <label for="fi">Immagini <small>l’intera cartella 01_immagini</small></label>
+      <input type="file" id="fi" accept="image/*" multiple>
+      <div class="row">
+        <button type="button" class="primary" id="go">Crea l’atlante</button>
+        <button type="button" id="ex">Prova con dati di esempio</button>
       </div>
+      <p id="wn" role="alert"></p>
     </div>
   </div>
 

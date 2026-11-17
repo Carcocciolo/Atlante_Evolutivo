@@ -1,40 +1,130 @@
-import { state, RM } from './data.js';
+/* ============================================================
+   view3d.js — proiezione prospettica, sfondo immersivo
+   (gradiente, polvere con parallasse, anelli, illustrazioni)
+   ed etichette dei gruppi
+   ============================================================ */
+import { state, RM, clamp } from './data.js';
 
-const dust = Array.from({ length: 65 }, () => ({
-  x: Math.random(),
-  y: Math.random(),
-  s: Math.random() * 1.5 + 0.4,
-  p: Math.random() * 6.3,
-  v: Math.random() * 0.00035 + 0.0001
-}));
+const FOV = 2.6;
 
-export function project3DWithCam(x, y, z, cObj) {
+/** Proietta un punto 3D; scrive il risultato in `out` per non allocare ad ogni frame. */
+export function project3D(x, y, z, out, c = state.cam3D) {
   const { W, H } = state;
-  const cy = Math.cos(cObj.yaw), sy = Math.sin(cObj.yaw);
+  const cy = Math.cos(c.yaw), sy = Math.sin(c.yaw);
   const x1 = x * cy - z * sy;
   const z1 = x * sy + z * cy;
-
-  const cp = Math.cos(cObj.pitch), sp = Math.sin(cObj.pitch);
+  const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
   const y2 = y * cp - z1 * sp;
   const z2 = y * sp + z1 * cp;
-
-  const fov = 2.6;
-  const depth = fov / Math.max(0.35, fov + z2);
-  const baseScale = Math.min(W, H) * 0.44 * cObj.zoom;
-
-  return {
-    sx: W / 2 + cObj.panX + x1 * baseScale * depth,
-    sy: H / 2 + cObj.panY + y2 * baseScale * depth,
-    scale: depth,
-    zOrder: z2
-  };
+  const depth = FOV / Math.max(0.35, FOV + z2);
+  const k = Math.min(W, H) * 0.44 * c.zoom * depth;
+  out.sx = W / 2 + c.panX + x1 * k;
+  out.sy = H / 2 + c.panY + y2 * k;
+  out.scale = depth;
+  out.zOrder = z2;
+  return out;
 }
 
-export function project3D(x, y, z) {
-  return project3DWithCam(x, y, z, state.cam3D);
+export const thumbSize3D = zoom => clamp(38 * Math.sqrt(zoom), 24, 104);
+
+/* ---------- sfondo ---------- */
+let bg = null;
+export function buildBackground() {
+  const { W, H } = state;
+  const w = Math.ceil(W * 0.6), h = Math.ceil(H * 0.6);   // 1.2× lo schermo, mezza risoluzione
+  bg = document.createElement('canvas');
+  bg.width = w; bg.height = h;
+  const g = bg.getContext('2d');
+  const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.78);
+  r.addColorStop(0, '#7a3216');
+  r.addColorStop(0.5, '#3b170b');
+  r.addColorStop(1, '#150704');
+  g.fillStyle = r;
+  g.fillRect(0, 0, w, h);
 }
 
-export function drawBackgroundArt(cx, t) {
+const dust = Array.from({ length: 90 }, () => ({
+  x: Math.random(), y: Math.random(), z: Math.random(),
+  s: Math.random() * 1.6 + 0.4, p: Math.random() * 6.3, v: Math.random() * 0.00035 + 0.0001
+}));
+
+function drawDust(cx, t) {
+  const { W, H, cam3D } = state;
+  for (const d of dust) {
+    if (!RM) { d.y -= d.v; if (d.y < 0) d.y = 1; }
+    const x = (((d.x * W - cam3D.yaw * W * 0.16 * (0.3 + d.z) + cam3D.panX * 0.2 * d.z) % W) + W) % W;
+    const y = (((d.y * H - cam3D.pitch * H * 0.1 * d.z) % H) + H) % H;
+    cx.fillStyle = `rgba(255, 214, 170, ${(0.12 + 0.3 * d.z) * (0.65 + 0.35 * Math.sin(t * 0.002 + d.p))})`;
+    cx.beginPath();
+    cx.arc(x, y, d.s * (0.6 + d.z * 0.7), 0, Math.PI * 2);
+    cx.fill();
+  }
+}
+
+const _p = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
+
+function drawRings(cx) {
+  cx.save();
+  cx.lineWidth = 1;
+  cx.setLineDash([4, 10]);
+  [[0.95, 0.14], [0.55, 0.08]].forEach(([R, a]) => {
+    cx.strokeStyle = `rgba(250, 205, 165, ${a})`;
+    cx.beginPath();
+    for (let i = 0; i <= 72; i++) {
+      const ang = (i / 72) * Math.PI * 2;
+      project3D(Math.cos(ang) * R, 0, Math.sin(ang) * R, _p);
+      if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+    }
+    cx.stroke();
+  });
+  cx.restore();
+}
+
+export function draw3DBackground(cx, t, focus) {
+  const { W, H, cam3D, mx, my } = state;
+  const px = clamp(cam3D.panX * 0.05, -W * 0.09, W * 0.09);
+  const py = clamp(cam3D.panY * 0.05, -H * 0.09, H * 0.09);
+  cx.drawImage(bg, -W * 0.1 + px, -H * 0.1 + py, W * 1.2, H * 1.2);
+
+  if (mx > 0) {
+    const sg = cx.createRadialGradient(mx, my, 0, mx, my, 260);
+    sg.addColorStop(0, 'rgba(255, 205, 150, 0.14)');
+    sg.addColorStop(1, 'rgba(255, 205, 150, 0)');
+    cx.fillStyle = sg;
+    cx.fillRect(0, 0, W, H);
+  }
+
+  drawDust(cx, t);
+  drawRings(cx);
+
+  cx.save();
+  cx.globalAlpha = 1 - 0.6 * focus;
+  drawBackgroundArt(cx, t);
+  cx.restore();
+}
+
+/** Nome di ogni gruppo sospeso al centro della sua nuvola di tavole. */
+export function drawClusterLabels(cx, labels, alpha) {
+  cx.save();
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.lineJoin = 'round';
+  cx.lineWidth = 3;
+  for (const L of labels) {
+    project3D(L.x, L.y, L.z, _p);
+    const a = clamp((_p.scale - 0.55) / 0.8, 0.18, 1) * alpha;
+    cx.font = `italic 600 ${Math.max(13, 17 * _p.scale)}px Fraunces, Georgia, serif`;
+    cx.globalAlpha = a;
+    cx.strokeStyle = 'rgba(20, 8, 4, 0.75)';
+    cx.strokeText(L.text, _p.sx, _p.sy);
+    cx.fillStyle = L.color;
+    cx.fillText(L.text, _p.sx, _p.sy);
+  }
+  cx.restore();
+}
+
+/* ---------- illustrazioni di sfondo (Archaeopteryx, pettirosso, grillo) ---------- */
+function drawBackgroundArt(cx, t) {
   const { W, H, cam3D } = state;
   const s = Math.min(W, H) / 560;
   const rm = RM ? 0 : 1;
@@ -219,47 +309,3 @@ export function drawBackgroundArt(cx, t) {
   cap('Kauai: i grilli che hanno perso il canto', 'l’ala piatta li rende muti e li salva dalla mosca parassita', W * 0.78 + px * 1.2 - 20 * s, H * 0.74 + py + 72 * s, 'rgba(132,214,100,');
 }
 
-export function draw3DBackground(cx, t) {
-  const { W, H, cam3D, mx, my } = state;
-  const cX = W / 2 + cam3D.panX;
-  const cY = H / 2 + cam3D.panY;
-  const g0 = cx.createRadialGradient(cX, cY, 0, cX, cY, Math.max(W, H) * 0.85);
-  g0.addColorStop(0, '#7a3216');
-  g0.addColorStop(0.5, '#3b170b');
-  g0.addColorStop(1, '#150704');
-  cx.fillStyle = g0;
-  cx.fillRect(0, 0, W, H);
-
-  if (mx > 0) {
-    const sg = cx.createRadialGradient(mx, my, 0, mx, my, 240);
-    sg.addColorStop(0, 'rgba(255,205,150,.15)');
-    sg.addColorStop(1, 'rgba(255,205,150,0)');
-    cx.fillStyle = sg;
-    cx.fillRect(0, 0, W, H);
-  }
-
-  dust.forEach(d => {
-    d.y -= d.v;
-    if (d.y < 0) d.y = 1;
-    const x = (((d.x * W + cam3D.panX * 0.2 * d.s) % W) + W) % W;
-    cx.fillStyle = 'rgba(255,214,170,' + (0.25 + 0.22 * Math.sin(t * 0.002 + d.p)) + ')';
-    cx.beginPath();
-    cx.arc(x, d.y * H, d.s, 0, Math.PI * 2);
-    cx.fill();
-  });
-
-  cx.strokeStyle = 'rgba(250, 205, 165, 0.14)';
-  cx.lineWidth = 1;
-  cx.setLineDash([4, 10]);
-  cx.beginPath();
-  for (let a = 0; a <= 64; a++) {
-    const ang = (a / 64) * Math.PI * 2;
-    const p = project3D(Math.cos(ang) * 0.95, 0, Math.sin(ang) * 0.95);
-    if (a === 0) cx.moveTo(p.sx, p.sy);
-    else cx.lineTo(p.sx, p.sy);
-  }
-  cx.stroke();
-  cx.setLineDash([]);
-
-  drawBackgroundArt(cx, t);
-}
