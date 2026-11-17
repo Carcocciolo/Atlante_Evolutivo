@@ -431,3 +431,65 @@ body.has-sel .loader { left: calc(398px + (100vw - 398px) / 2); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------- sezione contatti ---------- */
+.contacts-card .ct-sub {
+  margin: 0 0 16px;
+  color: var(--mute);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.contacts-card .ct-sub strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ct-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ct-list li {
+  padding: 12px 14px;
+  background: rgba(255, 226, 190, 0.05);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ct-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ct-head strong {
+  font: italic 600 16px/1.2 Fraunces, Georgia, serif;
+  color: #ffe6c7;
+}
+.ct-badge {
+  padding: 2px 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--acc);
+  background: rgba(242, 166, 90, 0.14);
+  border: 1px solid rgba(242, 166, 90, 0.28);
+  border-radius: 999px;
+}
+.ct-list a {
+  color: var(--mute);
+  font-size: 13px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color 0.2s;
+}
+.ct-list a:hover {
+  color: var(--acc);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

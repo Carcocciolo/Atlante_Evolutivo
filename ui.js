@@ -24,6 +24,11 @@ export function openWelcome(on) {
   if (on) $('#fi').focus({ preventScroll: true });
 }
 
+export function openContacts(on) {
+  $('#contacts').hidden = !on;
+  if (on) $('#close-contacts').focus({ preventScroll: true });
+}
+
 /* ---------- filtri ---------- */
 export function updateCount() {
   $('#vis-count').textContent = state.items.reduce((n, it) => n + (it.vis ? 1 : 0), 0);
@@ -299,6 +304,9 @@ export function bindUI() {
   $('#cp').onclick = exportCSV;
   $('#open-data').onclick = () => openWelcome($('#welcome').hidden);
   $('#close-welcome').onclick = () => openWelcome(false);
+  $('#open-contacts').onclick = () => openContacts($('#contacts').hidden);
+  $('#close-contacts').onclick = () => openContacts(false);
+  $('#contacts').onclick = e => { if (e.target === e.currentTarget) openContacts(false); };
 
   const lb = $('#lightbox');
   $('#big').onclick = () => {
@@ -330,6 +338,7 @@ export function bindUI() {
     switch (e.key) {
       case 'Escape':
         if (!$('#lightbox').hidden) $('#lightbox').hidden = true;
+        else if (!$('#contacts').hidden) openContacts(false);
         else if (!$('#welcome').hidden) openWelcome(false);
         else closeSelection();
         break;
