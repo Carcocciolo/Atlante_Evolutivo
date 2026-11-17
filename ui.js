@@ -1,8 +1,8 @@
 /* ============================================================
    ui.js — pannelli, scheda della tavola, filtri, dock dei
-   controlli e scorciatoie da tastiera
+   controlli, telemetria live e scorciatoie da tastiera
    ============================================================ */
-import { state, esc, rgba, msg, markDirty, refreshVis, getNotes, CAT_COLORS, PAL } from './data.js';
+import { state, esc, msg, markDirty, refreshVis, getNotes, CAT_COLORS, PAL } from './data.js';
 import { assignGeoHub, assignHubRanks } from './geo.js';
 import { focusOn, releaseFocus, zoomBy, resetView } from './camera.js';
 
@@ -15,7 +15,8 @@ export function setLoader(done, total, label = 'Carico le tavole') {
   if (done == null) { el.classList.remove('is-on'); return; }
   el.classList.add('is-on');
   const pct = total ? done / total * 100 : 0;
-  $('#ld-text').textContent = total === 100 ? `${label}… ${Math.round(pct)}%` : `${label}… ${done} di ${total}`;
+  $('#ld-text').textContent = total === 100 ? `${label}…` : `${label} (${done}/${total})`;
+  $('#ld-pct').textContent = `${Math.round(pct)}%`;
   $('#ld-bar').style.width = pct + '%';
 }
 
@@ -24,9 +25,16 @@ export function openWelcome(on) {
   if (on) $('#fi').focus({ preventScroll: true });
 }
 
-/* ---------- filtri ---------- */
+export function openHelp(on) {
+  $('#help-modal').hidden = !on;
+}
+
+/* ---------- filtri e telemetria ---------- */
 export function updateCount() {
-  $('#vis-count').textContent = state.items.reduce((n, it) => n + (it.vis ? 1 : 0), 0);
+  const vis = state.items.reduce((n, it) => n + (it.vis ? 1 : 0), 0);
+  $('#vis-count').textContent = vis;
+  const tv = $('#tel-vis');
+  if (tv) tv.textContent = `${vis} / ${state.items.length}`;
 }
 
 export function buildChips() {
@@ -93,18 +101,11 @@ function thumbURL(it) {
   return it.thumbURL || (it.thumbURL = it.th.toDataURL('image/jpeg', 0.85));
 }
 
-function updateDrawerIndex(idx) {
-  const visList = state.items.map((it, i) => (it.ready && it.vis ? i : -1)).filter(i => i >= 0);
-  const pos = visList.indexOf(idx);
-  const el = $('#det-index');
-  if (el) {
-    el.textContent = pos >= 0
-      ? `${String(pos + 1).padStart(2, '0')} / ${String(visList.length).padStart(2, '0')}`
-      : `${String(idx + 1).padStart(2, '0')} / ${String(state.items.length).padStart(2, '0')}`;
-  }
+function visibleIndices() {
+  return state.items.map((it, i) => (it.ready && it.vis ? i : -1)).filter(i => i >= 0);
 }
 
-function fillDrawer(it, idx) {
+function fillDrawer(it, i) {
   const img = $('#big');
   const token = ++loadToken;
   img.src = thumbURL(it);
@@ -120,14 +121,12 @@ function fillDrawer(it, idx) {
     full.src = it.src;
   }
 
-  const c = state.col[it.cat];
-  const glowEl = $('#media-glow');
-  if (glowEl) glowEl.style.setProperty('--cat-glow', rgba(c, 0.28));
-  const idBadge = $('#det-id-badge');
-  if (idBadge) idBadge.textContent = it.r.id || `#${idx + 1}`;
-  updateDrawerIndex(idx);
+  const vis = visibleIndices();
+  const pos = Math.max(0, vis.indexOf(i)) + 1;
+  $('#det-idx').textContent = `${String(pos).padStart(2, '0')} / ${String(Math.max(1, vis.length)).padStart(2, '0')}`;
 
   $('#det-title').textContent = it.r.subject || it.r.id;
+  const c = state.col[it.cat];
   $('#det-tags').innerHTML =
     `<span class="tag" style="--c:${c}"><i></i>${esc(it.cat)}</span>` +
     `<span class="tag tag-geo${it.geoStatus === 'inferito' ? ' is-guess' : ''}" ` +
@@ -180,10 +179,7 @@ export function setAutoRotate(on, userAction = false) {
 export function boom(it, color) {
   state.fx.push({
     it, c: color, t0: performance.now(),
-    sp: Array.from({ length: 20 }, (_, k) => ({
-      a: k / 20 * 6.283 + Math.random() * 0.25,
-      v: 58 + Math.random() * 92
-    }))
+    sp: Array.from({ length: 18 }, (_, k) => ({ a: k / 18 * 6.283 + Math.random() * 0.25, v: 60 + Math.random() * 85 }))
   });
   markDirty();
 }
@@ -217,10 +213,17 @@ export function closeSelection() {
 }
 
 export function stepSelection(dir) {
-  const list = state.items.map((it, i) => (it.ready && it.vis ? i : -1)).filter(i => i >= 0);
+  const list = visibleIndices();
   if (!list.length) return;
   const at = list.indexOf(state.sel);
   show(list[(at + dir + list.length) % list.length] ?? list[0]);
+}
+
+export function randomSelection() {
+  const list = visibleIndices().filter(i => i !== state.sel);
+  if (!list.length) return;
+  const pick = list[Math.floor(Math.random() * list.length)];
+  show(pick);
 }
 
 /* ---------- vista 3D / mappa ---------- */
@@ -235,9 +238,8 @@ export function setViewMode(mode) {
   $('#vw-3d').setAttribute('aria-pressed', mode === '3d');
   $('#vw-geo').setAttribute('aria-pressed', mode === 'geo');
   $('#rot-auto').hidden = mode !== '3d';
-  $('#fx-links').hidden = mode !== '3d';
-  const hudMode = $('#hud-mode');
-  if (hudMode) hudMode.textContent = mode === '3d' ? 'SPAZIO t-SNE 3D' : 'MAPPA NATURAL EARTH';
+  const tm = $('#tel-mode');
+  if (tm) tm.textContent = mode === '3d' ? 'SPAZIO LATENTE' : 'ATLANTE GEO';
   if (state.sel >= 0) focusOn(state.items[state.sel]);
   markDirty();
 }
@@ -269,26 +271,23 @@ export function bindUI() {
   $('#zi').onclick = () => zoomBy(1.3);
   $('#zo').onclick = () => zoomBy(1 / 1.3);
   $('#zr').onclick = () => { closeSelection(); resetView(); };
+  $('#rnd').onclick = randomSelection;
   $('#rot-auto').onclick = () => {
     const next = !state.autoRotate;
     setAutoRotate(next, true);
     msg(next ? 'Rotazione automatica attivata' : 'Rotazione automatica disattivata', 1600);
   };
   $('#rot-auto').setAttribute('aria-pressed', state.autoRotate);
-
-  $('#fx-links').onclick = e => {
-    state.showLinks = !state.showLinks;
-    e.currentTarget.setAttribute('aria-pressed', state.showLinks);
-    markDirty();
-  };
-
   $('#cp').onclick = exportCSV;
   $('#open-data').onclick = () => openWelcome($('#welcome').hidden);
   $('#close-welcome').onclick = () => openWelcome(false);
+  $('#open-help').onclick = () => openHelp($('#help-modal').hidden);
+  $('#close-help').onclick = () => openHelp(false);
 
   $('#md').onclick = e => {
     state.mode = state.mode === 'thumb' ? 'dot' : 'thumb';
     e.currentTarget.setAttribute('aria-pressed', state.mode === 'thumb');
+    msg(state.mode === 'thumb' ? 'Vista miniature fotografiche' : 'Vista nebulosa stellare', 1500);
     markDirty();
   };
 
@@ -306,7 +305,9 @@ export function bindUI() {
     }
     switch (e.key) {
       case 'Escape':
-        if (!$('#welcome').hidden) openWelcome(false); else closeSelection();
+        if (!$('#help-modal').hidden) openHelp(false);
+        else if (!$('#welcome').hidden) openWelcome(false);
+        else closeSelection();
         break;
       case 'ArrowRight': stepSelection(1); break;
       case 'ArrowLeft': stepSelection(-1); break;
@@ -314,6 +315,9 @@ export function bindUI() {
       case '-': case '_': zoomBy(1 / 1.2); break;
       case '0': closeSelection(); resetView(); break;
       case 'g': case 'G': setViewMode(state.viewMode === '3d' ? 'geo' : '3d'); break;
+      case 'm': case 'M': $('#md').click(); break;
+      case 'r': case 'R': randomSelection(); break;
+      case '?': openHelp($('#help-modal').hidden); break;
       case ' ':
         if (state.viewMode === '3d') {
           e.preventDefault();

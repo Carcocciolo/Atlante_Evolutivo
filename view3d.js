@@ -1,6 +1,6 @@
 /* ============================================================
-   view3d.js — proiezione prospettica, sfondo immersivo,
-   griglia orbitale, dust parallax, illustrazioni animate
+   view3d.js — proiezione prospettica, sfondo immersivo
+   ottimizzato (cache gradienti, astrolabio 3D, dust, illustrazioni)
    ============================================================ */
 import { state, RM, clamp } from './data.js';
 
@@ -38,7 +38,7 @@ export function buildBackground() {
   bg.width = w; bg.height = h;
   const g = bg.getContext('2d');
   const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.8);
-  r.addColorStop(0, '#3f180b');
+  r.addColorStop(0, '#3e180b');
   r.addColorStop(0.5, '#190804');
   r.addColorStop(1, '#070201');
   g.fillStyle = r;
@@ -50,7 +50,7 @@ export function buildBackground() {
     const sg = spotSprite.getContext('2d');
     const gr = sg.createRadialGradient(128, 128, 0, 128, 128, 128);
     gr.addColorStop(0, 'rgba(255, 198, 142, 0.13)');
-    gr.addColorStop(0.5, 'rgba(255, 176, 110, 0.04)');
+    gr.addColorStop(0.45, 'rgba(255, 175, 110, 0.045)');
     gr.addColorStop(1, 'rgba(255, 196, 140, 0)');
     sg.fillStyle = gr;
     sg.fillRect(0, 0, 256, 256);
@@ -59,18 +59,18 @@ export function buildBackground() {
 
 const dust = Array.from({ length: 75 }, () => ({
   x: Math.random(), y: Math.random(), z: Math.random(),
-  s: Math.random() * 1.6 + 0.5, p: Math.random() * 6.3, v: Math.random() * 0.0003 + 0.0001
+  s: Math.random() * 1.6 + 0.5, p: Math.random() * 6.3, v: Math.random() * 0.00028 + 0.0001
 }));
 
 function drawDust(cx, t) {
   const { W, H, cam3D } = state;
-  cx.fillStyle = 'rgba(255, 218, 175, 0.24)';
+  cx.fillStyle = 'rgba(255, 216, 172, 0.24)';
   cx.beginPath();
   for (const d of dust) {
     if (!RM) { d.y -= d.v; if (d.y < 0) d.y = 1; }
     const x = (((d.x * W - cam3D.yaw * W * 0.16 * (0.3 + d.z) + cam3D.panX * 0.2 * d.z) % W) + W) % W;
     const y = (((d.y * H - cam3D.pitch * H * 0.1 * d.z) % H) + H) % H;
-    const rad = d.s * (0.6 + d.z * 0.75) * (0.8 + 0.2 * Math.sin(t * 0.002 + d.p));
+    const rad = d.s * (0.6 + d.z * 0.7) * (0.8 + 0.2 * Math.sin(t * 0.002 + d.p));
     cx.moveTo(x + rad, y);
     cx.arc(x, y, rad, 0, Math.PI * 2);
   }
@@ -83,29 +83,47 @@ function drawRings(cx) {
   cx.save();
   cx.lineWidth = 1;
 
-  // Anelli orbitali equatoriali con tacche graduate
-  [[1.12, 0.08, [2, 12]], [0.95, 0.14, [5, 9]], [0.55, 0.08, [3, 8]]].forEach(([R, a, dash]) => {
-    cx.setLineDash(dash);
+  // Anelli equatoriali concentri
+  cx.setLineDash([4, 10]);
+  [[1.02, 0.14], [0.62, 0.08]].forEach(([R, a]) => {
     cx.strokeStyle = `rgba(250, 205, 165, ${a})`;
     cx.beginPath();
-    for (let i = 0; i <= 72; i++) {
-      const ang = (i / 72) * Math.PI * 2;
+    for (let i = 0; i <= 64; i++) {
+      const ang = (i / 64) * Math.PI * 2;
       project3D(Math.cos(ang) * R, 0, Math.sin(ang) * R, _p);
       if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
     }
     cx.stroke();
   });
 
-  // Meridiano verticale sottile per orientamento spaziale
-  cx.setLineDash([2, 10]);
-  cx.strokeStyle = 'rgba(250, 205, 165, 0.07)';
+  // Meridiano verticale inclinabile (astrolabio spaziale)
+  cx.setLineDash([2, 12]);
+  cx.strokeStyle = 'rgba(250, 205, 165, 0.075)';
   cx.beginPath();
-  for (let i = 0; i <= 60; i++) {
-    const ang = (i / 60) * Math.PI * 2;
-    project3D(Math.cos(ang) * 0.95, Math.sin(ang) * 0.95, 0, _p);
+  for (let i = 0; i <= 64; i++) {
+    const ang = (i / 64) * Math.PI * 2;
+    project3D(Math.cos(ang) * 1.02, Math.sin(ang) * 1.02, 0, _p);
     if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
   }
   cx.stroke();
+
+  // Tacche cardinali sull'anello esterno
+  cx.setLineDash([]);
+  cx.fillStyle = 'rgba(255, 204, 150, 0.25)';
+  for (let i = 0; i < 12; i++) {
+    const ang = (i / 12) * Math.PI * 2;
+    project3D(Math.cos(ang) * 1.02, 0, Math.sin(ang) * 1.02, _p);
+    cx.fillRect(_p.sx - 1.2, _p.sy - 1.2, 2.4, 2.4);
+  }
+
+  // Croce d'origine al centro dello spazio latente
+  project3D(0, 0, 0, _p);
+  cx.strokeStyle = 'rgba(255, 204, 150, 0.22)';
+  cx.beginPath();
+  cx.moveTo(_p.sx - 8, _p.sy); cx.lineTo(_p.sx + 8, _p.sy);
+  cx.moveTo(_p.sx, _p.sy - 8); cx.lineTo(_p.sx, _p.sy + 8);
+  cx.stroke();
+
   cx.restore();
 }
 
@@ -134,13 +152,13 @@ export function drawClusterLabels(cx, labels, alpha) {
   cx.textAlign = 'center';
   cx.textBaseline = 'middle';
   cx.lineJoin = 'round';
-  cx.lineWidth = 4;
+  cx.lineWidth = 3.8;
   for (const L of labels) {
     project3D(L.x, L.y, L.z, _p);
-    const a = clamp((_p.scale - 0.55) / 0.8, 0.25, 1) * alpha;
-    cx.font = `italic 600 ${Math.max(13, 17.5 * _p.scale)}px 'Fraunces', Georgia, serif`;
+    const a = clamp((_p.scale - 0.55) / 0.8, 0.24, 1) * alpha;
+    cx.font = `italic 600 ${Math.max(13.5, 17.5 * _p.scale)}px Fraunces, Georgia, serif`;
     cx.globalAlpha = a;
-    cx.strokeStyle = 'rgba(10, 3, 1, 0.9)';
+    cx.strokeStyle = 'rgba(10, 3, 1, 0.90)';
     cx.strokeText(L.text, _p.sx, _p.sy);
     cx.fillStyle = L.color;
     cx.fillText(L.text, _p.sx, _p.sy);
@@ -162,10 +180,10 @@ function drawBackgroundArt(cx, t) {
     const m = Math.min(310, W * 0.8);
     x = Math.min(W - m / 2 - 8, Math.max(m / 2 + 8, x));
     cx.textAlign = 'center';
-    cx.fillStyle = sg + '.72)';
+    cx.fillStyle = sg + '.68)';
     cx.font = 'italic 600 ' + Math.max(14, 18 * s) + 'px ' + F;
     cx.fillText(a, x, y, m);
-    cx.fillStyle = sg + '.46)';
+    cx.fillStyle = sg + '.44)';
     cx.font = 'italic 400 ' + Math.max(11.5, 13.5 * s) + 'px ' + F;
     cx.fillText(b, x, y + Math.max(16, 19 * s), m);
   };
@@ -261,7 +279,7 @@ function drawBackgroundArt(cx, t) {
   cx.restore();
   cap('archaeopteryx', 'Giurassico, circa 150 milioni di anni fa', W * 0.56 + px + 35 * s, H * 0.21 + py + 106 * s, 'rgba(255,176,68,');
 
-  // 2. PETTIROSSO — Erithacus rubecula
+  // 2. PETTIROSSO — Erithacus rubecula (postura naturale su rametto)
   cx.save();
   cx.lineCap = 'round';
   cx.lineJoin = 'round';

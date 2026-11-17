@@ -1,6 +1,6 @@
 /* ============================================================
-   main.js — ciclo di rendering ultra-fluido, input, hover,
-   telemetria HUD e avvio
+   main.js — ciclo di rendering ultra-fluido a 60/120fps,
+   sinapsi luminose, scie cinetiche, telemetria HUD e input
    ============================================================ */
 import { state, RM, CARD, ease, clamp, rgba, esc, markDirty } from './data.js';
 import {
@@ -16,7 +16,8 @@ const cv = $('#cv');
 const cx = cv.getContext('2d', { alpha: false });
 const wrap = $('#wrap');
 const tipEl = $('#tip');
-const hudCoordsEl = $('#hud-coords');
+const telAng = $('#tel-ang');
+const telZoom = $('#tel-zoom');
 
 const order = [];
 const off = {};
@@ -29,7 +30,7 @@ function glow(color) {
   c.width = c.height = 96;
   const g = c.getContext('2d');
   const r = g.createRadialGradient(48, 48, 0, 48, 48, 48);
-  r.addColorStop(0, rgba(color, 0.85));
+  r.addColorStop(0, rgba(color, 0.90));
   r.addColorStop(0.24, rgba(color, 0.42));
   r.addColorStop(1, rgba(color, 0));
   g.fillStyle = r;
@@ -56,8 +57,11 @@ function pick(px, py) {
 function setTip(h) {
   if (h < 0) return tipEl.classList.remove('is-on');
   const it = state.items[h];
-  tipEl.style.setProperty('--tip-c', state.col[it.cat]);
-  tipEl.innerHTML = `<b>${esc(it.r.subject || it.r.id)}</b><span>${esc(it.r.id)} · ${esc(it.siteName)}</span>`;
+  const col = state.col[it.cat] || '#f5a65b';
+  tipEl.innerHTML =
+    `<div class="tip-cat" style="--c:${col}"><i></i>${esc(it.cat)}</div>` +
+    `<b>${esc(it.r.subject || it.r.id)}</b>` +
+    `<span>${esc(it.r.id)} · ${esc(it.siteName)}</span>`;
   tipEl.classList.add('is-on');
   placeTip(state.mx, state.my);
 }
@@ -67,23 +71,9 @@ function placeTip(px, py) {
   tipEl.style.transform = `translate3d(${clamp(px + 16, 8, state.W - w - 8)}px, ${clamp(py + 16, 8, state.H - h - 8)}px, 0)`;
 }
 
-/* ---------- telemetria HUD (aggiornata con throttling) ---------- */
-let lastHudT = 0;
-function updateHUD(t) {
-  if (!hudCoordsEl || t - lastHudT < 90) return;
-  lastHudT = t;
-  if (state.viewMode === '3d') {
-    const c = state.cam3D;
-    const yawDeg = Math.round(((c.yaw * 180 / Math.PI) % 360 + 360) % 360);
-    const pitchDeg = Math.round(c.pitch * 180 / Math.PI);
-    hudCoordsEl.textContent = `YAW ${String(yawDeg).padStart(3, '0')}° · PITCH ${pitchDeg >= 0 ? '+' : ''}${pitchDeg}° · ${c.zoom.toFixed(2)}×`;
-  } else {
-    const g = state.camGeo;
-    hudCoordsEl.textContent = `OFFSET ${Math.round(g.x)}, ${Math.round(g.y)} · ZOOM ${g.k.toFixed(2)}×`;
-  }
-}
-
 /* ---------- rendering ---------- */
+let lastHudT = 0;
+
 function render(t, dt) {
   const S = state, { W, H, dpr, items, viewMode, col, mode } = S;
   const is3D = viewMode === '3d';
@@ -91,11 +81,23 @@ function render(t, dt) {
   let busy = false;
 
   const focusGoal = S.sel >= 0 ? 1 : 0;
-  S.focus += (focusGoal - S.focus) * (1 - Math.exp(-dt * (RM ? 40 : 6)));
+  S.focus += (focusGoal - S.focus) * (1 - Math.exp(-dt * (RM ? 40 : 6.5)));
   if (Math.abs(focusGoal - S.focus) > 0.004) busy = true;
   if (stepCamera(dt)) busy = true;
 
-  updateHUD(t);
+  // Aggiorna telemetria HUD (throttled a ~12fps per zero overhead DOM)
+  if (t - lastHudT > 80 && telAng && telZoom) {
+    lastHudT = t;
+    if (is3D) {
+      const degY = Math.round(((S.cam3D.yaw * 180 / Math.PI) % 360 + 360) % 360);
+      const degP = Math.round(S.cam3D.pitch * 180 / Math.PI);
+      telAng.textContent = `${degY}° · ${degP >= 0 ? '+' : ''}${degP}°`;
+      telZoom.textContent = `${S.cam3D.zoom.toFixed(2)}×`;
+    } else {
+      telAng.textContent = `${Math.round(S.camGeo.x)}px · ${Math.round(S.camGeo.y)}px`;
+      telZoom.textContent = `${S.camGeo.k.toFixed(2)}×`;
+    }
+  }
 
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
   cx.imageSmoothingEnabled = true;
@@ -110,23 +112,19 @@ function render(t, dt) {
     if (S.autoRotate && !RM && S.sel < 0) busy = true;
   } else {
     drawGeoBase(cx);
-    if (n) {
-      hubs = layoutHubs(baseSize);
-      drawGeoHalos(cx, t);
-      if (!RM) busy = true;
-    }
+    if (n) { hubs = layoutHubs(baseSize); drawGeoHalos(cx, t); busy = true; }
   }
 
   if (S.focus > 0.01) {
-    cx.fillStyle = `rgba(12, 4, 2, ${0.36 * S.focus})`;
+    cx.fillStyle = `rgba(10, 3, 1, ${0.38 * S.focus})`;
     cx.fillRect(0, 0, W, H);
   }
 
   /* --- aggiornamento e proiezione --- */
   while (S.proj.length < n) S.proj.push({ sx: 0, sy: 0, scale: 1, zOrder: 0, size: 0 });
   S.proj.length = n;
-  const mv = 1 - Math.exp(-dt * (RM ? 60 : 4.5));
-  const vk = 1 - Math.exp(-dt * (RM ? 60 : 9));
+  const mv = 1 - Math.exp(-dt * (RM ? 60 : 4.8));
+  const vk = 1 - Math.exp(-dt * (RM ? 60 : 9.5));
 
   for (let i = 0; i < n; i++) {
     const it = items[i], o = S.proj[i];
@@ -146,8 +144,8 @@ function render(t, dt) {
     if (is3D) {
       const floatPhase = (S.autoRotate && !RM && S.sel < 0) ? 1 : 0;
       project3D(
-        it.x + Math.cos(t * 0.0011 + i * 1.7) * 0.004 * rm * floatPhase,
-        it.y + Math.sin(t * 0.0015 + i) * 0.005 * rm * floatPhase,
+        it.x + Math.cos(t * 0.0011 + i * 1.7) * 0.0042 * rm * floatPhase,
+        it.y + Math.sin(t * 0.0015 + i) * 0.0052 * rm * floatPhase,
         it.z, o
       );
     } else {
@@ -165,10 +163,10 @@ function render(t, dt) {
   for (let i = 0; i < n; i++) order[i] = i;
   order.sort((a, b) => S.proj[b].zOrder - S.proj[a].zOrder);
 
-  /* --- legami tra tavole simili (solo in vista 3D se attivi) --- */
-  if (n && is3D && S.showLinks) {
+  /* --- legami tra tavole simili (solo in vista 3D) --- */
+  if (n && is3D) {
     cx.lineWidth = 1;
-    cx.globalAlpha = 0.18 * (1 - 0.65 * S.focus);
+    cx.globalAlpha = 0.16 * (1 - 0.65 * S.focus);
     for (const cat of Object.keys(col)) {
       cx.beginPath();
       for (let i = 0; i < n; i++) {
@@ -185,21 +183,36 @@ function render(t, dt) {
     }
   }
 
-  /* --- legami attivi su hover/selezione --- */
+  /* --- sinapsi attive su hover/selezione con impulso viaggiante --- */
   if (n && (S.hov >= 0 || S.sel >= 0)) {
     cx.lineWidth = 1.65;
     cx.setLineDash([6, 8]);
     cx.lineDashOffset = -t * 0.045;
-    cx.strokeStyle = '#ffe5c2';
+    cx.strokeStyle = '#ffe5c4';
     for (const k of [S.hov, S.sel]) {
       if (k < 0 || !items[k]) continue;
-      cx.globalAlpha = k === S.sel ? 0.88 : 0.6;
+      cx.globalAlpha = k === S.sel ? 0.88 : 0.58;
       cx.beginPath();
       for (const j of items[k].nn) {
         if (!items[j] || !items[j].vis) continue;
         cx.moveTo(items[k].sx, items[k].sy); cx.lineTo(items[j].sx, items[j].sy);
       }
       cx.stroke();
+
+      // Impulso luminoso che viaggia lungo i legami affini
+      if (!RM) {
+        const phase = (t * 0.0012) % 1;
+        cx.fillStyle = '#fff3df';
+        cx.beginPath();
+        for (const j of items[k].nn) {
+          if (!items[j] || !items[j].vis) continue;
+          const px = items[k].sx + (items[j].sx - items[k].sx) * phase;
+          const py = items[k].sy + (items[j].sy - items[k].sy) * phase;
+          cx.moveTo(px + 2.4, py);
+          cx.arc(px, py, 2.4, 0, 6.2832);
+        }
+        cx.fill();
+      }
     }
     cx.setLineDash([]);
     cx.globalAlpha = 1;
@@ -213,7 +226,7 @@ function render(t, dt) {
     if (!big && (o.sx < -margin || o.sx > W + margin || o.sy < -margin || o.sy > H + margin)) return;
 
     const c = col[it.cat];
-    const dim = (S.sel >= 0 && !big) ? 1 - 0.66 * S.focus : 1;
+    const dim = (S.sel >= 0 && !big) ? 1 - 0.68 * S.focus : 1;
     const depth = (is3D ? clamp(o.scale * 0.92, 0.35, 1) : 1) * dim;
 
     if (it.vf < 0.98) {
@@ -227,7 +240,7 @@ function render(t, dt) {
     if (big || (i === S.hov && live)) {
       const R = (live ? o.size : 22) * 1.55;
       cx.globalCompositeOperation = 'lighter';
-      cx.globalAlpha = (big ? 0.6 : 0.44) * depth;
+      cx.globalAlpha = (big ? 0.58 : 0.42) * depth;
       cx.drawImage(glow(c), o.sx - R, o.sy - R, R * 2, R * 2);
       cx.globalCompositeOperation = 'source-over';
     }
@@ -252,8 +265,8 @@ function render(t, dt) {
     const y0 = Math.round(o.sy - s / 2 - pad);
 
     cx.globalAlpha = Math.min(1, it.a * 1.4) * depth * it.vf;
-    cx.fillStyle = 'rgba(8, 3, 1, 0.38)';
-    cx.fillRect(x0 + s * 0.03, y0 + s * 0.05, w, h);
+    cx.fillStyle = 'rgba(6, 2, 1, 0.42)';
+    cx.fillRect(x0 + s * 0.035, y0 + s * 0.055, w, h);
     cx.drawImage(it.card, x0, y0, w, h);
 
     if (big || S.hov === i) {
@@ -282,7 +295,7 @@ function render(t, dt) {
       const a = acc[cat];
       if (a.n >= 2) labels.push({ text: cat, color: col[cat], x: a.x / a.n, y: a.top - 0.16, z: a.z / a.n });
     }
-    drawClusterLabels(cx, labels, 0.78 * (1 - 0.7 * S.focus));
+    drawClusterLabels(cx, labels, 0.78 * (1 - 0.72 * S.focus));
   } else if (n) drawGeoLabels(cx);
 
   /* --- onda d'urto alla selezione --- */
@@ -292,8 +305,10 @@ function render(t, dt) {
       const p = (t - f.t0) / 1100, it = f.it;
       cx.globalAlpha = 1 - p;
       cx.strokeStyle = cx.fillStyle = f.c;
-      cx.lineWidth = 2;
-      cx.beginPath(); cx.arc(it.sx, it.sy, 10 + p * 135 * it.sc, 0, 6.2832); cx.stroke();
+      cx.lineWidth = 2.2;
+      cx.beginPath(); cx.arc(it.sx, it.sy, 10 + p * 140 * it.sc, 0, 6.2832); cx.stroke();
+      cx.lineWidth = 1;
+      cx.beginPath(); cx.arc(it.sx, it.sy, 6 + p * 85 * it.sc, 0, 6.2832); cx.stroke();
       for (const sp of f.sp) {
         const d = sp.v * p * (2 - p) * it.sc;
         cx.beginPath();
@@ -308,7 +323,7 @@ function render(t, dt) {
   /* --- dissolvenza al cambio vista --- */
   const sp = (t - S.switchT) / 520;
   if (sp < 1) {
-    cx.fillStyle = `rgba(20, 8, 4, ${0.92 * (1 - sp) ** 2})`;
+    cx.fillStyle = `rgba(16, 6, 3, ${0.92 * (1 - sp) ** 2})`;
     cx.fillRect(0, 0, W, H);
     busy = true;
   }
