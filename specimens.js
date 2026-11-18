@@ -1,13 +1,10 @@
 /* ============================================================
-   specimens.js — ologrammi 3D LiDAR ad alta densità,
+   specimens.js — archetipi evolutivi 3D ad alta definizione,
    piani orbitali dedicati, callout anatomici 3D e dossier
    ============================================================ */
 import { state, RM, clamp, rgba } from './data.js';
-import { getThemeTokens, getResolvedTheme } from './theme.js';
+import { getThemeTokens } from './theme.js';
 import { project3D } from './view3d.js';
-
-const SEG_STRIDE = 9;
-const PT_STRIDE = 8;
 
 function buildOrbitalPlane(name, inclinationDeg, nodeDeg, radius, initialPhase, initialElev) {
   const inc = (inclinationDeg * Math.PI) / 180;
@@ -15,6 +12,8 @@ function buildOrbitalPlane(name, inclinationDeg, nodeDeg, radius, initialPhase, 
   const ci = Math.cos(inc), si = Math.sin(inc);
   const cn = Math.cos(node), sn = Math.sin(node);
 
+  // Base ortonormale (u, v, n) del piano orbitale inclinato nello spazio 3D
+  // con n[1] >= 0 per mantenere sempre l'orientamento verticale coerente
   const u = [cn, 0, sn];
   const v = [-ci * sn, si, ci * cn];
   const n = [si * sn, ci, -si * cn];
@@ -45,8 +44,7 @@ export const SPECIMENS = [
     catKey: 'Archaeopteryx',
     artSlot: 'art1',
     anchor: { x: 0.08, y: -1.44, z: -0.32 },
-    modelScale: 0.25,
-    normScale: 1 / 115,
+    modelScale: 0.23,
     orbitalPlane: buildOrbitalPlane(
       'Piano Eclittico di Solnhofen',
       24,
@@ -63,44 +61,44 @@ export const SPECIMENS = [
     ],
     callouts: [
       {
-        id: 'claws',
+        id: 'remiges',
         code: '01',
-        label: 'Dita artigliate (I–III)',
-        short: 'Falangi libere con artigli ricurvi sul margine alare',
-        detail: 'A differenza degli uccelli moderni con carpometacarpo fuso, ogni ala conserva tre dita libere armate di artigli ricurvi utili per arrampicarsi o afferrare prede.',
-        pos: [88 / 115, -32 / 115, 34 / 115]
+        label: 'Remiganti asimmetriche',
+        short: 'Vessillo aerodinamico per volo battuto',
+        detail: 'Le penne primarie mostrano un vessillo esterno più stretto di quello interno, adattamento aerodinamico indispensabile per generare portanza e resistere alla torsione durante la battuta alare.',
+        pos: [-0.14, -0.34, 0.72]
       },
       {
-        id: 'remiges',
+        id: 'claws',
         code: '02',
-        label: 'Penne remiganti',
-        short: 'Vessilli asimmetrici aerodinamici su ulna e mano',
-        detail: 'Le penne primarie mostrano un vessillo esterno più stretto di quello interno, adattamento aerodinamico indispensabile per generare portanza e resistere alla torsione durante la battuta alare.',
-        pos: [-105 / 115, -6 / 115, -8 / 115]
+        label: 'Artigli manuali falciformi',
+        short: 'Tre dita libere artigliate sull’ala',
+        detail: 'A differenza degli uccelli moderni con carpometacarpo fuso, ogni ala conserva tre dita libere armate di artigli ricurvi utili per arrampicarsi o afferrare prede.',
+        pos: [-0.46, -0.32, 0.38]
       },
       {
         id: 'tail',
         code: '03',
-        label: 'Coda ossea (22 vert.)',
-        short: 'Vertebre caudali articolate con timoniere bilaterali',
+        label: 'Coda ossea piumata',
+        short: 'Oltre 20 vertebre caudali libere',
         detail: 'Privo di pigostilo, possiede una lunga colonna vertebrale caudale rigida bordata bilateralmente da penne timoniere disposte a fronda.',
-        pos: [-12 / 115, 102 / 115, 14 / 115]
+        pos: [0.98, 0.14, 0.04]
       },
       {
         id: 'teeth',
         code: '04',
-        label: 'Cranio dentato & orbita',
-        short: 'Denti conici e anello sclerotico da teropode',
-        detail: 'Il cranio rettiliano allungato ospita piccoli denti conici smaltati infissi in alveoli e un anello osseo sclerotico attorno all’orbita oculare.',
-        pos: [40 / 115, -98 / 115, -13 / 115]
+        label: 'Denti tecodonti',
+        short: 'Mascelle armate prive di becco corneo',
+        detail: 'Il cranio rettiliano allungato ospita piccoli denti conici smaltati infissi in alveoli, eredità diretta degli antenati teropodi carnivori.',
+        pos: [-0.94, -0.28, 0.0]
       },
       {
         id: 'furcula',
         code: '05',
-        label: 'Furcula & gastralia',
-        short: 'Forcella clavicolare e costole addominali',
-        detail: 'La robusta furcula a V funge da molla elastica per i muscoli pettorali, mentre la gabbia toracica conserva i gastralia ventrali tipici dei teropodi.',
-        pos: [0, -24 / 115, 15 / 115]
+        label: 'Furcula clavicolare',
+        short: 'Clavicole fuse a V per i muscoli del volo',
+        detail: 'La robusta furcula funge da molla elastica e punto di ancoraggio per i muscoli pettorali depressori dell’ala.',
+        pos: [-0.34, 0.05, 0.14]
       }
     ]
   },
@@ -117,8 +115,7 @@ export const SPECIMENS = [
     catKey: 'Pettirossi',
     artSlot: 'art2',
     anchor: { x: -1.38, y: 0.74, z: 0.34 },
-    modelScale: 0.24,
-    normScale: 1 / 72,
+    modelScale: 0.22,
     orbitalPlane: buildOrbitalPlane(
       'Piano Bio-Acustico Boreale',
       29,
@@ -128,51 +125,60 @@ export const SPECIMENS = [
       0.17
     ),
     summary:
-      'Discendente diretto dei dinosauri teropodi maniraptori: incarna la completa radiazione aviana con scheletro pneumatico leggero, becco corneo edentulo, pigostilo fuso, comunicazione bivocale e magnetoricezione retinica a criptocromo-4.',
+      'Discendente diretto dei dinosauri teropodi maniraptori: incarna la completa radiazione aviana con scheletro pneumatico leggero, becco corneo edentulo, pigostilo fuso, comunicazione bivocale e una capsula quantica retinica a criptocromo-4 per la magnetoricezione.',
     history: [
       'Dal punto di vista filogenetico, ogni passeriforme vivente è un dinosauro teropode aviano. In 150 milioni di anni di evoluzione, la linea che da forme simili ad Archaeopteryx porta a Erithacus rubecula ha fuso le vertebre caudali nel pigostilo, sostituito i denti con un becco leggero e sviluppato uno sterno carenato ad alta efficienza.',
-      'Celebre negli studi etologici di David Lack, il pettirosso impiega lo scudo pettorale arancio-rosso come segnale territoriale innato (difeso da entrambi i sessi tutto l’anno) e modula nella siringe due flussi acustici indipendenti per comunicare nel sottobosco.'
+      'Celebre negli studi etologici di David Lack, il pettirosso impiega lo scudo pettorale arancio-rosso come segnale territoriale innato (difeso da entrambi i sessi tutto l’anno) e modula nella siringe due flussi acustici indipendenti per comunicare nel sottobosco.',
+      'La capsula quantica dei pettirossi: organismo modello della biologia quantistica, Erithacus rubecula ospita nei fotorecettori a doppio cono della retina la flavoproteina criptocromo-4 (Cry4). L’assorbimento di fotoni di luce blu innesca una “capsula quantica” a coppie di radicali (FAD•− e residui di triptofano) con spin elettronici entangled: l’inclinazione del campo geomagnetico terrestre altera la transizione tra stati di singoletto e tripletto, sovrapponendo al campo visivo dell’uccello una vera bussola quantistica per le migrazioni.'
     ],
     callouts: [
       {
-        id: 'syrinx',
-        code: '01',
-        label: 'Siringe vocale',
-        short: 'Organo fonatorio tracheobronchiale pulsante',
-        detail: 'Dotata di due coppie indipendenti di membrane vibranti alla biforcazione dei bronchi, consente di modulare simultaneamente due frequenze sonore.',
-        pos: [0, -18 / 72, 8 / 72]
-      },
-      {
-        id: 'keel',
-        code: '02',
-        label: 'Carena sternale',
-        short: 'Cresta ossea profonda per i muscoli del volo',
-        detail: 'Lamina sternale pronunciata su cui si inseriscono i potenti muscoli pettorali e sopracoracoidei responsabili della battuta alare.',
-        pos: [0, 4 / 72, 24 / 72]
-      },
-      {
-        id: 'pygostyle',
-        code: '03',
-        label: 'Pigostilo fuso',
-        short: 'Vertebre caudali saldate a supporto delle timoniere',
-        detail: 'La fusione delle ultime vertebre caudali sostiene a ventaglio le penne timoniere, garantendo virate fulminee nel folto del sottobosco.',
-        pos: [0, 40 / 72, -24 / 72]
-      },
-      {
         id: 'breast',
-        code: '04',
-        label: 'Piumaggio pettorale',
-        short: 'Scudo territoriale ad alta densità LiDAR',
-        detail: 'La livrea facciale e pettorale contrasta con il dorso bruno-olivastro, fungendo da stimolo chiave nelle dispute territoriali e nel corteggiamento.',
-        pos: [14 / 72, -14 / 72, 24 / 72]
+        code: '01',
+        label: 'Scudo pettorale arancio',
+        short: 'Segnale territoriale ad alta visibilità',
+        detail: 'La macchia facciale e pettorale contrasta con il dorso bruno-olivastro, fungendo da stimolo chiave nelle dispute territoriali e nel corteggiamento.',
+        pos: [0.46, -0.08, 0.24]
+      },
+      {
+        id: 'syrinx',
+        code: '02',
+        label: 'Siringe bivocale',
+        short: 'Organo fonatorio alla base della trachea',
+        detail: 'Dotata di due coppie indipendenti di membrane vibranti, consente al pettirosso di modulare simultaneamente due frequenze sonore anche al crepuscolo.',
+        pos: [0.22, -0.26, 0.14]
       },
       {
         id: 'beak',
-        code: '05',
+        code: '03',
         label: 'Becco corneo edentulo',
         short: 'Rostro sottile per dieta insettivora',
         detail: 'La completa perdita dei denti e lo sviluppo della ranfoteca cornea alleggeriscono il cranio, ottimizzando la cattura rapida di insetti e larve.',
-        pos: [0, -43 / 72, 40 / 72]
+        pos: [0.76, -0.36, 0.0]
+      },
+      {
+        id: 'pygostyle',
+        code: '04',
+        label: 'Pigostilo e timoniere',
+        short: 'Vertebre caudali fuse in lamina',
+        detail: 'La fusione delle ultime vertebre caudali sostiene a ventaglio le penne timoniere, garantendo virate fulminee nel folto del sottobosco.',
+        pos: [-0.86, 0.34, 0.10]
+      },
+      {
+        id: 'tarsus',
+        code: '05',
+        label: 'Tarso-metatarso slanciato',
+        short: 'Articolazione aviana per salto e posa',
+        detail: 'La fusione delle ossa tarsali e metatarsali crea una leva elastica leggera che consente sia il salto agile sul terreno sia la presa sicura sui rami.',
+        pos: [0.06, 0.72, 0.16]
+      },
+      {
+        id: 'quantum_capsule',
+        code: '06',
+        label: 'Capsula quantica retinica',
+        short: 'Bussola a coppie di radicali (Cry4)',
+        detail: 'Nei fotorecettori a doppio cono della retina, la proteina criptocromo-4 racchiude una capsula quantica foto-attivata: i fotoni blu generano coppie di radicali con spin entangled la cui dinamica singoletto-tripletto risponde all’inclinazione del campo geomagnetico terrestre.',
+        pos: [0.43, -0.39, 0.14]
       }
     ]
   },
@@ -189,8 +195,7 @@ export const SPECIMENS = [
     catKey: 'Grilli',
     artSlot: 'art3',
     anchor: { x: 1.40, y: 0.70, z: -0.28 },
-    modelScale: 0.25,
-    normScale: 1 / 95,
+    modelScale: 0.23,
     orbitalPlane: buildOrbitalPlane(
       'Piano Insulare del Pacifico',
       17,
@@ -209,695 +214,45 @@ export const SPECIMENS = [
       {
         id: 'flatwing',
         code: '01',
-        label: 'Ala piatta (mutazione silente)',
-        short: 'Tegmine prive di lima stridulatoria (0 kHz vs Ormia)',
+        label: 'Tegmine piatte (flatwing)',
+        short: 'Apparato stridulatore silenziato',
         detail: 'Le nervature delle ali anteriori maschili sono appiattite e prive della lima dentellata: sfregando le ali non producono alcun suono, eludendo la mosca parassitoide.',
-        pos: [-8 / 95, -14 / 95, 12 / 95]
-      },
-      {
-        id: 'femur',
-        code: '02',
-        label: 'Femore saltatorio',
-        short: 'Muscolatura striata a spina di pesce e tibia spinosa',
-        detail: 'Il femore metatoracico ingrossato ospita fasci muscolari pennati che accumulano energia elastica per scatti fulminei nella vegetazione.',
-        pos: [-32 / 95, -14 / 95, 24 / 95]
+        pos: [-0.12, -0.22, 0.24]
       },
       {
         id: 'antennae',
-        code: '03',
-        label: 'Antenne sensoriali',
-        short: 'Flagelli multi-articolati chemiorecettori',
+        code: '02',
+        label: 'Antenne filiformi sensori',
+        short: 'Orientamento tattile e chimico notturno',
         detail: 'L’assenza di richiamo acustico rende fondamentali le lunghe antenne multi-articolate per riconoscere i feromoni cuticolari delle femmine a breve distanza.',
-        pos: [84 / 95, -38 / 95, 34 / 95]
+        pos: [0.96, -0.46, 0.26]
       },
       {
         id: 'tympanum',
-        code: '04',
+        code: '03',
         label: 'Organo timpanico tibiale',
         short: 'Recettore uditivo sulle zampe anteriori',
         detail: 'Situato sulle tibie protoraciche, consente ai maschi muti di intercettare il canto dei pochi maschi normo-alati e appostarsi silenziosamente nei loro pressi.',
-        pos: [41 / 95, 22 / 95, 17 / 95]
+        pos: [0.46, 0.44, 0.24]
+      },
+      {
+        id: 'femur',
+        code: '04',
+        label: 'Femore posteriore saltatorio',
+        short: 'Leva balistica per fuga immediata',
+        detail: 'Il femore metatoracico ingrossato ospita fasci muscolari pennati che accumulano energia elastica per scatti fulminei nella vegetazione.',
+        pos: [-0.52, -0.14, 0.28]
       },
       {
         id: 'cerci',
         code: '05',
         label: 'Cerci addominali',
-        short: 'Appendici posteriori sensibili alle correnti d’aria',
-        detail: 'I due cerci sensoriali rilevano le minime variazioni di pressione d’aria generate dall’avvicinamento di predatori o parassiti in volo.',
-        pos: [-74 / 95, -5 / 95, 18 / 95]
+        short: 'Sensori di micro-correnti d’aria',
+        detail: 'Le due appendici posteriori rilevano le minime variazioni di pressione d’aria generate dall’avvicinamento di predatori o parassiti in volo.',
+        pos: [-0.88, 0.08, 0.16]
       }
     ]
   }
-];
-
-/* ============================================================
-   COSTRUTTORE PROCEDURALE DI GEOMETRIA LIDAR (TypedArray)
-   ============================================================ */
-class AnatomyBuilder {
-  constructor(normScale) {
-    this.ns = normScale;
-    this.segList = [];
-    this.ptList = [];
-  }
-
-  addSeg(x1, y1, z1, x2, y2, z2, colorCode = 0, weight = 1.0, animGroup = 0) {
-    const s = this.ns;
-    this.segList.push(
-      x1 * s, y1 * s, z1 * s,
-      x2 * s, y2 * s, z2 * s,
-      colorCode, weight, animGroup
-    );
-  }
-
-  addPt(x, y, z, colorCode = 0, size = 1.3, phase = 0, highOnly = 0, animGroup = 0) {
-    const s = this.ns;
-    this.ptList.push(
-      x * s, y * s, z * s,
-      colorCode, size, phase, highOnly, animGroup
-    );
-  }
-
-  sampleLine(x1, y1, z1, x2, y2, z2, count, colorCode = 0, size = 1.25, jitter = 0.6, animGroup = 0) {
-    for (let i = 0; i <= count; i++) {
-      const t = i / Math.max(1, count);
-      const jx = ((Math.sin(i * 12.9898 + x1) * 43758.5453) % 1 - 0.5) * jitter;
-      const jy = ((Math.sin(i * 78.233 + y1) * 43758.5453) % 1 - 0.5) * jitter;
-      const jz = ((Math.sin(i * 39.425 + z1) * 43758.5453) % 1 - 0.5) * jitter;
-      this.addPt(
-        x1 + (x2 - x1) * t + jx,
-        y1 + (y2 - y1) * t + jy,
-        z1 + (z2 - z1) * t + jz,
-        colorCode,
-        size,
-        t * Math.PI * 2,
-        i % 2,
-        animGroup
-      );
-    }
-  }
-
-  addRing(cx, cy, cz, rx, ry, rz, axis, steps, colorCode = 0, drawLines = true, ptDensity = 1, animGroup = 0) {
-    let prevX = 0, prevY = 0, prevZ = 0;
-    for (let i = 0; i <= steps; i++) {
-      const a = (i / steps) * Math.PI * 2;
-      const c = Math.cos(a);
-      const s = Math.sin(a);
-      let px = cx, py = cy, pz = cz;
-      if (axis === 'xz') {
-        px += c * rx;
-        pz += s * rz;
-      } else if (axis === 'xy') {
-        px += c * rx;
-        py += s * ry;
-      } else {
-        py += c * ry;
-        pz += s * rz;
-      }
-
-      if (drawLines && i > 0) {
-        this.addSeg(prevX, prevY, prevZ, px, py, pz, colorCode, 0.85, animGroup);
-      }
-      if (i < steps && ptDensity > 0) {
-        this.addPt(px, py, pz, colorCode, 1.2, a, i % 2, animGroup);
-      }
-      prevX = px; prevY = py; prevZ = pz;
-    }
-  }
-
-  build() {
-    return {
-      segments: new Float32Array(this.segList),
-      points: new Float32Array(this.ptList)
-    };
-  }
-}
-
-/* ============================================================
-   01. ARCHAEOPTERYX LITHOGRAPHICA (150 MA — LIDAR FOSSILE)
-   ============================================================ */
-function buildArchaeopteryxLiDAR(normScale) {
-  const b = new AnatomyBuilder(normScale);
-
-  // 1. Colonna vertebrale cervicale a S + dorsale + bacino
-  const neckPts = [];
-  for (let i = 0; i <= 10; i++) {
-    const t = i / 10;
-    const x = Math.sin(t * Math.PI * 1.15) * 16 + t * 8;
-    const y = -38 - t * 56;
-    const z = Math.cos(t * Math.PI) * 14;
-    neckPts.push([x, y, z]);
-    if (i > 0) {
-      const p = neckPts[i - 1];
-      b.addSeg(p[0], p[1], p[2], x, y, z, 0, 1.6);
-      b.sampleLine(p[0], p[1], p[2], x, y, z, 6, 0, 1.4, 0.8);
-    }
-    b.addSeg(x, y, z, x - 4, y - 2, z - 4, 1, 0.8);
-  }
-
-  const dorsalPts = [];
-  for (let i = 0; i <= 11; i++) {
-    const t = i / 11;
-    const x = Math.sin(t * Math.PI) * -4;
-    const y = -38 + t * 62;
-    const z = Math.sin(t * Math.PI) * -6;
-    dorsalPts.push([x, y, z]);
-    if (i > 0) {
-      const p = dorsalPts[i - 1];
-      b.addSeg(p[0], p[1], p[2], x, y, z, 0, 1.8);
-      b.sampleLine(p[0], p[1], p[2], x, y, z, 5, 0, 1.45, 0.7);
-    }
-    b.addSeg(x, y, z, x, y - 1, z - 6, 1, 0.9);
-  }
-
-  // 2. Coda ossea articolata (22 vertebre caudali + timoniere)
-  let prevTail = [0, 24, 0];
-  const tailVerts = [];
-  for (let v = 1; v <= 22; v++) {
-    const t = v / 22;
-    const tx = -t * 16 - Math.sin(t * Math.PI) * 6;
-    const ty = 24 + t * 114;
-    const tz = Math.sin(t * Math.PI * 0.85) * 18;
-    tailVerts.push([tx, ty, tz, t]);
-
-    b.addSeg(prevTail[0], prevTail[1], prevTail[2], tx, ty, tz, 2, 1.45 - t * 0.6);
-    b.sampleLine(prevTail[0], prevTail[1], prevTail[2], tx, ty, tz, 5, 2, 1.35, 0.5);
-
-    const procW = (1 - t * 0.65) * 5.5;
-    b.addSeg(tx - procW, ty, tz, tx + procW, ty, tz, 0, 0.75);
-    b.addPt(tx, ty, tz, 2, 1.8, v * 0.3, 0);
-    prevTail = [tx, ty, tz];
-  }
-
-  for (let idx = 5; idx < tailVerts.length; idx++) {
-    const [vx, vy, vz, t] = tailVerts[idx];
-    const vaneLen = 20 + Math.sin(((idx - 5) / 16) * Math.PI) * 18;
-    [-1, 1].forEach(side => {
-      const ex = vx + side * vaneLen;
-      const ey = vy + 14 + t * 6;
-      const ez = vz - 4 + Math.cos(t * 3) * 4;
-      b.addSeg(vx, vy, vz, ex, ey, ez, 1, 0.85);
-      b.sampleLine(vx, vy, vz, ex, ey, ez, 8, 1, 1.05, 1.1);
-      b.addSeg(vx + side * vaneLen * 0.4, vy + 5, vz, ex - side * 2, ey + 5, ez, 1, 0.5);
-    });
-  }
-
-  // 3. Gabbia toracica (9 paia di costole), gastralia, furcula e bacino
-  for (let r = 0; r < 9; r++) {
-    const t = r / 8;
-    const ry = -32 + t * 44;
-    const ribW = 14 + Math.sin(t * Math.PI) * 11;
-    const ribD = 12 + Math.sin(t * Math.PI) * 10;
-    [-1, 1].forEach(side => {
-      const pts = [
-        [0, ry, -4],
-        [side * ribW * 0.75, ry + 3, 2],
-        [side * ribW, ry + 9, ribD * 0.75],
-        [side * ribW * 0.45, ry + 14, ribD]
-      ];
-      for (let k = 0; k < pts.length - 1; k++) {
-        b.addSeg(pts[k][0], pts[k][1], pts[k][2], pts[k + 1][0], pts[k + 1][1], pts[k + 1][2], 0, 1.05);
-        b.sampleLine(pts[k][0], pts[k][1], pts[k][2], pts[k + 1][0], pts[k + 1][1], pts[k + 1][2], 4, 0, 1.1, 0.5);
-      }
-    });
-  }
-
-  for (let g = 0; g < 6; g++) {
-    const gy = 2 + g * 4.5;
-    const gw = 11 - g * 0.9;
-    b.addSeg(-gw, gy, 11, 0, gy - 2, 13, 1, 0.75);
-    b.addSeg(0, gy - 2, 13, gw, gy, 11, 1, 0.75);
-  }
-
-  b.addSeg(-14, -36, 4, 0, -24, 15, 2, 1.5);
-  b.addSeg(14, -36, 4, 0, -24, 15, 2, 1.5);
-  [-1, 1].forEach(side => {
-    b.addSeg(side * 6, 16, -2, side * 9, 28, -4, 0, 1.3);
-    b.addSeg(side * 7, 22, 0, side * 8, 44, 10, 0, 1.2);
-    b.addSeg(side * 7, 24, -2, side * 7, 40, -10, 0, 1.1);
-  });
-
-  // 4. Cranio da teropode con anello sclerotico, finestra antorbitale e denti conici
-  const headX = 24, headY = -95, headZ = -14;
-  const snoutX = 56, snoutY = -102, snoutZ = -12;
-  b.addSeg(headX - 8, headY - 4, headZ - 2, headX + 8, headY - 8, headZ, 0, 1.5);
-  b.addSeg(headX + 8, headY - 8, headZ, snoutX, snoutY, snoutZ, 0, 1.5);
-  b.addSeg(snoutX, snoutY, snoutZ, headX + 10, headY + 2, headZ + 2, 0, 1.3);
-  b.addSeg(headX + 10, headY + 2, headZ + 2, headX - 6, headY + 4, headZ + 1, 0, 1.3);
-  b.addSeg(headX - 5, headY + 5, headZ + 1, snoutX - 3, snoutY + 6, snoutZ + 1, 0, 1.3);
-  b.sampleLine(headX + 8, headY - 8, headZ, snoutX, snoutY, snoutZ, 12, 0, 1.25, 0.4);
-  b.sampleLine(headX - 5, headY + 5, headZ + 1, snoutX - 3, snoutY + 6, snoutZ + 1, 12, 0, 1.2, 0.4);
-
-  b.addRing(headX + 6, headY - 2, headZ + 2, 4.5, 4.5, 2.0, 'xy', 14, 2, true, 1);
-  b.addRing(headX + 6, headY - 2, headZ - 2, 4.5, 4.5, 2.0, 'xy', 14, 2, true, 1);
-
-  b.addSeg(headX + 15, headY - 4, headZ + 1, headX + 24, headY - 5, headZ + 1, 1, 0.9);
-  b.addSeg(headX + 24, headY - 5, headZ + 1, headX + 19, headY + 1, headZ + 1, 1, 0.9);
-  b.addSeg(headX + 19, headY + 1, headZ + 1, headX + 15, headY - 4, headZ + 1, 1, 0.9);
-
-  for (let d = 0; d < 9; d++) {
-    const dt = d / 8;
-    const dx = headX + 17 + dt * 28;
-    const dy = headY - 1 - dt * 4.5;
-    b.addSeg(dx, dy, headZ + 1, dx + 0.5, dy + 2.4, headZ + 1, 2, 0.95);
-    b.addSeg(dx, dy + 5.8, headZ + 1, dx + 0.5, dy + 3.6, headZ + 1, 2, 0.95);
-  }
-
-  // 5. Arti anteriori + 3 dita artigliate (I–III) + 14 remiganti per ala
-  [-1, 1].forEach(side => {
-    const sh = [side * 12, -34, 2];
-    const el = [side * 42, -52, 16];
-    const wr = [side * 76, -34, 26];
-
-    b.addSeg(sh[0], sh[1], sh[2], el[0], el[1], el[2], 0, 1.8);
-    b.addSeg(el[0], el[1], el[2], wr[0], wr[1], wr[2], 0, 1.5);
-    b.addSeg(el[0], el[1] + 2.5, el[2] - 2, wr[0], wr[1] + 2, wr[2] - 2, 0, 1.2);
-    b.sampleLine(sh[0], sh[1], sh[2], el[0], el[1], el[2], 12, 0, 1.4, 0.6);
-    b.sampleLine(el[0], el[1], el[2], wr[0], wr[1], wr[2], 12, 0, 1.35, 0.6);
-
-    const digits = [
-      { len: 15, angY: -14, angZ: 8 },
-      { len: 23, angY: -10, angZ: 12 },
-      { len: 18, angY: -4, angZ: 10 }
-    ];
-    digits.forEach((dg, dIdx) => {
-      const midX = wr[0] + side * dg.len * 0.55;
-      const midY = wr[1] + dg.angY * 0.55 + dIdx * 2.2;
-      const midZ = wr[2] + dg.angZ * 0.55;
-      const tipX = wr[0] + side * dg.len;
-      const tipY = wr[1] + dg.angY + dIdx * 2.5;
-      const tipZ = wr[2] + dg.angZ;
-      b.addSeg(wr[0], wr[1], wr[2], midX, midY, midZ, 2, 1.35);
-      b.addSeg(midX, midY, midZ, tipX, tipY, tipZ, 2, 1.25);
-      b.addSeg(tipX, tipY, tipZ, tipX + side * 4.5, tipY + 4.5, tipZ + 2, 2, 1.4);
-      b.addPt(tipX + side * 4.5, tipY + 4.5, tipZ + 2, 2, 2.1, dIdx, 0);
-    });
-
-    for (let f = 0; f < 14; f++) {
-      const ft = f / 13;
-      const ox = el[0] + (wr[0] - el[0]) * Math.min(1, ft * 1.15) + (ft > 0.7 ? side * (ft - 0.7) * 28 : 0);
-      const oy = el[1] + (wr[1] - el[1]) * Math.min(1, ft * 1.15);
-      const oz = el[2] + (wr[2] - el[2]) * Math.min(1, ft * 1.15);
-
-      const fLen = 46 + Math.sin(ft * Math.PI * 0.85) * 48;
-      const sweepAngle = -0.25 + ft * 0.88;
-      const tx = ox + side * Math.cos(sweepAngle) * fLen * 0.78;
-      const ty = oy + Math.sin(sweepAngle) * fLen + 18;
-      const tz = oz - 12 - Math.sin(ft * Math.PI) * 18;
-
-      b.addSeg(ox, oy, oz, tx, ty, tz, f % 3 === 0 ? 2 : 1, 0.9);
-      b.sampleLine(ox, oy, oz, tx, ty, tz, 14, f % 4 === 0 ? 2 : 1, 1.15, 1.4);
-
-      const mx = (ox + tx) * 0.5;
-      const my = (oy + ty) * 0.5;
-      const mz = (oz + tz) * 0.5;
-      b.addSeg(ox, oy, oz, mx - side * 2, my + 4, mz - 2, 1, 0.45);
-      b.addSeg(mx - side * 2, my + 4, mz - 2, tx, ty, tz, 1, 0.45);
-    }
-  });
-
-  // 6. Arti posteriori articolati
-  [-1, 1].forEach(side => {
-    const hip = [side * 9, 25, 0];
-    const knee = [side * 16, 54, 18];
-    const ankle = [side * 14, 88, -6];
-    const foot = [side * 16, 114, 8];
-
-    b.addSeg(hip[0], hip[1], hip[2], knee[0], knee[1], knee[2], 0, 1.7);
-    b.addSeg(knee[0], knee[1], knee[2], ankle[0], ankle[1], ankle[2], 0, 1.5);
-    b.addSeg(ankle[0], ankle[1], ankle[2], foot[0], foot[1], foot[2], 0, 1.35);
-    b.sampleLine(hip[0], hip[1], hip[2], knee[0], knee[1], knee[2], 10, 0, 1.3, 0.5);
-    b.sampleLine(knee[0], knee[1], knee[2], ankle[0], ankle[1], ankle[2], 10, 0, 1.25, 0.5);
-
-    [-4, 0, 4].forEach((spread, idx) => {
-      const toeTip = [foot[0] + spread, foot[1] + 8, foot[2] + 13 - Math.abs(spread) * 0.5];
-      b.addSeg(foot[0], foot[1], foot[2], toeTip[0], toeTip[1], toeTip[2], 2, 1.1);
-      b.addPt(toeTip[0], toeTip[1], toeTip[2], 2, 1.7, idx, 0);
-    });
-    b.addSeg(foot[0], foot[1] - 2, foot[2], foot[0], foot[1] + 3, foot[2] - 7, 2, 1.0);
-  });
-
-  return b.build();
-}
-
-/* ============================================================
-   02. ERITHACUS RUBECULA (OGGI — OSTEOLOGIA & SIRINGE VOCALE)
-   ============================================================ */
-function buildRobinLiDAR(normScale) {
-  const b = new AnatomyBuilder(normScale);
-
-  // 1. Profilo aerodinamico del corpo (26 sezioni + 20 meridiani)
-  const slices = 26;
-  const radialSteps = 20;
-  const shellRings = [];
-
-  for (let i = 0; i <= slices; i++) {
-    const t = i / slices;
-    let cy = -58 + t * 124;
-    let cz = 0;
-    let rx = 0;
-    let rz = 0;
-
-    if (t < 0.26) {
-      const ht = t / 0.26;
-      const rHead = Math.sin(ht * Math.PI * 0.88) * 21 + 4;
-      rx = rHead * 0.92;
-      rz = rHead;
-      cz = 14 - ht * 4;
-    } else if (t < 0.72) {
-      const bt = (t - 0.26) / 0.46;
-      const env = Math.sin(bt * Math.PI * 0.92 + 0.12);
-      rx = 16 + env * 22;
-      rz = 18 + env * 27;
-      cz = 6 - bt * 14;
-    } else {
-      const tt = (t - 0.72) / 0.28;
-      rx = (1 - tt * 0.45) * 16;
-      rz = (1 - tt * 0.85) * 14;
-      cz = -8 - tt * 36;
-      cy += tt * 8;
-    }
-
-    const ring = [];
-    for (let s = 0; s <= radialSteps; s++) {
-      const ang = (s / radialSteps) * Math.PI * 2;
-      const px = Math.cos(ang) * rx;
-      const py = cy;
-      const pz = cz + Math.sin(ang) * rz;
-
-      const isPectoral = Math.sin(ang) > 0.22 && t > 0.14 && t < 0.62;
-      const colCode = isPectoral ? 2 : 1;
-      const ptSize = isPectoral ? 1.55 : 1.1;
-
-      ring.push([px, py, pz, colCode]);
-      if (s < radialSteps) {
-        b.addPt(px, py, pz, colCode, ptSize, ang + t * 4, (i + s) % 2);
-        if (isPectoral) {
-          b.addPt(
-            px * 0.94 + Math.sin(s * 7) * 1.2,
-            py + Math.cos(i * 5) * 1.2,
-            pz * 0.96,
-            2, 1.45, ang, 1
-          );
-        }
-      }
-    }
-    shellRings.push(ring);
-
-    if (i % 2 === 0 && i > 0 && i < slices) {
-      for (let s = 0; s < radialSteps; s++) {
-        const p1 = ring[s];
-        const p2 = ring[s + 1];
-        b.addSeg(p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p1[3], 0.55);
-      }
-    }
-  }
-
-  for (let s = 0; s < radialSteps; s += 2) {
-    for (let i = 0; i < slices; i++) {
-      const p1 = shellRings[i][s];
-      const p2 = shellRings[i + 1][s];
-      b.addSeg(p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p1[3], 0.5);
-    }
-  }
-
-  // 2. Scheletro interno (Cranio, Colonna, Carena Sternale, Pigostilo)
-  b.addRing(0, -45, 16, 11, 10, 12, 'yz', 14, 0, true, 1);
-  b.addRing(-8, -46, 18, 4.2, 4.2, 2, 'yz', 12, 2, true, 1);
-  b.addRing(8, -46, 18, 4.2, 4.2, 2, 'yz', 12, 2, true, 1);
-  b.addSeg(0, -46, 27, 0, -43, 44, 0, 1.6);
-  b.addSeg(-2.5, -45, 26, 0, -43, 44, 0, 1.1);
-  b.addSeg(2.5, -45, 26, 0, -43, 44, 0, 1.1);
-  b.addSeg(0, -42, 26, 0, -42, 42, 0, 1.2);
-
-  const spineNodes = [
-    [0, -36, 12], [0, -24, 4], [0, -10, -4], [0, 6, -8], [0, 20, -12], [0, 32, -18]
-  ];
-  for (let i = 0; i < spineNodes.length - 1; i++) {
-    const a = spineNodes[i], c = spineNodes[i + 1];
-    b.addSeg(a[0], a[1], a[2], c[0], c[1], c[2], 0, 1.6);
-    b.sampleLine(a[0], a[1], a[2], c[0], c[1], c[2], 6, 0, 1.4, 0.3);
-  }
-
-  b.addSeg(0, 32, -18, 0, 44, -27, 2, 1.9);
-  b.addSeg(0, 34, -17, 0, 42, -21, 2, 1.4);
-  b.addSeg(0, 42, -21, 0, 44, -27, 2, 1.4);
-  b.sampleLine(0, 32, -18, 0, 44, -27, 8, 2, 1.5, 0.4);
-
-  const keelTop = [0, -16, 10];
-  const keelFront = [0, -4, 26];
-  const keelBottom = [0, 18, 16];
-  const keelBack = [0, 14, 2];
-  b.addSeg(keelTop[0], keelTop[1], keelTop[2], keelFront[0], keelFront[1], keelFront[2], 2, 1.85);
-  b.addSeg(keelFront[0], keelFront[1], keelFront[2], keelBottom[0], keelBottom[1], keelBottom[2], 2, 1.85);
-  b.addSeg(keelBottom[0], keelBottom[1], keelBottom[2], keelBack[0], keelBack[1], keelBack[2], 0, 1.3);
-  b.addSeg(keelBack[0], keelBack[1], keelBack[2], keelTop[0], keelTop[1], keelTop[2], 0, 1.3);
-  b.sampleLine(keelTop[0], keelTop[1], keelTop[2], keelFront[0], keelFront[1], keelFront[2], 10, 2, 1.5, 0.3);
-  b.sampleLine(keelFront[0], keelFront[1], keelFront[2], keelBottom[0], keelBottom[1], keelBottom[2], 12, 2, 1.5, 0.3);
-
-  for (let r = 0; r < 5; r++) {
-    const ry = -16 + r * 6;
-    [-1, 1].forEach(side => {
-      b.addSeg(0, ry, -4, side * 14, ry + 3, 6, 0, 0.95);
-      b.addSeg(side * 14, ry + 3, 6, side * 5, ry + 7, 15, 0, 0.95);
-    });
-  }
-
-  // 3. Siringe vocale pulsante + onde acustiche sferiche (animGroup = 2)
-  const syxY = -18, syxZ = 6;
-  b.addRing(0, syxY, syxZ, 5.5, 5.5, 5.5, 'xz', 16, 2, true, 1, 2);
-  b.addRing(0, syxY + 3, syxZ, 4.5, 4.5, 4.5, 'xz', 16, 2, true, 1, 2);
-  b.addSeg(0, syxY - 12, syxZ + 2, 0, syxY, syxZ, 2, 1.6, 2);
-  b.addSeg(0, syxY, syxZ, -6, syxY + 8, syxZ - 2, 2, 1.4, 2);
-  b.addSeg(0, syxY, syxZ, 6, syxY + 8, syxZ - 2, 2, 1.4, 2);
-
-  [24, 42, 62].forEach(rad => {
-    b.addRing(0, syxY, syxZ + 12, rad, rad * 0.85, rad, 'xy', 28, 2, true, 1, 2);
-    b.addRing(0, syxY, syxZ + 12, rad, rad * 0.85, rad, 'yz', 28, 2, false, 1, 2);
-  });
-
-  // 4. Ali ripiegate con copritrici e remiganti stratificate
-  [-1, 1].forEach(side => {
-    for (let c = 0; c < 4; c++) {
-      const wy = -14 + c * 5;
-      b.addSeg(side * 22, wy, 4, side * 26, wy + 12, -16, 0, 1.0);
-    }
-    for (let f = 0; f < 8; f++) {
-      const sy = -10 + f * 3.5;
-      const sz = 2 - f * 1.4;
-      const ey = 26 + f * 2.5;
-      const ez = -28 - f * 1.8;
-      b.addSeg(side * 24, sy, sz, side * 14, ey, ez, 1, 0.95);
-      b.sampleLine(side * 24, sy, sz, side * 14, ey, ez, 9, 1, 1.1, 0.6);
-    }
-  });
-
-  // 5. Zampe sottili da passeriforme e ramo stilizzato di appoggio
-  [-1, 1].forEach(side => {
-    const sx = side * 9;
-    b.addSeg(sx, 22, -2, sx + side * 2, 34, -6, 0, 1.2);
-    b.addSeg(sx + side * 2, 34, -6, sx, 48, 4, 0, 1.2);
-    b.addSeg(sx, 48, 4, sx - 2, 52, 9, 0, 1.0);
-    b.addSeg(sx, 48, 4, sx + 2, 52, 9, 0, 1.0);
-    b.addSeg(sx, 48, 4, sx, 52, -1, 0, 1.0);
-  });
-
-  let prevBr = [-68, 56, 12];
-  for (let i = 1; i <= 16; i++) {
-    const t = i / 16;
-    const bx = -68 + t * 136;
-    const by = 56 - Math.sin(t * Math.PI) * 6 + (t - 0.5) * -8;
-    const bz = 12 - Math.sin(t * Math.PI) * 8;
-    b.addSeg(prevBr[0], prevBr[1], prevBr[2], bx, by, bz, 1, 1.6);
-    b.sampleLine(prevBr[0], prevBr[1], prevBr[2], bx, by, bz, 4, 1, 1.2, 0.6);
-    prevBr = [bx, by, bz];
-  }
-
-  return b.build();
-}
-
-/* ============================================================
-   03. TELEOGRYLLUS OCEANICUS (KAUAI — MICRO-CT & FLATWING)
-   ============================================================ */
-function buildCricketLiDAR(normScale) {
-  const b = new AnatomyBuilder(normScale);
-
-  // 1. Capsula cefalica con griglia degli occhi composti
-  const headX = 46, headY = -6, headZ = 10;
-  b.addRing(headX, headY, headZ, 11, 12, 12, 'yz', 16, 0, true, 1);
-  b.addRing(headX + 5, headY + 1, headZ + 1, 8, 9, 9, 'yz', 14, 0, true, 1);
-  b.addSeg(headX + 8, headY + 6, headZ + 2, headX + 12, headY + 14, headZ + 4, 0, 1.2);
-  b.addSeg(headX + 6, headY + 8, headZ - 3, headX + 14, headY + 16, headZ - 5, 2, 0.9);
-  b.addSeg(headX + 6, headY + 8, headZ + 5, headX + 14, headY + 16, headZ + 7, 2, 0.9);
-
-  [-1, 1].forEach(side => {
-    const eyeX = headX + 3;
-    const eyeY = headY - 3;
-    const eyeZ = headZ + side * 10.5;
-    for (let lat = -3; lat <= 3; lat++) {
-      for (let lon = -3; lon <= 3; lon++) {
-        if (lat * lat + lon * lon <= 10) {
-          b.addPt(
-            eyeX + lon * 1.4,
-            eyeY + lat * 1.5,
-            eyeZ + side * Math.cos(lat * 0.35) * 2.2,
-            2, 1.55, lat + lon, 0
-          );
-        }
-      }
-    }
-  });
-
-  // 2. Coppia di antenne filiformi lunghissime multi-articolate (animGroup = 1)
-  [-1, 1].forEach(side => {
-    let prevA = [headX + 7, headY - 5, headZ + side * 5];
-    const segs = 30;
-    for (let i = 1; i <= segs; i++) {
-      const t = i / segs;
-      const ax = headX + 7 + t * 92 + Math.sin(t * 2.2) * 14;
-      const ay = headY - 5 - Math.pow(t, 0.85) * 58 + Math.sin(t * 4.5) * 6;
-      const az = headZ + side * (5 + t * 44 + Math.sin(t * 3.1) * 10);
-
-      b.addSeg(prevA[0], prevA[1], prevA[2], ax, ay, az, 2, 1.15 - t * 0.55, 1);
-      b.addPt(ax, ay, az, 2, 1.35 - t * 0.4, t * 6, i % 2, 1);
-      prevA = [ax, ay, az];
-    }
-  });
-
-  // 3. Pronoto a sella, torace e addome a 9 segmenti con cerci posteriori
-  for (let p = 0; p <= 4; p++) {
-    const pt = p / 4;
-    const px = 34 - pt * 18;
-    b.addRing(px, -6, 6 - pt * 3, 4, 12 + Math.sin(pt * Math.PI) * 2, 14 + Math.sin(pt * Math.PI) * 2, 'yz', 16, 0, true, 1);
-  }
-
-  const abdSegs = 9;
-  let prevAbd = null;
-  for (let s = 0; s < abdSegs; s++) {
-    const t = s / (abdSegs - 1);
-    const ax = 12 - s * 8.2;
-    const ay = -3 + Math.sin(t * Math.PI) * 3 + t * 4;
-    const az = 1 - s * 2.2;
-    const ry = 11.5 * (1 - t * 0.52);
-    const rz = 13.0 * (1 - t * 0.52);
-
-    b.addRing(ax, ay, az, 3, ry, rz, 'yz', 16, 0, true, 1);
-    b.addPt(ax, ay + 1, az + rz, 2, 1.6, s, 0);
-    b.addPt(ax, ay + 1, az - rz, 2, 1.6, s, 0);
-
-    if (prevAbd) {
-      b.addSeg(prevAbd[0], prevAbd[1] - prevAbd[3], prevAbd[2], ax, ay - ry, az, 1, 0.85);
-      b.addSeg(prevAbd[0], prevAbd[1] + prevAbd[3], prevAbd[2], ax, ay + ry, az, 1, 0.85);
-    }
-    prevAbd = [ax, ay, az, ry, rz];
-  }
-
-  const tailBase = [-56, 1, -17];
-  [-1, 1].forEach(side => {
-    const cTip = [-92, -10, -17 + side * 22];
-    b.addSeg(tailBase[0], tailBase[1], tailBase[2] + side * 3, cTip[0], cTip[1], cTip[2], 0, 1.15);
-    b.sampleLine(tailBase[0], tailBase[1], tailBase[2] + side * 3, cTip[0], cTip[1], cTip[2], 12, 2, 1.15, 0.9);
-  });
-
-  // 4. Ali anteriori (Tegmine) mutazione FLATWING + onda acustica smorzata (0 kHz)
-  [-1, 1].forEach(side => {
-    const wStart = [18, -14, 3 + side * 2];
-    const wEnd = [-38, -10, -10 + side * 4];
-    const wSpan = side * 12;
-
-    const steps = 16;
-    let prevOuter = null;
-    let prevInner = null;
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const env = Math.sin(t * Math.PI);
-      const wx = wStart[0] + (wEnd[0] - wStart[0]) * t;
-      const wy = wStart[1] + (wEnd[1] - wStart[1]) * t - 1.5;
-      const wzIn = wStart[2] + (wEnd[2] - wStart[2]) * t;
-      const wzOut = wzIn + wSpan * env;
-
-      if (prevOuter) {
-        b.addSeg(prevOuter[0], prevOuter[1], prevOuter[2], wx, wy, wzOut, 2, 1.25);
-        b.addSeg(prevInner[0], prevInner[1], prevInner[2], wx, wy, wzIn, 2, 0.95);
-      }
-      if (i > 0 && i < steps) {
-        b.addSeg(wx, wy, wzIn, wx - 2, wy, wzOut, 2, 0.7);
-        b.sampleLine(wx, wy, wzIn, wx, wy, wzOut, 4, 2, 1.15, 0.3);
-      }
-      prevOuter = [wx, wy, wzOut];
-      prevInner = [wx, wy, wzIn];
-    }
-    b.addSeg(wStart[0], wStart[1] - 1.5, wStart[2] + wSpan * 0.4, wEnd[0] + 6, wEnd[1] - 1.5, wEnd[2] + wSpan * 0.35, 2, 1.1);
-  });
-
-  for (let w = 0; w <= 24; w++) {
-    const t = w / 24;
-    const wx = -36 + t * 56;
-    const wy = -28 + Math.sin(t * Math.PI * 6) * 0.9;
-    b.addPt(wx, wy, -4, 2, 1.35, t * 4, 0);
-    if (w > 0) {
-      const px = -36 + ((w - 1) / 24) * 56;
-      b.addSeg(px, -28, -4, wx, wy, -4, 2, 0.85);
-    }
-  }
-
-  // 5. Zampe posteriori saltatorie + anteriori con organo timpanico
-  [-1, 1].forEach(side => {
-    const coxa = [-6, 4, side * 12];
-    const knee = [-48, -24, side * 24];
-    const ankle = [-78, 24, side * 22];
-    const tarsusTip = [-98, 28, side * 24];
-
-    const femSteps = 12;
-    for (let f = 0; f <= femSteps; f++) {
-      const ft = f / femSteps;
-      const fx = coxa[0] + (knee[0] - coxa[0]) * ft;
-      const fy = coxa[1] + (knee[1] - coxa[1]) * ft;
-      const fz = coxa[2] + (knee[2] - coxa[2]) * ft;
-      const fRad = 3.2 + Math.sin(ft * Math.PI * 0.85) * 6.5;
-
-      b.addRing(fx, fy, fz, 2.5, fRad, fRad * 0.65, 'yz', 10, 0, f % 2 === 0, 1);
-
-      if (f > 1 && f < femSteps - 1) {
-        const outerZ = fz + side * fRad * 0.68;
-        b.addSeg(fx + 2, fy - fRad * 0.65, outerZ, fx - 1.5, fy, outerZ + side * 0.6, 2, 0.95);
-        b.addSeg(fx - 1.5, fy, outerZ + side * 0.6, fx + 2, fy + fRad * 0.65, outerZ, 2, 0.95);
-      }
-    }
-
-    b.addSeg(knee[0], knee[1], knee[2], ankle[0], ankle[1], ankle[2], 0, 1.55);
-    b.sampleLine(knee[0], knee[1], knee[2], ankle[0], ankle[1], ankle[2], 14, 0, 1.25, 0.3);
-    for (let sp = 2; sp <= 9; sp++) {
-      const st = sp / 10;
-      const sx = knee[0] + (ankle[0] - knee[0]) * st;
-      const sy = knee[1] + (ankle[1] - knee[1]) * st;
-      const sz = knee[2] + (ankle[2] - knee[2]) * st;
-      b.addSeg(sx, sy, sz - 1.5, sx - 4.5, sy - 2.5, sz - 3.5, 2, 1.05);
-      b.addSeg(sx, sy, sz + 1.5, sx - 4.5, sy - 2.5, sz + 3.5, 2, 1.05);
-    }
-
-    b.addSeg(ankle[0], ankle[1], ankle[2], tarsusTip[0], tarsusTip[1], tarsusTip[2], 0, 1.15);
-
-    const fHip = [26, 5, side * 10];
-    const fKnee = [36, 16, side * 18];
-    const fFoot = [46, 28, side * 16];
-    b.addSeg(fHip[0], fHip[1], fHip[2], fKnee[0], fKnee[1], fKnee[2], 0, 1.2);
-    b.addSeg(fKnee[0], fKnee[1], fKnee[2], fFoot[0], fFoot[1], fFoot[2], 0, 1.1);
-    b.addPt((fKnee[0] + fFoot[0]) * 0.5, (fKnee[1] + fFoot[1]) * 0.5, (fKnee[2] + fFoot[2]) * 0.5, 2, 2.2, side, 0);
-
-    const mHip = [12, 6, side * 11];
-    const mKnee = [8, 18, side * 20];
-    const mFoot = [2, 28, side * 18];
-    b.addSeg(mHip[0], mHip[1], mHip[2], mKnee[0], mKnee[1], mKnee[2], 0, 1.2);
-    b.addSeg(mKnee[0], mKnee[1], mKnee[2], mFoot[0], mFoot[1], mFoot[2], 0, 1.1);
-  });
-
-  return b.build();
-}
-
-const LIDAR_MODELS = [
-  buildArchaeopteryxLiDAR(SPECIMENS[0].normScale),
-  buildRobinLiDAR(SPECIMENS[1].normScale),
-  buildCricketLiDAR(SPECIMENS[2].normScale)
 ];
 
 /* ============================================================
@@ -908,7 +263,7 @@ let activeCalloutBoxes = [];
 
 const _p = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
 const _p2 = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
-const _anim = { x: 0, y: 0, z: 0 };
+const _p3 = { sx: 0, sy: 0, scale: 1, zOrder: 0 };
 const FOV_LOCAL = 2.6;
 
 function projLocal(spec, lx, ly, lz, out = _p) {
@@ -923,6 +278,8 @@ function projLocal(spec, lx, ly, lz, out = _p) {
     );
   }
 
+  // Durante la rotazione delle immagini nella vista 3D generale, l'ancora ruota
+  // con la costellazione ma gli assi locali dell'archetipo restano invariati.
   const { W, H } = state;
   const c = state.cam3D;
   const m = c.rot;
@@ -948,168 +305,758 @@ function projLocal(spec, lx, ly, lz, out = _p) {
   return out;
 }
 
-function getAnimatedLocal(lx, ly, lz, animGroup, modelIndex, tSec) {
-  if (animGroup === 0 || RM || state.ecoMode) {
-    _anim.x = lx;
-    _anim.y = ly;
-    _anim.z = lz;
-    return _anim;
-  }
-  if (animGroup === 1 && modelIndex === 2) {
-    const ns = SPECIMENS[2].normScale;
-    const dist = Math.max(0, (lx - 52 * ns) / (95 * ns));
-    const sway = Math.sin(tSec * 2.1 + dist * 2.4) * (dist * dist * 11 * ns);
-    const swayZ = Math.cos(tSec * 1.7 + dist * 2.0) * (dist * dist * 8 * ns);
-    _anim.x = lx - Math.abs(sway) * 0.25;
-    _anim.y = ly + sway;
-    _anim.z = lz + swayZ;
-    return _anim;
-  }
-  if (animGroup === 2 && modelIndex === 1) {
-    const ns = SPECIMENS[1].normScale;
-    const cy = -18 * ns;
-    const cz = 6 * ns;
-    const pulse = 1 + Math.sin(tSec * 4.2) * 0.08;
-    _anim.x = lx * pulse;
-    _anim.y = cy + (ly - cy) * pulse;
-    _anim.z = cz + (lz - cz) * pulse;
-    return _anim;
-  }
-  _anim.x = lx;
-  _anim.y = ly;
-  _anim.z = lz;
-  return _anim;
-}
-
 function specimenColor(spec) {
   return state.col[spec.catKey] || '#e5c58e';
 }
 
-function hexToRGB(hex) {
-  const n = parseInt((hex || '#e5c58e').slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
+/* ============================================================
+   1. ARCHAEOPTERYX LITHOGRAPHICA — Ricostruzione 3D dettagliata
+   ============================================================ */
+function drawArchaeopteryx3D(cx, spec, t, sa, fa, col, rgb) {
+  const rm = RM || state.ecoMode ? 0 : 1;
+  const flutter = Math.sin(t * 0.0018) * 0.065 * rm;
 
-function rgbaStr(rgb, alpha) {
-  return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${clamp(alpha, 0, 1).toFixed(3)})`;
+  // 1. Gabbia toracica volumetrica (sezioni longitudinali + 7 costole dorsali e gastralia)
+  cx.fillStyle = rgb + (fa * 1.15).toFixed(2) + ')';
+  cx.strokeStyle = rgb + (0.72 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.4;
+  for (const zOff of [-0.15, 0, 0.15]) {
+    const ry = zOff === 0 ? 0.19 : 0.12;
+    cx.beginPath();
+    for (let i = 0; i <= 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      projLocal(spec, -0.02 + Math.cos(a) * 0.35, Math.sin(a) * ry, zOff, _p);
+      if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+    }
+    if (zOff === 0) cx.fill();
+    cx.stroke();
+  }
+
+  // Costole dorsali trasversali 3D
+  cx.strokeStyle = rgb + (0.42 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.05;
+  for (let r = 0; r < 6; r++) {
+    const rx = -0.22 + r * 0.075;
+    const radY = 0.14 + Math.sin((r / 5) * Math.PI) * 0.05;
+    const radZ = 0.12 + Math.sin((r / 5) * Math.PI) * 0.04;
+    cx.beginPath();
+    for (let i = 0; i <= 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
+      projLocal(spec, rx, Math.sin(a) * radY, Math.cos(a) * radZ, _p);
+      if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+    }
+    cx.stroke();
+  }
+
+  // Cingolo pelvico (ileo, ischio, pube)
+  cx.strokeStyle = rgb + (0.75 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.35;
+  for (const side of [-1, 1]) {
+    cx.beginPath();
+    projLocal(spec, 0.14, -0.05, side * 0.11, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.30, -0.03, side * 0.10, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.22, 0.14, side * 0.09, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.08, 0.16, side * 0.08, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.stroke();
+  }
+
+  // Furcula clavicolare a V in 3D
+  cx.strokeStyle = col;
+  cx.lineWidth = 2.0;
+  cx.beginPath();
+  projLocal(spec, -0.32, -0.06, -0.15, _p); cx.moveTo(_p.sx, _p.sy);
+  projLocal(spec, -0.36, 0.09, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, -0.32, -0.06, 0.15, _p); cx.lineTo(_p.sx, _p.sy);
+  cx.stroke();
+
+  // 2. Vertebre cervicali a S + cranio teropode con finestra antorbitale, orbita e denti
+  const neckPts = [
+    [-0.36, -0.04, 0],
+    [-0.45, -0.10, 0],
+    [-0.54, -0.19, 0],
+    [-0.63, -0.28, 0],
+    [-0.72, -0.32, 0]
+  ];
+  cx.strokeStyle = rgb + (0.82 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.7;
+  cx.beginPath();
+  neckPts.forEach(([x, y, z], idx) => {
+    projLocal(spec, x, y, z, _p);
+    if (idx === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+  });
+  cx.stroke();
+
+  // Nodi vertebrali cervicali
+  cx.fillStyle = rgb + (0.70 * sa).toFixed(2) + ')';
+  for (let i = 1; i < neckPts.length - 1; i++) {
+    projLocal(spec, neckPts[i][0], neckPts[i][1], 0, _p);
+    cx.beginPath();
+    cx.arc(_p.sx, _p.sy, Math.max(1.6, 2.4 * _p.scale), 0, Math.PI * 2);
+    cx.fill();
+  }
+
+  // Cranio rettiliano 3D (mascella superiore + mandibola articolata)
+  cx.fillStyle = rgb + (fa * 1.4).toFixed(2) + ')';
+  cx.strokeStyle = rgb + (0.86 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.55;
+  cx.beginPath();
+  const upperSkull = [
+    [-0.70, -0.37, 0],
+    [-0.84, -0.37, 0],
+    [-1.04, -0.30, 0],
+    [-1.02, -0.27, 0],
+    [-0.72, -0.28, 0]
+  ];
+  upperSkull.forEach(([x, y, z], idx) => {
+    projLocal(spec, x, y, z, _p);
+    if (idx === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+  });
+  cx.closePath();
+  cx.fill();
+  cx.stroke();
+
+  // Mandibola inferiore
+  cx.beginPath();
+  projLocal(spec, -0.71, -0.25, 0, _p); cx.moveTo(_p.sx, _p.sy);
+  projLocal(spec, -1.01, -0.25, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, -0.84, -0.22, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  cx.closePath();
+  cx.stroke();
+
+  // Finestra antorbitale + anello sclerotico orbitale
+  cx.strokeStyle = col;
+  cx.lineWidth = 1.1;
+  projLocal(spec, -0.86, -0.32, 0.03, _p);
+  cx.beginPath();
+  cx.arc(_p.sx, _p.sy, Math.max(1.8, 2.6 * _p.scale), 0, Math.PI * 2);
+  cx.stroke();
+
+  projLocal(spec, -0.77, -0.33, 0.04, _p);
+  cx.fillStyle = col;
+  cx.beginPath();
+  cx.arc(_p.sx, _p.sy, Math.max(2.3, 3.6 * _p.scale), 0, Math.PI * 2);
+  cx.fill();
+
+  // Denti tecodonti superiori e inferiori
+  cx.strokeStyle = col;
+  cx.lineWidth = 1.05;
+  cx.beginPath();
+  for (let d = 0; d < 6; d++) {
+    const tx = -0.84 - d * 0.031;
+    const ty = -0.275 - d * 0.004;
+    projLocal(spec, tx, ty, 0.02, _p);
+    projLocal(spec, tx - 0.006, ty + 0.026, 0.02, _p2);
+    cx.moveTo(_p.sx, _p.sy);
+    cx.lineTo(_p2.sx, _p2.sy);
+
+    projLocal(spec, tx + 0.012, ty + 0.028, 0.02, _p);
+    projLocal(spec, tx + 0.008, ty + 0.008, 0.02, _p2);
+    cx.moveTo(_p.sx, _p.sy);
+    cx.lineTo(_p2.sx, _p2.sy);
+  }
+  cx.stroke();
+
+  // 3. Ali bilaterali 3D (Z = ±) con omero, radio/ulna, 3 artigli manuali e remiganti con rachide + vessillo
+  for (const side of [-1, 1]) {
+    const flapY = Math.sin(t * 0.0016 + side * 0.3) * 0.035 * rm;
+    const sh = [-0.24, -0.06, side * 0.14];
+    const el = [-0.14, -0.22 + flapY, side * 0.43];
+    const wr = [-0.35, -0.31 + flapY * 1.25, side * 0.70];
+
+    // Ossa dell'ala (omero + radio e ulna paralleli)
+    cx.strokeStyle = rgb + (0.88 * sa).toFixed(2) + ')';
+    cx.lineWidth = 2.0;
+    cx.beginPath();
+    projLocal(spec, sh[0], sh[1], sh[2], _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, el[0], el[1], el[2], _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, wr[0], wr[1], wr[2], _p); cx.lineTo(_p.sx, _p.sy);
+    cx.stroke();
+
+    // Radio sottile parallelo all'ulna
+    cx.lineWidth = 1.15;
+    cx.beginPath();
+    projLocal(spec, el[0] - 0.03, el[1] - 0.02, el[2], _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, wr[0] - 0.02, wr[1] - 0.02, wr[2], _p); cx.lineTo(_p.sx, _p.sy);
+    cx.stroke();
+
+    // 3 dita manuali allungate con falangi e artigli ricurvi
+    cx.strokeStyle = col;
+    cx.lineWidth = 1.45;
+    cx.beginPath();
+    for (let c = 0; c < 3; c++) {
+      const fLen = 0.09 + c * 0.028;
+      const bx = wr[0] - c * 0.038;
+      const by = wr[1] - c * 0.028;
+      const bz = wr[2] - side * c * 0.05;
+      const jx = bx - fLen * 0.7;
+      const jy = by - fLen * 0.35;
+      const jz = bz + side * 0.02;
+      const tx = jx - 0.055;
+      const ty = jy + 0.028;
+      const tz = jz + side * 0.02;
+      projLocal(spec, bx, by, bz, _p);
+      projLocal(spec, jx, jy, jz, _p2);
+      projLocal(spec, tx, ty, tz, _p3);
+      cx.moveTo(_p.sx, _p.sy);
+      cx.lineTo(_p2.sx, _p2.sy);
+      cx.quadraticCurveTo((_p2.sx + _p3.sx) * 0.5, (_p2.sy + _p3.sy) * 0.5 - 3, _p3.sx, _p3.sy);
+    }
+    cx.stroke();
+
+    // 12 Penne remiganti primarie e secondarie con rachide + contorno del vessillo asimmetrico
+    for (let f = 0; f < 12; f++) {
+      const u = f / 11;
+      const rootX = el[0] - u * 0.21;
+      const rootY = el[1] - u * 0.09;
+      const rootZ = el[2] + side * (u * 0.27);
+      const len = 0.34 + Math.sin(u * Math.PI * 0.85) * 0.28;
+      const ang = -0.42 + u * 1.18 + flutter;
+      const tipX = rootX + Math.sin(ang) * len;
+      const tipY = rootY - Math.cos(ang) * len * 0.40 + flapY * 1.5;
+      const tipZ = rootZ + side * (0.16 + Math.cos(ang) * 0.24);
+
+      projLocal(spec, rootX, rootY, rootZ, _p);
+      projLocal(spec, tipX, tipY, tipZ, _p2);
+
+      // Rachide centrale
+      cx.strokeStyle = rgb + (0.72 * sa).toFixed(2) + ')';
+      cx.lineWidth = 1.25;
+      cx.beginPath();
+      cx.moveTo(_p.sx, _p.sy);
+      cx.lineTo(_p2.sx, _p2.sy);
+      cx.stroke();
+
+      // Vessillo asimmetrico della penna
+      const vx = _p2.sx - _p.sx;
+      const vy = _p2.sy - _p.sy;
+      const vLen = Math.hypot(vx, vy) || 1;
+      const nx = -vy / vLen;
+      const ny = vx / vLen;
+      const wOuter = Math.min(4.2, vLen * 0.075);
+      const wInner = Math.min(7.5, vLen * 0.135);
+
+      cx.fillStyle = rgb + (fa * 0.95).toFixed(2) + ')';
+      cx.strokeStyle = rgb + (0.36 * sa).toFixed(2) + ')';
+      cx.lineWidth = 0.85;
+      cx.beginPath();
+      cx.moveTo(_p.sx, _p.sy);
+      cx.quadraticCurveTo(
+        (_p.sx + _p2.sx) * 0.5 + nx * wOuter,
+        (_p.sy + _p2.sy) * 0.5 + ny * wOuter,
+        _p2.sx,
+        _p2.sy
+      );
+      cx.quadraticCurveTo(
+        (_p.sx + _p2.sx) * 0.5 - nx * wInner,
+        (_p.sy + _p2.sy) * 0.5 - ny * wInner,
+        _p.sx,
+        _p.sy
+      );
+      cx.fill();
+      cx.stroke();
+    }
+  }
+
+  // 4. Lunga coda ossea a 22 vertebre + fronda di penne timoniere bilaterali
+  cx.strokeStyle = rgb + (0.85 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.7;
+  cx.beginPath();
+  for (let v = 0; v <= 14; v++) {
+    const u = v / 14;
+    projLocal(spec, 0.28 + u * 0.94, 0.02 + u * 0.14 + Math.sin(u * 2.2) * 0.015, 0, _p);
+    if (v === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+  }
+  cx.stroke();
+
+  // Timoniere caudali a fronda
+  for (let i = 1; i <= 12; i++) {
+    const u = i / 12;
+    const bx = 0.34 + u * 0.86;
+    const by = 0.028 + u * 0.13;
+    const spanZ = 0.07 + Math.sin(u * Math.PI) * 0.18;
+    for (const side of [-1, 1]) {
+      projLocal(spec, bx, by, 0, _p);
+      projLocal(spec, bx + 0.13, by + 0.022, side * spanZ, _p2);
+      cx.strokeStyle = rgb + (0.56 * sa).toFixed(2) + ')';
+      cx.lineWidth = 1.15;
+      cx.beginPath();
+      cx.moveTo(_p.sx, _p.sy);
+      cx.lineTo(_p2.sx, _p2.sy);
+      cx.stroke();
+    }
+  }
+
+  // 5. Arti posteriori teropodi (femore, tibiotarso, tarsometatarso + 3 dita e alluce)
+  cx.strokeStyle = rgb + (0.78 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.55;
+  cx.beginPath();
+  for (const side of [-1, 1]) {
+    const zLeg = side * 0.10;
+    projLocal(spec, 0.12, 0.12, zLeg, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.00, 0.34, zLeg, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.11, 0.54, zLeg, _p); cx.lineTo(_p.sx, _p.sy);
+    // Dita anteriori e alluce opponibile
+    projLocal(spec, 0.01, 0.62, zLeg - side * 0.02, _p2); cx.lineTo(_p2.sx, _p2.sy);
+    projLocal(spec, 0.11, 0.54, zLeg, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.03, 0.63, zLeg + side * 0.03, _p2); cx.lineTo(_p2.sx, _p2.sy);
+    projLocal(spec, 0.11, 0.54, zLeg, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.18, 0.59, zLeg, _p2); cx.lineTo(_p2.sx, _p2.sy);
+  }
+  cx.stroke();
 }
 
 /* ============================================================
-   RENDERING OLOGRAMMA 3D LIDAR AD ALTA DENSITÀ
+   2. ERITHACUS RUBECULA — Pettirosso Europeo 3D dettagliato
    ============================================================ */
-function drawLiDARModel3D(cx, spec, modelIndex, t, boost, dimOther) {
-  const model = LIDAR_MODELS[modelIndex];
-  const segs = model.segments;
-  const pts = model.points;
-  const isLight = getResolvedTheme() === 'light';
-  const tSec = t * 0.001;
+function drawPettirosso3D(cx, spec, t, sa, fa, col, rgb) {
+  const rm = RM || state.ecoMode ? 0 : 1;
+  const headBob = Math.sin(t * 0.002) * 0.015 * rm;
 
-  const accentHex = specimenColor(spec);
-  const accentRGB = hexToRGB(accentHex);
-  const inkRGB = isLight ? [27, 26, 23] : [242, 239, 231];
-  const brassRGB = isLight ? [138, 100, 40] : [229, 197, 142];
-  const cyanScanRGB = isLight ? [2, 132, 199] : [186, 242, 255];
+  // 1. Ramo posatoio 3D con corteccia, rametto laterale e gemme fogliari
+  cx.strokeStyle = rgb + (0.48 * sa).toFixed(2) + ')';
+  cx.lineWidth = 2.4;
+  cx.beginPath();
+  projLocal(spec, -0.52, 0.79, -0.26, _p); cx.moveTo(_p.sx, _p.sy);
+  projLocal(spec, 0.08, 0.76, 0.02, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, 0.62, 0.73, 0.28, _p); cx.lineTo(_p.sx, _p.sy);
+  cx.stroke();
 
-  const laserActive = !state.ecoMode;
-  const scanY = laserActive ? Math.sin(tSec * 1.35) * 0.92 : 999;
-  const highDensity = !state.ecoMode;
-  const scaleBoost = Math.max(0.75, Math.min(2.2, state.cam3D.zoom * (state.specimenSel === modelIndex ? 1.15 : 0.92)));
+  // Rametto secondario e gemma
+  cx.lineWidth = 1.35;
+  cx.beginPath();
+  projLocal(spec, 0.34, 0.74, 0.15, _p); cx.moveTo(_p.sx, _p.sy);
+  projLocal(spec, 0.52, 0.62, 0.24, _p); cx.lineTo(_p.sx, _p.sy);
+  cx.stroke();
 
-  // 1. Piano di scansione laser LiDAR locale sul modello selezionato
-  if (laserActive && state.specimenSel === modelIndex) {
-    const span = 0.95;
-    const c1 = projLocal(spec, -span, scanY, -span, {});
-    const c2 = projLocal(spec, span, scanY, -span, {});
-    const c3 = projLocal(spec, span, scanY, span, {});
-    const c4 = projLocal(spec, -span, scanY, span, {});
+  // 2. Profilo anatomico continuo testa-dorso-ventre + sezioni 3D
+  const bodySpine = [
+    { x: 0.44, y: -0.38 + headBob, rx: 0.16, ry: 0.17, rz: 0.16 },
+    { x: 0.30, y: -0.26 + headBob * 0.6, rx: 0.20, ry: 0.22, rz: 0.21 },
+    { x: 0.12, y: -0.06, rx: 0.26, ry: 0.30, rz: 0.27 },
+    { x: -0.08, y: 0.08, rx: 0.28, ry: 0.33, rz: 0.28 },
+    { x: -0.28, y: 0.14, rx: 0.22, ry: 0.24, rz: 0.20 },
+    { x: -0.44, y: 0.16, rx: 0.12, ry: 0.13, rz: 0.11 }
+  ];
 
-    cx.save();
-    cx.fillStyle = rgbaStr(cyanScanRGB, isLight ? 0.06 : 0.05);
+  // Sezioni trasversali 3D del piumaggio
+  cx.strokeStyle = rgb + (0.32 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.0;
+  for (const s of bodySpine) {
     cx.beginPath();
-    cx.moveTo(c1.sx, c1.sy);
-    cx.lineTo(c2.sx, c2.sy);
-    cx.lineTo(c3.sx, c3.sy);
-    cx.lineTo(c4.sx, c4.sy);
-    cx.closePath();
+    for (let i = 0; i <= 20; i++) {
+      const a = (i / 20) * Math.PI * 2;
+      projLocal(spec, s.x, s.y + Math.sin(a) * s.ry, Math.cos(a) * s.rz, _p);
+      if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+    }
+    cx.stroke();
+  }
+
+  // Silhouette sagittale dorsale e ventrale
+  cx.fillStyle = rgb + (fa * 1.15).toFixed(2) + ')';
+  cx.strokeStyle = rgb + (0.76 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.65;
+  cx.beginPath();
+  projLocal(spec, 0.56, -0.37 + headBob, 0, _p); cx.moveTo(_p.sx, _p.sy);
+  projLocal(spec, 0.42, -0.54 + headBob, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, 0.22, -0.48 + headBob * 0.5, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, -0.04, -0.26, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, -0.32, -0.04, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, -0.48, 0.12, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, -0.44, 0.24, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, -0.16, 0.39, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, 0.14, 0.38, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, 0.38, 0.22, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, 0.52, -0.08 + headBob * 0.5, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, 0.56, -0.28 + headBob, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  cx.closePath();
+  cx.fill();
+  cx.stroke();
+
+  // 3. Scudo pettorale arancio-rosso 3D con tratteggio piumoso
+  cx.strokeStyle = col;
+  cx.fillStyle = rgba(col, 0.24 * sa);
+  cx.lineWidth = 1.85;
+  cx.beginPath();
+  const breastContour = [
+    [0.52, -0.36 + headBob, 0],
+    [0.56, -0.18 + headBob * 0.6, 0.12],
+    [0.48, 0.08, 0.20],
+    [0.28, 0.29, 0.16],
+    [0.10, 0.14, 0.25],
+    [0.16, -0.18, 0.21],
+    [0.34, -0.38 + headBob, 0.13]
+  ];
+  breastContour.forEach(([x, y, z], idx) => {
+    projLocal(spec, x, y, z, _p);
+    if (idx === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+  });
+  cx.closePath();
+  cx.fill();
+  cx.stroke();
+
+  // Fine tratteggio direzionale sulle piume del petto
+  cx.lineWidth = 0.95;
+  cx.beginPath();
+  for (let p = 0; p < 7; p++) {
+    const py = -0.22 + p * 0.065;
+    const px = 0.44 - Math.abs(p - 3) * 0.035;
+    projLocal(spec, px, py, 0.18, _p);
+    projLocal(spec, px - 0.07, py + 0.05, 0.21, _p2);
+    cx.moveTo(_p.sx, _p.sy);
+    cx.lineTo(_p2.sx, _p2.sy);
+  }
+  cx.stroke();
+
+  // 4. Becco corneo insettivoro (mascella + mandibola + commissura) e occhio espressivo
+  cx.fillStyle = col;
+  cx.strokeStyle = col;
+  cx.lineWidth = 1.4;
+  cx.beginPath();
+  projLocal(spec, 0.55, -0.39 + headBob, 0, _p); cx.moveTo(_p.sx, _p.sy);
+  projLocal(spec, 0.82, -0.35 + headBob, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  projLocal(spec, 0.55, -0.32 + headBob, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  cx.closePath();
+  cx.fill();
+  cx.stroke();
+
+  // Linea di apertura del becco
+  cx.beginPath();
+  projLocal(spec, 0.54, -0.35 + headBob, 0, _p); cx.moveTo(_p.sx, _p.sy);
+  projLocal(spec, 0.81, -0.35 + headBob, 0, _p); cx.lineTo(_p.sx, _p.sy);
+  cx.stroke();
+
+  // Occhio bilaterale con anello perioculare e capsula quantica retinica (Cry4)
+  const qSpin = rm ? t * 0.0016 : 0.4;
+  const qHot = state.specimenSel === 1 && state.calloutSel === 5;
+  for (const side of [-1, 1]) {
+    projLocal(spec, 0.43, -0.39 + headBob, side * 0.13, _p);
+    const eyeR = Math.max(2.4, 3.8 * _p.scale);
+    cx.fillStyle = col;
+    cx.beginPath();
+    cx.arc(_p.sx, _p.sy, eyeR, 0, Math.PI * 2);
     cx.fill();
 
-    cx.strokeStyle = rgbaStr(cyanScanRGB, isLight ? 0.42 : 0.36);
-    cx.lineWidth = 1.05;
-    cx.setLineDash([5, 5]);
+    // Guscio quantico a coppie di radicali intorno alla retina
+    cx.save();
+    cx.strokeStyle = col;
+    cx.lineWidth = qHot ? 1.45 : 0.95;
+    cx.globalAlpha = (qHot ? 0.92 : 0.48) * sa;
+    cx.setLineDash([3, 3]);
+    cx.beginPath();
+    cx.arc(_p.sx, _p.sy, eyeR * (qHot ? 2.45 : 1.95), qSpin * side, qSpin * side + Math.PI * 1.45);
     cx.stroke();
     cx.setLineDash([]);
     cx.restore();
   }
 
-  // 2. Segmenti osteologici / nervature / wireframe
-  for (let i = 0; i < segs.length; i += SEG_STRIDE) {
-    const animGroup = segs[i + 8];
-    const a1 = getAnimatedLocal(segs[i], segs[i + 1], segs[i + 2], animGroup, modelIndex, tSec);
-    const x1 = a1.x, y1 = a1.y, z1 = a1.z;
-    const a2 = getAnimatedLocal(segs[i + 3], segs[i + 4], segs[i + 5], animGroup, modelIndex, tSec);
-    const x2 = a2.x, y2 = a2.y, z2 = a2.z;
-
-    projLocal(spec, x1, y1, z1, _p);
-    const sx1 = _p.sx, sy1 = _p.sy, sz1 = _p.zOrder, sc1 = _p.scale;
-    projLocal(spec, x2, y2, z2, _p2);
-    const sx2 = _p2.sx, sy2 = _p2.sy, sz2 = _p2.zOrder;
-
-    const avgZ = (sz1 + sz2) * 0.5;
-    const depthFactor = clamp(1 - avgZ * 0.38, 0.25, 1.0) * dimOther;
-    const midY = (y1 + y2) * 0.5;
-    const scanDist = laserActive ? Math.abs(midY - scanY) : 999;
-    const isScanned = scanDist < 0.095;
-
-    const colorCode = segs[i + 6];
-    const weight = segs[i + 7];
-    const baseRGB = colorCode === 2 ? accentRGB : (colorCode === 1 ? brassRGB : inkRGB);
-
-    cx.strokeStyle = isScanned
-      ? rgbaStr(cyanScanRGB, Math.min(0.95, depthFactor * 1.15))
-      : rgbaStr(baseRGB, depthFactor * (colorCode === 1 ? 0.44 : 0.74) * boost);
-    cx.lineWidth = Math.max(0.55, weight * sc1 * scaleBoost * (isScanned ? 1.42 : 0.92));
-
+  // 5. Ali piegate bilaterali con copritrici e remiganti sovrapposte
+  for (const side of [-1, 1]) {
+    const zW = side * 0.27;
+    cx.strokeStyle = rgb + (0.74 * sa).toFixed(2) + ')';
+    cx.fillStyle = rgb + (fa * 0.9).toFixed(2) + ')';
+    cx.lineWidth = 1.45;
     cx.beginPath();
-    cx.moveTo(sx1, sy1);
-    cx.lineTo(sx2, sy2);
+    projLocal(spec, 0.14, -0.14, zW * 0.9, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, -0.16, -0.12, zW * 1.15, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, -0.58, 0.16, zW * 0.72, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, -0.22, 0.22, zW * 1.02, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.closePath();
+    cx.fill();
+    cx.stroke();
+
+    // Barre delle copritrici alari e nervature delle remiganti
+    cx.lineWidth = 1.0;
+    cx.beginPath();
+    projLocal(spec, 0.04, -0.06, zW * 1.02, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, -0.18, 0.08, zW * 1.08, _p); cx.lineTo(_p.sx, _p.sy);
+    for (let r = 0; r < 4; r++) {
+      projLocal(spec, -0.14 - r * 0.04, 0.02 + r * 0.03, zW * 1.05, _p);
+      projLocal(spec, -0.52 - r * 0.02, 0.15 + r * 0.015, zW * 0.76, _p2);
+      cx.moveTo(_p.sx, _p.sy);
+      cx.lineTo(_p2.sx, _p2.sy);
+    }
     cx.stroke();
   }
 
-  // 3. Nuvola di punti LiDAR ad alta densità
-  for (let i = 0; i < pts.length; i += PT_STRIDE) {
-    if (!highDensity && pts[i + 6] === 1) continue;
+  // 6. Coda a ventaglio sul pigostilo (7 timoniere distinte)
+  cx.strokeStyle = rgb + (0.76 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.35;
+  cx.beginPath();
+  for (let f = -3; f <= 3; f++) {
+    projLocal(spec, -0.44, 0.16, f * 0.025, _p);
+    projLocal(spec, -0.96, 0.38 + Math.abs(f) * 0.018, f * 0.075, _p2);
+    cx.moveTo(_p.sx, _p.sy);
+    cx.lineTo(_p2.sx, _p2.sy);
+  }
+  cx.stroke();
 
-    const animGroup = pts[i + 7];
-    const a = getAnimatedLocal(pts[i], pts[i + 1], pts[i + 2], animGroup, modelIndex, tSec);
-    const lx = a.x, ly = a.y, lz = a.z;
+  // 7. Zampe aviane (tibiotarso, tarsometatarso e dita prensili sul ramo)
+  cx.strokeStyle = rgb + (0.80 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.5;
+  cx.beginPath();
+  for (const side of [-1, 1]) {
+    const zL = side * 0.11;
+    projLocal(spec, -0.04, 0.36, zL, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.06, 0.76, zL, _p); cx.lineTo(_p.sx, _p.sy);
+    // Dita anteriori + alluce posteriore intorno al posatoio
+    projLocal(spec, 0.17, 0.79, zL, _p2); cx.lineTo(_p2.sx, _p2.sy);
+    projLocal(spec, 0.06, 0.76, zL, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, -0.03, 0.79, zL, _p2); cx.lineTo(_p2.sx, _p2.sy);
+  }
+  cx.stroke();
 
-    projLocal(spec, lx, ly, lz, _p);
-    const depthFactor = clamp(1 - _p.zOrder * 0.38, 0.26, 1.0) * dimOther;
-    const scanDist = laserActive ? Math.abs(ly - scanY) : 999;
-    const scanBoost = scanDist < 0.11 ? (1 - scanDist / 0.11) : 0;
+  // 8. Siringe bivocale + onde acustiche 3D
+  projLocal(spec, 0.22, -0.26, 0.04, _p);
+  cx.strokeStyle = col;
+  cx.lineWidth = 1.4;
+  cx.beginPath();
+  cx.arc(_p.sx, _p.sy, Math.max(2.5, 4.2 * _p.scale), 0, Math.PI * 2);
+  cx.stroke();
 
-    const colorCode = pts[i + 3];
-    const baseSize = pts[i + 4];
-    const phase = pts[i + 5];
-    const shimmer = (RM || state.ecoMode) ? 0.95 : (0.86 + Math.sin(tSec * 3.0 + phase) * 0.14);
-
-    const baseRGB = colorCode === 2 ? accentRGB : (colorCode === 1 ? brassRGB : inkRGB);
-    const finalRGB = scanBoost > 0.25 ? cyanScanRGB : baseRGB;
-    const radius = Math.max(0.65, baseSize * _p.scale * scaleBoost * 0.85 * (1 + scanBoost * 0.82));
-    const alpha = Math.min(1.0, depthFactor * shimmer * (0.78 + scanBoost * 0.4) * boost);
-
-    if (!state.ecoMode && (scanBoost > 0.45 || baseSize >= 1.9)) {
-      cx.fillStyle = rgbaStr(finalRGB, alpha * 0.22);
-      cx.beginPath();
-      cx.arc(_p.sx, _p.sy, radius * 2.4, 0, Math.PI * 2);
-      cx.fill();
-    }
-
-    cx.fillStyle = rgbaStr(finalRGB, alpha);
+  const wavePhase = rm ? (t * 0.0014) % 1 : 0.35;
+  cx.lineWidth = 1.25;
+  for (let w = 0; w < 3; w++) {
+    const p = (wavePhase + w * 0.33) % 1;
+    const rad = 0.16 + p * 0.44;
+    cx.globalAlpha = (1 - p) * 0.55 * sa;
     cx.beginPath();
-    cx.arc(_p.sx, _p.sy, radius, 0, Math.PI * 2);
+    for (let a = -0.65; a <= 0.65; a += 0.13) {
+      projLocal(spec, 0.52 + Math.cos(a) * rad, -0.24 + Math.sin(a) * rad, Math.sin(a * 2) * 0.08, _p);
+      if (a <= -0.64) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+    }
+    cx.stroke();
+  }
+  cx.globalAlpha = 1;
+}
+
+/* ============================================================
+   3. TELEOGRYLLUS OCEANICUS — Grillo Silente 3D dettagliato
+   ============================================================ */
+function drawGrillo3D(cx, spec, t, sa, fa, col, rgb) {
+  const rm = RM || state.ecoMode ? 0 : 1;
+  const antSway = Math.sin(t * 0.0022) * 0.055 * rm;
+
+  // 1. Addome segmentato (9 uriti con tergite/sternite)
+  cx.fillStyle = rgb + (fa * 1.15).toFixed(2) + ')';
+  cx.strokeStyle = rgb + (0.74 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.5;
+  cx.beginPath();
+  for (let i = 0; i <= 28; i++) {
+    const a = (i / 28) * Math.PI * 2;
+    projLocal(spec, -0.35 + Math.cos(a) * 0.45, 0.04 + Math.sin(a) * 0.16, 0, _p);
+    if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+  }
+  cx.fill();
+  cx.stroke();
+
+  // Anelli segmentati addominali 3D con spiracoli laterali
+  cx.strokeStyle = rgb + (0.44 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.05;
+  for (let s = 0; s < 7; s++) {
+    const xSeg = -0.68 + s * 0.105;
+    const rSeg = 0.15 * Math.sin(((s + 1) / 8) * Math.PI);
+    cx.beginPath();
+    for (let i = 0; i <= 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      projLocal(spec, xSeg, 0.04 + Math.sin(a) * rSeg, Math.cos(a) * rSeg * 1.2, _p);
+      if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+    }
+    cx.stroke();
+  }
+
+  // 2. Pronoto a sella 3D + capsula cefalica, occhi composti e palpi mascellari
+  cx.strokeStyle = rgb + (0.84 * sa).toFixed(2) + ')';
+  cx.fillStyle = rgb + (fa * 1.3).toFixed(2) + ')';
+  cx.lineWidth = 1.65;
+  cx.beginPath();
+  for (let i = 0; i <= 22; i++) {
+    const a = (i / 22) * Math.PI * 2;
+    projLocal(spec, 0.23 + Math.cos(a) * 0.19, -0.04 + Math.sin(a) * 0.18, 0, _p);
+    if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+  }
+  cx.fill();
+  cx.stroke();
+
+  // Bordo laterale del pronoto in 3D
+  for (const side of [-1, 1]) {
+    cx.beginPath();
+    projLocal(spec, 0.07, -0.14, side * 0.18, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.39, -0.14, side * 0.17, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.37, 0.08, side * 0.19, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.08, 0.08, side * 0.20, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.closePath();
+    cx.stroke();
+  }
+
+  // Capsula cefalica + palpi boccali
+  cx.beginPath();
+  for (let i = 0; i <= 20; i++) {
+    const a = (i / 20) * Math.PI * 2;
+    projLocal(spec, 0.48 + Math.cos(a) * 0.14, -0.04 + Math.sin(a) * 0.17, 0, _p);
+    if (i === 0) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+  }
+  cx.fill();
+  cx.stroke();
+
+  // Palpi mascellari e labiali
+  cx.lineWidth = 1.15;
+  for (const side of [-1, 1]) {
+    cx.beginPath();
+    projLocal(spec, 0.54, 0.08, side * 0.06, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.62, 0.18, side * 0.10, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.66, 0.25, side * 0.08, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.stroke();
+
+    // Occhio composto faccettato
+    projLocal(spec, 0.50, -0.10, side * 0.12, _p);
+    cx.fillStyle = col;
+    cx.beginPath();
+    cx.arc(_p.sx, _p.sy, Math.max(2.3, 3.6 * _p.scale), 0, Math.PI * 2);
     cx.fill();
   }
+
+  // 3. Tegmine piatte (mutazione flatwing) con reticolo completo di nervature
+  for (const side of [-1, 1]) {
+    cx.strokeStyle = col;
+    cx.fillStyle = rgba(col, 0.15 * sa);
+    cx.lineWidth = 1.55;
+    cx.beginPath();
+    projLocal(spec, 0.14, -0.16, side * 0.11, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, -0.12, -0.26, side * 0.25, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, -0.58, -0.14, side * 0.19, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, -0.20, -0.07, side * 0.14, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.closePath();
+    cx.fill();
+    cx.stroke();
+
+    // Nervature longitudinali parallele + nervature trasversali (assenza di lima stridulatoria)
+    cx.lineWidth = 0.9;
+    cx.beginPath();
+    for (let v = 0; v < 4; v++) {
+      const f = v / 3;
+      projLocal(spec, 0.08 - f * 0.04, -0.15 - f * 0.06, side * (0.13 + f * 0.08), _p);
+      projLocal(spec, -0.48 - f * 0.03, -0.13 - f * 0.04, side * (0.16 + f * 0.04), _p2);
+      cx.moveTo(_p.sx, _p.sy);
+      cx.lineTo(_p2.sx, _p2.sy);
+    }
+    for (let c = 1; c <= 5; c++) {
+      const u = c / 6;
+      const cx0 = 0.06 - u * 0.52;
+      projLocal(spec, cx0, -0.14, side * 0.14, _p);
+      projLocal(spec, cx0 - 0.04, -0.22, side * 0.22, _p2);
+      cx.moveTo(_p.sx, _p.sy);
+      cx.lineTo(_p2.sx, _p2.sy);
+    }
+    cx.stroke();
+  }
+
+  // 4. Zampe posteriori saltatorie (femore muscolare striato + tibia spinosa + tarso) e zampe anteriori/mediane
+  for (const side of [-1, 1]) {
+    const zH = side * 0.27;
+    // Femore metatoracico fusiforme volumico
+    cx.fillStyle = rgb + (fa * 1.35).toFixed(2) + ')';
+    cx.strokeStyle = rgb + (0.86 * sa).toFixed(2) + ')';
+    cx.lineWidth = 1.65;
+    cx.beginPath();
+    projLocal(spec, -0.12, 0.08, zH * 0.72, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, -0.34, -0.16, zH * 0.95, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, -0.58, -0.25, zH, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, -0.32, -0.02, zH * 0.88, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.closePath();
+    cx.fill();
+    cx.stroke();
+
+    // Striature muscolari a spina di pesce sul femore posteriore
+    cx.lineWidth = 0.9;
+    cx.beginPath();
+    for (let m = 1; m <= 4; m++) {
+      const u = m / 5;
+      const fx = -0.14 - u * 0.40;
+      const fy = 0.06 - u * 0.26;
+      projLocal(spec, fx, fy - 0.04, zH * 0.9, _p);
+      projLocal(spec, fx + 0.04, fy + 0.03, zH * 0.86, _p2);
+      cx.moveTo(_p.sx, _p.sy);
+      cx.lineTo(_p2.sx, _p2.sy);
+    }
+    cx.stroke();
+
+    // Tibia posteriore + spine tibiali + tarso
+    cx.lineWidth = 1.65;
+    cx.beginPath();
+    projLocal(spec, -0.58, -0.25, zH, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, -0.22, 0.35, zH * 0.95, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.03, 0.39, zH * 0.90, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.stroke();
+
+    // Spine lungo la tibia posteriore
+    cx.lineWidth = 1.05;
+    cx.beginPath();
+    for (let sp = 1; sp <= 4; sp++) {
+      const u = sp / 5;
+      const tx = -0.58 + u * 0.36;
+      const ty = -0.25 + u * 0.60;
+      projLocal(spec, tx, ty, zH * 0.97, _p);
+      projLocal(spec, tx - 0.04, ty + 0.03, zH * 0.97, _p2);
+      cx.moveTo(_p.sx, _p.sy);
+      cx.lineTo(_p2.sx, _p2.sy);
+    }
+    cx.stroke();
+
+    // Zampe anteriori (con organo timpanico) e mediane
+    cx.lineWidth = 1.45;
+    cx.beginPath();
+    projLocal(spec, 0.36, 0.10, side * 0.14, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.46, 0.34, side * 0.24, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.56, 0.48, side * 0.22, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.63, 0.50, side * 0.22, _p); cx.lineTo(_p.sx, _p.sy);
+
+    projLocal(spec, 0.14, 0.12, side * 0.16, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.10, 0.36, side * 0.25, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.18, 0.48, side * 0.24, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 0.25, 0.50, side * 0.24, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.stroke();
+
+    // Organo timpanico tibiale evidenziato
+    projLocal(spec, 0.46, 0.35, side * 0.24, _p);
+    cx.strokeStyle = col;
+    cx.beginPath();
+    cx.arc(_p.sx, _p.sy, Math.max(2.3, 3.6 * _p.scale), 0, Math.PI * 2);
+    cx.stroke();
+  }
+
+  // 5. Lunghe antenne filiformi 3D + cerci sensoriali posteriori
+  cx.strokeStyle = rgb + (0.78 * sa).toFixed(2) + ')';
+  cx.lineWidth = 1.3;
+  for (const side of [-1, 1]) {
+    cx.beginPath();
+    projLocal(spec, 0.56, -0.12, side * 0.08, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, 0.84, -0.36 + antSway * side, side * 0.24, _p); cx.lineTo(_p.sx, _p.sy);
+    projLocal(spec, 1.18, -0.58 - antSway, side * 0.36, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.stroke();
+
+    // Cerci posteriori
+    cx.beginPath();
+    projLocal(spec, -0.78, 0.04, side * 0.05, _p); cx.moveTo(_p.sx, _p.sy);
+    projLocal(spec, -1.08, 0.10, side * 0.17, _p); cx.lineTo(_p.sx, _p.sy);
+    cx.stroke();
+  }
+
+  // 6. Archi di canto silenziato (tratteggiati)
+  cx.save();
+  cx.strokeStyle = col;
+  cx.lineWidth = 1.15;
+  cx.setLineDash([3, 6]);
+  for (let w = 0; w < 2; w++) {
+    const rad = 0.24 + w * 0.16;
+    cx.globalAlpha = (0.42 - w * 0.15) * sa;
+    cx.beginPath();
+    for (let a = -2.3; a <= -0.8; a += 0.15) {
+      projLocal(spec, -0.16 + Math.cos(a) * rad, -0.18 + Math.sin(a) * rad, Math.cos(a) * 0.12, _p);
+      if (a <= -2.29) cx.moveTo(_p.sx, _p.sy); else cx.lineTo(_p.sx, _p.sy);
+    }
+    cx.stroke();
+  }
+  cx.restore();
 }
 
 /* ============================================================
@@ -1386,9 +1333,12 @@ export function drawSpecimens3D(cx, t) {
       return;
     }
 
+    const col = specimenColor(spec);
+    const rgb = cvT[spec.artSlot] || 'rgba(229, 197, 142,';
     const dimOther = hasOrbit && !isSel ? (1 - state.focus) : 1;
-    const boost = isSel ? 1.25 : isHov ? 1.15 : 1.0;
+    const boost = isSel ? 1.35 : isHov ? 1.22 : 1.0;
     const sa = clamp((cvT.artStrokeAlpha || 0.9) * boost * dimOther, 0, 1);
+    const fa = clamp((cvT.artFillAlpha || 0.08) * boost * dimOther, 0, 0.35);
 
     if (sa <= 0.02) return;
 
@@ -1397,8 +1347,32 @@ export function drawSpecimens3D(cx, t) {
     cx.save();
     cx.lineCap = 'round';
     cx.lineJoin = 'round';
-    drawLiDARModel3D(cx, spec, idx, t, boost, dimOther);
+    if (spec.id === 'archaeopteryx') drawArchaeopteryx3D(cx, spec, t, sa, fa, col, rgb);
+    else if (spec.id === 'pettirosso') drawPettirosso3D(cx, spec, t, sa, fa, col, rgb);
+    else drawGrillo3D(cx, spec, t, sa, fa, col, rgb);
     cx.restore();
+
+    if (!isSel && dimOther > 0.25) {
+      cx.save();
+      const labelY = _p.sy + radiusPx * 0.62 + 12;
+      cx.globalAlpha = (isHov ? 0.98 : 0.72) * dimOther;
+      cx.textAlign = 'center';
+      cx.lineJoin = 'round';
+      cx.lineWidth = 3.2;
+      cx.strokeStyle = cvT.labelStroke;
+
+      cx.font = 'italic 600 13.5px Fraunces, Georgia, serif';
+      cx.strokeText(spec.scientificName, _p.sx, labelY);
+      cx.fillStyle = isHov ? cvT.linkHighlight : cvT.geoLabelInk;
+      cx.fillText(spec.scientificName, _p.sx, labelY);
+
+      cx.font = '500 9.5px "JetBrains Mono", monospace';
+      const sub = isHov ? 'CLICCA PER VISTA ORBITALE E ANATOMIA' : spec.era;
+      cx.strokeText(sub, _p.sx, labelY + 14);
+      cx.fillStyle = isHov ? cvT.linkHighlight : cvT.geoLabelSub;
+      cx.fillText(sub, _p.sx, labelY + 14);
+      cx.restore();
+    }
 
     if (isSel) {
       drawSpecimenCallouts(cx, spec, t);
