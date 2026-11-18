@@ -7,7 +7,7 @@ import { getThemeTokens, getResolvedTheme, PALETTE_MAP } from './theme.js';
 import {
   geoOffset, geoThumbSize, layoutHubs, drawGeoBase, drawGeoHalos, drawGeoLabels, loadLand, screenToGeo
 } from './geo.js';
-import { project3D, thumbSize3D, draw3DBackground, drawClusterLabels, buildBackground } from './view3d.js';
+import { project3D, thumbSize3D, draw3DBackground, buildBackground } from './view3d.js';
 import { stepCamera, zoomBy, focusOn, focusOnSpecimen, rotateScreenSpace } from './camera.js';
 import {
   show, showSpecimen, selectCallout, closeSelection, bindUI, setAutoRotate, similarityPercent, syncOrbitHUD
@@ -507,13 +507,7 @@ function drawOverlays(t, is3D) {
   const S = state, n = S.items.length;
   const cvT = getThemeTokens().canvas;
 
-  if (is3D) {
-    const labels = [];
-    for (const [cat, s] of catStats) {
-      if (s.n >= 2) labels.push({ text: cat, color: S.col[cat], x: s.x / s.n, y: s.top - 0.16, z: s.z / s.n });
-    }
-    drawClusterLabels(cx, labels, 0.84 * (1 - 0.78 * S.focus));
-  } else if (n) drawGeoLabels(cx);
+  if (!is3D && n) drawGeoLabels(cx);
 
   if (!S.ecoMode && S.fx.length) {
     S.fx = S.fx.filter(f => t - f.t0 < 1100);
@@ -590,7 +584,7 @@ function render(t, dt) {
 
   if (is3D) {
     draw3DBackground(cx, t, S.focus);
-    if (!RM && !S.ecoMode && (S.specimenSel >= 0 || (S.autoRotate && S.sel < 0))) flags.busy = true;
+    if (!RM && !S.ecoMode) flags.busy = true;
   } else {
     if (drawGeoBase(cx, t)) flags.busy = true;
     if (n) {
@@ -713,7 +707,6 @@ cv.addEventListener('pointermove', e => {
       state.goal3D.panX = d.panX + dx;
       state.goal3D.panY = d.panY + dy;
     } else if (state.specimenSel >= 0) {
-      // Orbita sul piano orbitale dedicato dell'archetipo selezionato
       setAutoRotate(false, false);
       const dPhase = stepX * 0.0085;
       const dElev = stepY * 0.0042;
